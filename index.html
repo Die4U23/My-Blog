@@ -2,23 +2,118 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>My Blog</title>
+    <title>Daydreamer's Blog</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
     <style>
-        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+
+	*{
+	   margin: 0;
+	   padding: 0;
+	   box-sizing: border-box;
+	}
+
+	body {
+	   font-family: sans-serif;
+	   background-color: white;
+	}
+
+	/* 顶部导航 */
+	.navbar {
+	   background-color: #e6f0ff;
+	   padding: 12px 20px;
+	   width: 100%;
+	}
+
+	.navbar a{
+	   color: #2c3e66;
+	   text-decoration: none;
+	   margin-right: 20px;
+	   transition: color 0.2s;
+	}
+
+	.navbar a:hover{
+	   color: #0033cc;
+	}
+
+	/* 导航分组 */
+
+	.navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .left-group, .right-group {
+            display: flex;
+            align-items: center;
+        }
+
+        .left-group a:last-child,
+        .right-group a:last-child {
+            margin-right: 0;
+        }
+	
+	/* 正文 */
+
+	.container{
+	    max-width: 800px;
+	    margin: 40px auto;
+	    padding: 0 20px;
+	}
+
+	/* 博客列表*/
         h1 { color: #333; }
-        .post { margin-bottom: 30px; }
-        .date { color: #999; font-size: 0.9em; }
+        .post-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .post-list li {
+            margin-bottom: 30px;
+        }
+
+        .date {
+            color: #999;
+            font-size: 0.9em;
+	    margin-bottom: 5px;
+        }
+
+        .post-list a {
+            text-decoration: none;
+            color: #0066cc;
+        }
+
+        .post-list a:hover {
+            text-decoration: underline;
+        }
+
+	.post-list p {
+	    margin: 5px 0 0 0;
+	    color: #444;
+	}
+
     </style>
 </head>
 <body>
-    <h1>My blog</h1>
-    <p>test</p>
-
-    <div class="post">
-        <h2><a href="post1.html">Hello world</a></h2>
-        <div class="date">2026-05-31</div>
-        <p>Hello world!</p>
+    <!-- 导航 -->
+    <div class="navbar">
+	<div class="left-group">
+		<a href="/">首页</a>
+		<a href="/about.html">关于</a>
+	</div>
+	<div class="right-group">
+		<a href="https://github.com/Die4U23" target="_blank">GitHub</a>
+	</div>
     </div>
-
+    <div class="container">
+    <h1>Blog</h1>
+    <ul class="post-list">
+        <li>
+            <h2><a href="post1.html">Hello world</a></h2>
+            <div class="date">2026-05-31</div>
+            <p>Hello world!</p>
+        </li>
+    </ul>
+    </div>
 </body>
 </html>

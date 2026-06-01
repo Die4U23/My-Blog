@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>My Blog</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 40px auto; padding: 20px; line-height: 1.6; }
+        h1 { color: #333; }
+        .post-list {
+            list-style: none;
+            padding: 0;
+        }
+        .post-list li {
+            margin-bottom: 30px;
+        }
+        .date {
+            color: #999;
+            font-size: 0.9em;
+	    margin-bottom: 5px;
+        }
+        .post-list a {
+            text-decoration: none;
+            color: #0066cc;
+        }
+        .post-list a:hover {
+            text-decoration: underline;
+        }
+	.post-list p {
+	    margin: 5px 0 0 0;
+	    color: #444;
+	}
+    </style>
+</head>
+<body>
+    <h1>My blog</h1>
+    <p>test</p>
+
+    <ul class="post-list">
+        <li>
+            <h2><a href="post1.html">Hello world</a></h2>
+            <div class="date">2026-05-31</div>
+            <p>Hello world!</p>
+        </li>
+    </ul>
+</body>
+</html>
