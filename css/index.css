@@ -1,0 +1,81 @@
+	/* 正文 */
+
+        .container{
+            max-width: 1400px;
+            margin: 30px auto;
+            margin-left=0;
+            padding: 20px;
+            border-radius: 16px;
+            display: flex;
+            gap: 30px;
+            flex-direction: row;
+            flex-wrap: wrap;
+        }
+
+        /* 左侧个人介绍卡片 */
+        .profile {
+            flex: none;
+            width: 220px;
+            background-color: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+	    transition: all 0.3s ease;
+        }
+
+	.profile:hover {
+	    transform: translateY(-5px);
+	    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+	}
+
+	.profile h3 {
+            color: #2c3e66;
+            margin-bottom: 12px;
+            text-align: center;
+            font-size: 1.4rem
+        }
+
+        .profile p {
+            color: #444;
+            line-height: 1.6;
+            margin-bottom: 10px;
+        }
+
+        .profile .avatar {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .profile .avatar img {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid #e6f0ff;
+        }
+
+	/* 右侧文章列表区域 */
+        .posts-area {
+            flex: 1;
+            background-color: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+	    transition: all 0.25s ease;
+        }
+
+	.posts-area:hover {
+	    transform: translateY(-5px);
+	    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+	}
+
+        .posts-area h2 {
+            color: #2c3e66;
+            margin-bottom: 20px;
+            border-left: 4px solid #0066cc;
+            padding-left: 12px;
+        }

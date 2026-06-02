@@ -4,161 +4,11 @@
     <meta charset="UTF-8">
     <title>Daydreamer's Blog</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <style>
-
-	*{
-	    margin: 0;
-	    padding: 0;
-	    box-sizing: border-box;
-	}
-
-	body {
-	    font-family: sans-serif;
-	    background-color: #fef9e6;
-	}
-
-	/* 顶部导航 */
-	.navbar {
-	    background-color: rgba(0, 100, 200, 0.3);
-            backdrop-filter: blur(10px);
-	    padding: 12px 20px;
-	    justify-content: space-between;
-	    align-items: center;
-	    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-	}
-
-	.navbar a{
-	    color: #2c3e66;
-	    text-decoration: none;
-	    margin-right: 20px;
-	    transition: color 0.2s;
-	}
-
-	.navbar a:hover{
-	    color: #0033cc;
-	}
-
-	/* 导航分组 */
-
-	.navbar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-
-        .left-group, .right-group {
-            display: flex;
-            align-items: center;
-        }
-
-        .left-group a:last-child,
-        .right-group a:last-child {
-            margin-right: 0;
-        }
-	
-	/* 正文 */
-
-	.container{
-	    max-width: 1400px;
-	    margin: 30px auto;
-	    margin-left=0;
-	    padding: 20px;
-	    border-radius: 16px;
-	    display: flex;
-	    gap: 30px;
-	    flex-direction: row;
-	    flex-wrap: wrap;
-	}
-	
-	/* 左侧个人介绍卡片 */
-        .profile {
-            flex: none;
-            width: 220px;
-            background-color: rgba(255, 255, 255, 0.6);
-	    backdrop-filter: blur(10px);
-	    border-radius: 12px;
-            padding: 10px;
-	    border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .profile h3 {
-            color: #2c3e66;
-            margin-bottom: 12px;
-	    text-align: center;
-	    font-size: 1.4rem
-        }
-
-        .profile p {
-            color: #444;
-            line-height: 1.6;
-            margin-bottom: 10px;
-        }
-
-        .profile .avatar {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .profile .avatar img {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid #e6f0ff;
-        }
-
-        /* 右侧文章列表区域 */
-        .posts-area {
-            flex: 1;
-            background-color: rgba(255, 255, 255, 0.6);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 20px;
-	    border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-
-        .posts-area h2 {
-            color: #2c3e66;
-            margin-bottom: 20px;
-            border-left: 4px solid #0066cc;
-            padding-left: 12px;
-        }
-
-	/* 博客列表*/
-        h1 { color: #333; }
-        .post-list {
-            list-style: none;
-            padding: 0;
-        }
-
-        .post-list li {
-            margin-bottom: 30px;
-        }
-
-        .date {
-            color: #999;
-            font-size: 0.9em;
-	    margin-bottom: 5px;
-        }
-
-        .post-list a {
-            text-decoration: none;
-            color: #0066cc;
-        }
-
-        .post-list a:hover {
-            text-decoration: underline;
-        }
-
-	.post-list p {
-	    margin: 5px 0 0 0;
-	    color: #444;
-	}
-
-    </style>
+    <link rel="stylesheet" href="css/common.css">
+    <link rel="stylesheet" href="css/index.css">
 </head>
+
+
 <body>
     <!-- 导航 -->
     <div class="navbar">
@@ -170,6 +20,7 @@
 		<a href="https://github.com/Die4U23" target="_blank">GitHub</a>
 	</div>
     </div>
+    <!-- container -->
     <div class="container">
 	<div class="profile">
             <div class="avatar">
@@ -178,20 +29,21 @@
 	    <h3>About me </h3>
 	    <p>你好，我是Daydreamer</p>
 	    <p>这里记录我的学习与思考</p>
-	    <p>我的邮箱Daydreamer@sjtu.edu.cn</p>
+	    <p>我的邮箱是Daydreamer@sjtu.edu.cn</p>
         </div>
 
         <div class="posts-area">
 	    <h2>最新文章</h2>
 	    <ul class="post-list">
 	        <li>
-		    <h2><a href="post1.html">Hello world</a></h2>
+		    <h3><a href="post1.html">Hello world</a></h3>
 		    <div class="date">2026-05-31</div>
-		    <p>Hello world!</p>
+		    <p>建立这个博客的原因</p>
 	        </li>
             </ul>
         </div>
     </div>
+<script src="/js/footer.js"></script>
 </body>
 </html>
 
