@@ -14,10 +14,12 @@ DATE=$(date +%Y-%m-%d)
 
 #生成不带空格符号的文件名
 SAFE_TITLE=$(echo "$TITLE" | tr ' ' '_' | tr -d '[:punct:]')
-FILENAME="posts/${DATE}-${SAFE_TITLE}.html"
 
-mkdir -p posts
+YEAR=$(date +%Y)
+MONTH=$(date +%m)
+mkdir -p "posts/${YEAR}/${MONTH}"
 
+FILENAME="posts/${YEAR}/${MONTH}/${DATE}-${SAFE_TITLE}.html"
 #生成文章HTML文件
 cat > "$FILENAME" <<EOF
 <!DOCTYPE html>

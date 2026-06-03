@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Hello World!</title>
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="stylesheet" href="/css/post.css">
+</head>
+<body>
+    <!-- 导航栏 -->
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about.html">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank">GitHub</a>
+        </div>
+    </div>
+
+    <!-- 三列布局容器 -->
+    <div class="layout">
+        <!-- 左侧：目录区域 -->
+	<aside class="post-sidebar">
+	    <div class="site-info">
+            <div id="toc-container"></div>
+	    </div>
+	</aside>
+        <!-- 中间：文章正文容器 -->
+        <main class="post-content">
+            <article class="post-article">
+                <h1>这里是文章标题</h1>
+                <p class="post-date">2026-06-02</p>
+                <div class="content">
+                    <!-- 正文从这里开始，目录会抓取 h2, h3, h4 -->
+                    <h2>第一节：简介</h2>
+                    <p>这是第一节的内容……</p>
+
+                    <h3>1.1 子标题</h3>
+                    <p>更多内容……</p>
+
+                    <h2>第二节：核心观点</h2>
+                    <p>第二节的内容……</p>
+
+                    <h3>2.1 具体例子</h3>
+                    <p>例子详情……</p>
+
+                    <h4>小提示</h4>
+                    <p>提示内容……</p>
+                </div>
+            </article>
+        </main>
+
+        <!-- 右侧：预留留白区域 -->
+        <aside class="post-right">
+            <!-- 可将来放广告、标签、友情链接等 -->
+        </aside>
+    </div>
+
+    <!-- 页脚 -->
+    <script src="/js/footer.js"></script>
+    <!-- 目录生成脚本 -->
+    <script src="/js/toc.js"></script>
+</body>
+</html>
