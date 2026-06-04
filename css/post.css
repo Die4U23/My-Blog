@@ -65,6 +65,12 @@ body::-webkit-scrollbar-button {
     background: transparent;
 }
 
+.post-sidebar:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    background: rgba(255, 255, 255, 0.8);
+}
+
 .site-info h2 {
     font-size: 1.3rem;
     margin-bottom: 0.2rem;
