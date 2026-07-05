@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>每日一题</title>
+	<script src="/js/highlight.min.js"></script>
+	<link rel="stylesheet" href="/css/post.css">
+	<link rel="stylesheet" href="/css/common.css">
+	<link rel="stylesheet" href="/css/code.css">
+	<link rel="stylesheet" href="/css/link.css">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+	<div class="navbar">
+	    <div class="left-group">
+		<a href="/">首页</a>
+		<a href="/about.html">关于</a>
+	    </div>
+	    <div class="right-group">
+		<a href="https://github.com/Die4U23" target="_blank">Github</a>
+	    </div>
+	</div>
+	<div class="layout">
+	    <aside class="post-sidebar">
+		<div class="site-info">
+		<div id="toc-container"></div>
+		</div>
+	    </aside>
+	    <main class="post-content">
+		<article class="post-article">
+		    <h1>每日一题lc</h1>
+		    <p class="post-date">2026-07-02</p>
+		    <div class="content">
+			<h2>简述</h2>
+			<p>有空写两题力扣，在这里简单分类记录一下</p>
+
+			<h2>链表</h2>
+			<p>有关指针链表一类的题目</p>
+			<h3>237.删除链表中的节点</h3>
+			<a href = "https://leetcode.cn/problems/delete-node-in-a-linked-list/description/" class="link link--bold" target="_blank" rel="noopener noreferrer">237.删除链表中的节点</a>
+			<p>这题有点脑筋急转弯的感觉，只用改变值不用处理节点</p>
+			
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    void deleteNode(ListNode* node) {
+        ListNode* nextNode = node -&gt; next;
+        node -&gt; val = nextNode -&gt; val;
+        node -&gt; next = nextNode -&gt; next;
+        delete nextNode;
+    }
+};
+			</code></pre>
+			<h3>19.删除链表的倒数第N个节点</h3>
+			<a href = "https://leetcode.cn/problems/remove-nth-node-from-end-of-list/description/" class="link link--bold" target = "_blank" rel ="noopener noreferrer"> 19.删除链表的倒数第N个节点</a>
+			<p>双指针问题，处理边界条件加入了头节点</p>
+
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* removeNthFromEnd(ListNode* head, int n) {
+        int i = 0;
+        ListNode dummy(0, head);
+        ListNode* headNode = &dummy, *tailNode = &dummy;
+        while(i < n){
+            if(!headNode)return dummy.next;
+            headNode = headNode -> next;
+            i++;
+        }
+        while(headNode -> next){
+            headNode = headNode -> next;
+            tailNode = tailNode -> next;
+        }
+        ListNode* nxt = tailNode -> next;
+        tailNode -> next = nxt -> next;
+        delete nxt;
+        return dummy.next;
+    }
+};
+			</code></pre>
+
+			<h3>83.删除排序链表中的重复元素</h3>
+			<a href = "https://leetcode.cn/problems/remove-duplicates-from-sorted-list/description/" class="link link--bold" target="_blank" rel="noopener noreferrer">83.删除排序链表中的重复元素</a>
+			<p>简单题</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* deleteDuplicates(ListNode* head) {
+        if(!head) return nullptr;
+        ListNode* node = head;
+        ListNode* nxt;
+        while(node -> next){
+            if(node -> val == node -> next -> val){
+                nxt = node -> next;
+                node -> next = nxt -> next;
+                delete nxt;
+            }
+            else{
+            node = node -> next;
+            }
+        }
+        return head;
+    }
+};
+			</code></pre>
+			
+			<h3>82.删除排序链表中的重复元素II</h3>
+			<a href = "https://leetcode.cn/problems/remove-duplicates-from-sorted-list-ii/description/" class="link link--bold" target="_blank" rel="noopener noreferrer">82.删除排序链表中的重复元素II</a>
+			<p>和83相似，不过这题的边界需要引入哨兵节点</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* deleteDuplicates(ListNode* head) {
+        if(!head) return nullptr;
+        ListNode dummy(-101, head);
+        ListNode* nxt;
+        ListNode* cur = &dummy;
+        int value;
+        while(cur -> next && cur -> next -> next){
+            if(cur -> next -> val == cur -> next -> next -> val){
+                value = cur -> next -> val;
+                while(cur -> next && cur -> next -> val == value){
+                    nxt = cur -> next;
+                    cur -> next = cur -> next -> next;
+                    delete nxt;
+                }
+            }
+            else{
+                cur = cur -> next;
+            }
+        }
+        return dummy.next;
+    }
+};
+			</code></pre>
+		    </div>
+		</article>
+	    </main>
+	    <aside class="post-right">
+		<!-- 空置空间 -->
+	    </aside>
+	</div>
+
+	<script>
+		hljs.highlightAll();
+	</script>
+	<script src="/js/footer.js"></script>
+	<script src="/js/toc.js"></script>
+
+</body>
+</html>

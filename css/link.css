@@ -1,0 +1,22 @@
+.link {
+  text-decoration: none;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: var(--color-primary);
+  border-bottom: 1px dashed transparent;
+  transition: border-color 0.2s;
+}
+.link:hover {
+  border-bottom-color: var(--color-primary);
+}
+.link--bold {
+  font-weight: 700;
+  border-bottom-style: solid;
+}
+.link--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
