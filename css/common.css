@@ -8,11 +8,17 @@
 body {
     font-family: sans-serif;
     background: linear-gradient(120deg, #d4e6f1, #e8daef);
-    min_height: 100vh;
+    padding-top: 60px;
+    min-height: 100vh;
 }
 
 /* 顶部导航栏 */
 .navbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    z-index: 1000;
     background-color: rgba(0, 100, 200, 0.3);
     padding: 0 20px;
     display: flex;
