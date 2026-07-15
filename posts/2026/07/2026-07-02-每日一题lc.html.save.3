@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>每日一题</title>
+	<script src="/js/highlight.min.js"></script>
+	<link rel="stylesheet" href="/css/post.css">
+	<link rel="stylesheet" href="/css/common.css">
+	<link rel="stylesheet" href="/css/code.css">
+	<link rel="stylesheet" href="/css/link.css">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+	<div class="navbar">
+	    <div class="left-group">
+		<a href="/">首页</a>
+		<a href="/about.html">关于</a>
+	    </div>
+	    <div class="right-group">
+		<a href="https://github.com/Die4U23" target="_blank">Github</a>
+	    </div>
+	</div>
+	<div class="layout">
+	    <aside class="post-sidebar">
+		<div class="site-info">
+		<div id="toc-container"></div>
+		</div>
+	    </aside>
+	    <main class="post-content">
+		<article class="post-article">
+		    <h1>每日一题lc</h1>
+		    <p class="post-date">2026-07-02</p>
+		    <div class="content">
+			<h2>简述</h2>
+			<p>有空写两题力扣，在这里简单分类记录一下</p>
+
+			<h2>链表</h2>
+			<p>有关指针链表一类的题目</p>
+			<h3>237.删除链表中的节点</h3>
+			<a href = "https://leetcode.cn/problems/delete-node-in-a-linked-list/description/" class="link link--bold" target="_blank" rel="noopener noreferrer">237.删除链表中的节点</a>
+			<p>这题有点脑筋急转弯的感觉，只用改变值不用处理节点</p>
+			
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    void deleteNode(ListNode* node) {
+        ListNode* nextNode = node -&gt; next;
+        node -&gt; val = nextNode -&gt; val;
+        node -&gt; next = nextNode -&gt; next;
+        delete nextNode;
+    }
+};
+			</code></pre>
+			<h3>19.删除链表的倒数第N个节点</h3>
+			<a href = "https://leetcode.cn/problems/remove-nth-node-from-end-of-list/description/" class="link link--bold" target = "_blank" rel ="noopener noreferrer"> 19.删除链表的倒数第N个节点</a>
+			<p>双指针问题，处理边界条件加入了头节点</p>
+
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* removeNthFromEnd(ListNode* head, int n) {
+        int i = 0;
+        ListNode dummy(0, head);
+        ListNode* headNode = &dummy, *tailNode = &dummy;
+        while(i < n){
+            if(!headNode)return dummy.next;
+            headNode = headNode -> next;
+            i++;
+        }
+        while(headNode -> next){
+            headNode = headNode -> next;
+            tailNode = tailNode -> next;
+        }
+        ListNode* nxt = tailNode -> next;
+        tailNode -> next = nxt -> next;
+        delete nxt;
+        return dummy.next;
+    }
+};
+			</code></pre>
+
+			<h3>83.删除排序链表中的重复元素</h3>
+			<a href = "https://leetcode.cn/problems/remove-duplicates-from-sorted-list/description/" class="link link--bold" target="_blank" rel="noopener noreferrer">83.删除排序链表中的重复元素</a>
+			<p>简单题</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* deleteDuplicates(ListNode* head) {
+        if(!head) return nullptr;
+        ListNode* node = head;
+        ListNode* nxt;
+        while(node -> next){
+            if(node -> val == node -> next -> val){
+                nxt = node -> next;
+                node -> next = nxt -> next;
+                delete nxt;
+            }
+            else{
+            node = node -> next;
+            }
+        }
+        return head;
+    }
+};
+			</code></pre>
+			
+			<h3>82.删除排序链表中的重复元素II</h3>
+			<a href = "https://leetcode.cn/problems/remove-duplicates-from-sorted-list-ii/description/" class="link link--bold" target="_blank" rel="noopener noreferrer">82.删除排序链表中的重复元素II</a>
+			<p>和83相似，不过这题的边界需要引入哨兵节点</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* deleteDuplicates(ListNode* head) {
+        if(!head) return nullptr;
+        ListNode dummy(-101, head);
+        ListNode* nxt;
+        ListNode* cur = &dummy;
+        int value;
+        while(cur -> next && cur -> next -> next){
+            if(cur -> next -> val == cur -> next -> next -> val){
+                value = cur -> next -> val;
+                while(cur -> next && cur -> next -> val == value){
+                    nxt = cur -> next;
+                    cur -> next = cur -> next -> next;
+                    delete nxt;
+                }
+            }
+            else{
+                cur = cur -> next;
+            }
+        }
+        return dummy.next;
+    }
+};
+			</code></pre>
+			
+			<h3>203.移除链表元素</h3>
+			<a href ="https://leetcode.cn/problems/remove-linked-list-elements/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">203.移除链表元素</a>
+			<p>简单题</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* removeElements(ListNode* head, int val) {
+        ListNode dummy(0, head);
+        ListNode* cur = &dummy;
+        ListNode* nxt;
+        while(cur -> next){
+            if(cur -> next -> val == val){
+                nxt = cur -> next;
+                cur -> next = nxt -> next;
+                delete nxt;
+            }
+            else{
+                cur = cur -> next;
+            }
+        }
+        return dummy.next;
+    }
+};
+			</code></pre>
+			
+			<h3>3217.从链表中移除在数组中存在的节点</h3>
+			<a href="https://leetcode.cn/problems/delete-nodes-from-linked-list-present-in-array/description/" class="link link-bold" target="_blank" rel="noopener norefferer">3217.从链表中移除在数组中存在的节点</a>
+			<p>利用哈希表检验是否在数组，释放裸指针会报错，猜测为LeetCode框架已自主释放</p>
+			<pre><code class="language-cpp">
+ #include &lt;unordered_set&gt;
+class Solution {
+public:
+    ListNode* modifiedList(vector<int>& nums, ListNode* head) {
+        if(!head) return nullptr;
+        unordered_set<int> group;
+        ListNode dummy(0, head);
+        ListNode* cur = &dummy;
+        ListNode* nxt;
+        for(auto num : nums){
+            group.insert(num);
+        }
+        while(cur -> next){
+            if(group.find(cur -> next -> val) != group.end()){
+                nxt = cur -> next;
+                cur -> next = nxt -> next;
+            }
+            else{
+                cur = cur -> next;
+            }
+        }
+        return dummy.next;
+    }
+};
+			</code></pre>
+
+			<h3>2487.从链表中移除节点</h3>
+			<a href="https://leetcode.cn/problems/remove-nodes-from-linked-list/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">2487.从链表中移除节点</a>
+			<p>逆序遍历可以用迭代解决，更简单</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* removeNodes(ListNode* head) {
+        if(!(head -> next))return head;
+        ListNode* nxt = removeNodes(head -> next);
+        if(nxt -> val > head -> val){
+            return nxt;
+        }
+        head -> next = nxt;
+        return head;
+    }
+};
+			</code></pre>
+			
+			<h3>1669.合并两个链表</h3>
+			<a href="https://leetcode.cn/problems/merge-in-between-linked-lists/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">1669.合并两个链表</a>
+			<p>这题只需想清楚边界条件即可</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    ListNode* mergeInBetween(ListNode* list1, int a, int b, ListNode* list2) {
+        ListNode dummy(0, list1);
+        ListNode* cur = &dummy;
+        ListNode* temp = cur;
+        ListNode* nxt;
+        for(int i = 0; i < a; i++){
+            temp = temp -> next;
+        }
+        cur = temp;
+        temp = temp -> next;
+        for(int i = a; i <= b; i++){
+            nxt = temp;
+            temp = temp -> next;
+            delete nxt;
+        }
+        cur -> next = list2;
+        while(cur -> next){
+            cur = cur -> next;
+        }
+        cur -> next = temp;
+        return dummy.next;
+    }
+};
+			</code></pre>
+			
+		    <h2>二叉树</h2>
+			<h3>104.二叉树的最大深度</h3>
+			<a href="https://leetcode.cn/problems/maximum-depth-of-binary-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">104.二叉树的最大深度</a>
+			<p>迭代就好了</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    int maxDepth(TreeNode* root) {
+        if(!root)return 0;
+        return 1 + max(maxDepth(root -> left), maxDepth(root -> right));
+    }
+};
+			</code></pre>
+
+			<h3>111.二叉树的最小深度</h3>
+			<a href="https://leetcode.cn/problems/minimum-depth-of-binary-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">111.二叉树的最小深度</a>
+			<p>与前一题类似</p>
+			<pre><code class="language-cpp">
+public:
+    int minDepth(TreeNode* root) {
+        if(!root)return 0;
+        if(!(root -> left) && root -> right){
+            return 1 + minDepth(root -> right);
+        }
+        else if(root -> left && !(root -> right)){
+            return 1 + minDepth(root -> left);
+        }
+        else{
+            return 1 + min(minDepth(root -> left), minDepth(root -> right));
+        }
+    }
+};
+			</code></pre>
+				
+			<h3>404.左叶子之和</h3>
+			<a href="https://leetcode.cn/problems/sum-of-left-leaves/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">404.左叶子之和</a>
+			<p>迭代可以解决，也可以DFS，下面是迭代的做法:</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    int sumOfLeftLeaves(TreeNode* root) {
+        if(!root)return 0;
+        if(root -> left && !(root -> left -> left) && !(root -> left ->right)){
+            return root -> left -> val + sumOfLeftLeaves(root -> right);
+        }
+        else{
+            return sumOfLeftLeaves(root -> left) + sumOfLeftLeaves(root -> right);
+        }
+    }
+};
+			</code></pre>
+			<p>下面是DFS做法:</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    int sumOfLeftLeaves(TreeNode* root) {
+        int ans = 0;
+
+        auto dfs= [&](this auto && dfs, TreeNode* node) -> void{
+            if(node == nullptr)return;
+            dfs(node -> left);
+            dfs(node -> right);
+
+            TreeNode* l = node -> left;
+            if(l && !(l -> left) && !(l -> right)) ans += l ->val;
+        };
+        dfs(root);
+        return ans;
+    }
+};
+			</code></pre>
+
+			<h3>112.路径总和</h3>
+			<a href="https://leetcode.cn/problems/path-sum/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">112.路径总和</a>
+			<p>只需要注意每次减去val即可</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    bool hasPathSum(TreeNode* root, int targetSum) {
+        if(!root)return false;
+        targetSum -= root -> val;
+        if(!(root -> left) && !(root -> right))return targetSum == 0;
+        return hasPathSum(root -> left, targetSum) || hasPathSum(root -> right, targetSum);
+    }
+};
+			</code></pre>
+			
+			<h3>129.求根节点到叶节点数字之和</h3>
+			<a href="https://leetcode.cn/problems/sum-root-to-leaf-numbers/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">129.求根节点到叶节点数字之和</a>
+			<p>这题dfs即可解决，但是要考虑进位</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    int sumNumbers(TreeNode* root) {
+        int ans = 0;
+        if(!root) return 0;
+        auto dfs = [&](this auto && dfs, TreeNode* node, int s) -> void{
+            if(!node)return;
+            s = 10 * s + node -> val;
+            if(!(node -> left) && !(node -> right))
+            ans += s;
+            else{
+                dfs(node -> left, s);
+                dfs(node -> right, s);
+            }
+        };
+        dfs(root, 0);
+        return ans;
+    }
+};
+			</code></pre>
+			<h3>1448.统计二叉树中好节点的数目</h3>
+			<a href="https://leetcode.cn/problems/count-good-nodes-in-binary-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer"> 1448.统计二叉树中好节点的数目</a>
+			<p>还是dfs解决</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    int goodNodes(TreeNode* root) {
+        int ans = 0;
+        if(!root)return 0;
+        auto dfs = [&](this auto&& dfs, TreeNode* node, int s) -> void{
+            if(!node)return;
+            if(node -> val >= s){
+                ans += 1;
+                dfs(node -> left, node -> val);
+                dfs(node -> right, node -> val);
+            }
+            else{
+                dfs(node -> left, s);
+                dfs(node -> right, s);
+            }
+        };
+        dfs(root, root -> val);
+        return ans;
+    }
+};
+			</code></pre>
+			<h3>987.二叉树的垂序遍历</h3>
+			<a href="https://leetcode.cn/problems/vertical-order-traversal-of-a-binary-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">987.二叉树的垂序遍历</a>
+			<p>这题比较复杂，不过还是可以DFS求解，这里需要对里面元素进行排序</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    vector<vector<int>> verticalTraversal(TreeNode* root) {
+        vector<tuple<int, int, int>> data;
+        auto dfs = [&](this auto&& dfs, TreeNode* node, int row, int col) -> void{
+            if(!node)return;
+            data.emplace_back(col, row, node -> val);
+            dfs(node -> left, row + 1, col - 1);
+            dfs(node -> right, row + 1, col + 1);
+        };
+        dfs(root, 0, 0);
+        vector<vector<int>> ans;
+        ranges::sort(data);
+        int last_col = INT_MIN;
+        for(auto &[col, _, val]: data){
+            if(col != last_col){
+                last_col = col;
+                ans.push_back({});
+            }
+            ans.back().push_back(val);
+        }
+        return ans;
+    }
+};
+			</code></pre>
+
+
+			<h3>100.相同的树</h3>
+			<a href="https://leetcode.cn/problems/same-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">100.相同的树</a>
+			<p>简单题，迭代</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    bool isSameTree(TreeNode* p, TreeNode* q) {
+        if(!p || !q){
+            if(!p && !q) return true;
+            else return false;
+        }
+        else{
+            if(q -> val != p -> val)return false;
+            else{
+                return isSameTree(p -> left, q -> left) && isSameTree(p -> right, q -> right);
+            }
+        }
+    }
+};
+			</code></pre>
+			
+			<h3>101.对称二叉树</h3>
+			<a href="https://leetcode.cn/problems/symmetric-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">101.对称二叉树</a>
+			<p>只需要稍微修改一下前一题的函数</p>
+			<pre><code class="language-cpp">
+class Solution {
+    bool isSameTree(TreeNode* p, TreeNode* q){
+        if(!p || !q){
+            if(!p && !q)return true;
+            else return false;
+        }
+        else{
+            if(q -> val != p -> val)return false;
+            else{
+                return isSameTree(p -> left, q -> right) && isSameTree(p -> right, q -> left);
+            }
+        }
+    }
+public:
+    bool isSymmetric(TreeNode* root) {
+        return isSameTree(root -> left, root -> right);
+    }
+};
+			</code></pre>
+
+
+			<h3>110.平衡二叉树</h3>
+			<a href="https://leetcode.cn/problems/balanced-binary-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">110.平衡二叉树</a>
+			
+		    </div>
+		</article>
+	    </main>
+	    <aside class="post-right">
+		<!-- 空置空间 -->
+	    </aside>
+	</div>
+
+	<script>
+		hljs.highlightAll();
+	</script>
+	<script src="/js/footer.js"></script>
+	<script src="/js/toc.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Karr's algorithm算法学习</title>
+	<link rel="stylesheet" href="/css/post.css">
+	<link rel="stylesheet" href="/css/common.css">
+	<link rel="icon" type="image/x-icon" href="/favicon.ico">
+	<script>
+	    MathJax = {
+		tex:{
+		    inlineMath: [['$', '$'], ['\\(', '\\)']],
+		    displayMath: [['$$', '$$'], ['\\[', '\\]']]
+		}
+	    };
+	</script>
+	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+ 	</script>
+</head>
+<body>
+	<div class="navbar">
+	    <div class="left-group">
+		<a href="/">首页</a>
+		<a href="/about.html">关于</a>
+	    </div>
+	    <div class="right-group">
+		<a href="https://github.com/Die4U23" target="_blank">Github</a>
+	    </div>
+	</div>
+	<div class="layout">
+	    <aside class="post-sidebar">
+		<div class="site-info">
+		<div id="toc-container"></div>
+		</div>
+	    </aside>
+	    <main class="post-content">
+		<article class="post-article">
+		    <h1>Karr's algorithm算法学习</h1>
+		    <p class="post-date">2026-07-05</p>
+		    <div class="content">
+			<h2>摘要</h2>
+			<p>主要是学习文章《A Note on Karr's Algorithm》</p>
+			<h2>简述</h2>
+			<p>这篇论文的重要贡献是用仿射基代替原始算法的核表示，将Karr算法的时间复杂度降低了一个因子k，从原来的$O(nk^4)$优化到了$O(nk^3)$。同时也推广到了在$O(nk^{3d})$时间内确定所有次数不超过$d$的多项式关系。</p>
+			<h2>引言</h2>
+			<p>Karr提出算法用于计算流图(flow graph)中每个程序点(program point)处，当控制流到达该点时，程序变量之间所满足的仿射关系构成的向量空间。</p>
+			<p>流图:节点(程序点)和边(语句执行)组成。</p>
+			<p>程序点:程序点某个位置，算法要回答每次到这个位置变量的不变关系。</p>
+			<p>			
+			<h2>公式引入测试</h2>
+			<p>行内公式：$E = mc^2$</p>
+ 			<p>块级公式：$$\sum_{i=1}^n i^3 = \left( \frac{n(n+1)}{2} \right)^2$$</p>
+		    </div>
+		</article>
+	    </main>
+
+	    <aside class="post-right">
+		<!-- 空置空间 -->
+	    </aside>
+	</div>
+
+	<script src="/js/footer.js"></script>
+	<script src="/js/toc.js"></script>
+
+</body>
+</html>

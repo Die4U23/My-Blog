@@ -88,7 +88,7 @@
 			<p>用$G[u]$储存每个程序点$u$的状态，用工作集$W$存储还没有传出去的增量(存放形如$\left( u, \boldsymbol{x} \right)$的配对。</p>
 			<p>初始化起始点$G[st]$为$$\{\boldsymbol{0}, \boldsymbol{e_1}, ..., \boldsymbol{e_k} \}$$ 初始化$W$为$$\{\left(st, \boldsymbol{0}\right), \left(st, \boldsymbol{e_1}\right), ..., \left(st, \boldsymbol{e_k}\right)\}$$</p>
 			<p>之后我们对每个$W$的值进行出边的计算，并得到对应点上的状态和新的$W$值，如果不属于$G$的仿射空间，则把它放进$G$内并存回$W$中。</p>
-			
+			<p>到$W$空后就可以停下来了。</p>
 
 
 			<h2>部分解释</h2>

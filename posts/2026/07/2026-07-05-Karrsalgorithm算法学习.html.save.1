@@ -71,24 +71,11 @@
 			<h3>仿射变换与仿射包可交换</h3>
 			<p>仿射变换与仿射包可交换$ \operatorname{aff} \left( f_{s} \left( \boldsymbol{X} \right) \right) = f_{s} \left( \operatorname{aff} \left( \boldsymbol{X} \right) \right)$，这说明我们不需要在具体状态上操作，可以直接在抽象的仿射空间上操作，并且不损失任何精度。</p>
 			<h3>从"具体约束系统"到"抽象约束系统"</h3>
-			<p>具体约束系统$\boldsymbol{V}$:$$[V1] V[st] \subseteq \mathbb{Q}^k$$ $$[V2] V[v] \subseteq f_{s} \left( V[u] \right) $$ </p>
-			<p>抽象约束系统$\boldsymbol{V}^{\#}$:$$[{V1}^{\#}] V^{\#}[st] \sqsubseteq \mathbb{Q}^k $$ $$[{V2}^{\#}] V^{\#}[v] \sqsubseteq f_s \left( V^{\#}[u] \right) $$</p>
-			<p>解出每个程序的仿射空间为最小仿射空间</p>
-			<h3>抽象解=具体解的精确抽象</h3>
-			<p>$V^{\#}[v]$就是包裹住所有可达状态的最小的仿射空间$$V^{\#}[v] = \operatorname{aff} \left( V[v] \right) $$</p>
-
-
-
-
+			<p>
 
 
 也就是把仿射空间域的高量化到$ k + 1 $，并说明join和具体并集加仿射包的一致性，以及仿射变换如何完美适配这个域。共同构成了Karr算法可以从空集开始，沿着控制流反复做join，最多k不就必然达到不动点的数学理由。</p>
-			<p>因此可以采用仿射空间的有限表示。算法用仿射基来表示仿射空间$ \boldsymbol{X} \subseteq \mathbb{Q}^k $。这使得我们可以使用半朴素不动点迭代来计算约束系统的解。</p>
-			<h3>算法部分</h3>
-			<p>用$G[u]$储存每个程序点$u$的状态，用工作集$W$存储还没有传出去的增量(存放形如$\left( u, \boldsymbol{x} \right)$的配对。</p>
-			<p>初始化起始点$G[st]$为$$\{\boldsymbol{0}, \boldsymbol{e_1}, ..., \boldsymbol{e_k} \}$$ 初始化$W$为$$\{\left(st, \boldsymbol{0}\right), \left(st, \boldsymbol{e_1}\right), ..., \left(st, \boldsymbol{e_k}\right)\}$$</p>
-			<p>之后我们对每个$W$的值进行出边的计算，并得到对应点上的状态和新的$W$值，如果不属于$G$的仿射空间，则把它放进$G$内并存回$W$中。</p>
-			
+
 
 
 			<h2>部分解释</h2>
@@ -124,10 +111,6 @@
 			<p>最大下界:符号$a \sqcap b $，两个空间的交集。</p>
 			<h3>完备格</h3>
 			<p>完备格:在格的基础上把两个元素推广到任意子集。</p>
-			<h3>半朴素迭代</h3>
-			<p>半朴素迭代:不用每次把整个仿射空间重新传播，只传播增量。</p>
-
-
 
 
 
