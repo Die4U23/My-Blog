@@ -902,7 +902,201 @@ public:
 			</code></pre>			
 			<h4>530.二叉搜索树的最小绝对差</h4>
 			<a href="https://leetcode.cn/problems/minimum-absolute-difference-in-bst/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">530.二叉搜索树的最小绝对差</a>
+			<p>中序遍历即为从小到大的顺序</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    int getMinimumDifference(TreeNode* root) {
+        int ans = 100000000, pre = -10000000;
+        auto mid = [&](this auto&& mid, TreeNode* node) -> void{
+            if(!node)return;
+            mid(node -> left);
+            int val = node -> val;
+            ans = min(ans, val - pre);
+            pre = val;
+            mid(node -> right);
+            return;
+        };
+        mid(root);
+        return ans;
+    }
+};
+			</code></pre>
+			<p>这个代码用lambda捕获ans和pre，使得内部不敢把这两个局部变量放进寄存器中，降低了效率。<br>
+将lambda的方式改成纯函数风格可以降低副作用。<br>
+采用尾调用形式可以让编译器消除栈帧<br>
+更为优秀的代码:</p>
+			<pre><code class="language-cpp">
+class Solution {
+    std::pair&lt;int, int&gt; dfs(TreeNode* node, int pre, int ans) {
+        if (!node) return {ans, pre};
+        auto [left_ans, left_pre] = dfs(node->left, pre, ans);
+        if (left_pre != -1) {
+            int diff = node->val - left_pre;
+            if (diff < left_ans) left_ans = diff;
+        }
+        return dfs(node->right, node->val, left_ans);
+    }
+public:
+    int getMinimumDifference(TreeNode* root) {
+        return dfs(root, -1, INT_MAX).first;
+    }
+};
+			</code></pre>
+			<p>此外可以用迭代替代递归，更符合编译器</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    int getMinimumDifference(TreeNode* root) {
+        int ans = INT_MAX;
+        int pre = -1;
+        bool first = true;
+        std::stack&lt;TreeNode*&gt; st;
+        TreeNode* cur = root;
+        while (cur || !st.empty()) {
+            while (cur) {
+                st.push(cur);
+                cur = cur->left;
+            }
+            cur = st.top();
+            st.pop();
+            if (first) {
+                first = false;
+            } else {
+                int diff = cur->val - pre;
+                if (diff < ans) ans = diff;
+            }
+            pre = cur->val;
+            cur = cur->right;
+        }
+        return ans;
+    }
+};
+			</code></pre>
+			<h4>2476.二叉搜索树最近节点查询</h4>
+			<a href="https://leetcode.cn/problems/closest-nodes-queries-in-a-binary-search-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">2476.二叉搜索树最近节点查询</a>
+			<p>中序遍历得到有序队列然后二分获得上下节点</p>
+			<pre><code class="language-cpp">
+class Solution {
+    vector&lt;int&gt; v;
 
+    void dfs(TreeNode* node){
+        if(!node)return;
+        dfs(node -> left);
+        v.push_back(node -> val);
+        dfs(node -> right);
+    };
+public:
+    vector&lt;vector&lt;int&gt;&gt; closestNodes(TreeNode* root, vector&lt;int&gt;& queries) {
+      dfs(root);
+      int s = v.size();
+      vector&lt;vector&lt;int&gt;&gt; ans;
+      for(int q: queries){
+        int j = ranges::lower_bound(v, q) - v.begin();
+        int mx = j < s ? v[j] : -1;
+        if(j == s || v[j] != q)j--;
+        int mn = j >= 0? v[j]: -1;
+        ans.push_back({mn, mx});
+      }  
+      return ans;
+    }
+};
+			</code></pre>
+			<h4>235.二叉搜索树的公共节点</h4>
+			<a href="https://leetcode.cn/problems/lowest-common-ancestor-of-a-binary-search-tree/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">235.二叉搜索树的公共节点</a>
+			<p>由于二叉搜索树的性质可以剪枝，排除了空节点</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        int x = root -> val;
+        if(p -> val < x && q -> val < x)return lowestCommonAncestor(root -> left, p, q);
+        if(p -> val > x && q -> val > x)return lowestCommonAncestor(root -> right, p, q);
+        return root;
+    }
+};
+			</code></pre>
+			<h3>1110.删点成林</h3>
+			<a href="https://leetcode.cn/problems/delete-nodes-and-return-forest/" class="link link-bold" target="_blank" rel="noopener noreferrer">1110.删点成林</a>
+			<p>通过引用别名实现<code>node -> left = nullptr</code></p>
+			<pre><code class="language-cpp">
+class Solution {
+    vector&lt;TreeNode*&gt; v;
+    unordered_set&lt;int&gt; s;
+    void dfs(TreeNode*& node){
+        if(!node)return;
+        dfs(node -> left);
+        dfs(node -> right);
+        if(s.count(node -> val)){
+            if(node -> left)v.push_back(node -> left);
+            if(node -> right)v.push_back(node -> right);
+            node = nullptr;
+        }
+        return;
+    };
+public:
+    vector&lt;TreeNode*&gt; delNodes(TreeNode* root, vector&lt;int&gt;& to_delete) {
+        for(int x: to_delete) s.insert(x);
+        dfs(root);
+        if(root)v.push_back(root);
+        return v;
+    }
+};
+			</code></pre>
+			<h3>236.二叉树的最近公共祖先</h3>
+			<a href="https://leetcode.cn/problems/lowest-common-ancestor-of-a-binary-tree/" class="link link-bold" target="_blank" rel="noopener noreferrer">236.二叉树的最近公共祖先</a>
+			<p>直接返回节点来传递信息，当左右递归均不为空时为结果节点</p>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    TreeNode* lowestCommonAncestor(TreeNode* root, TreeNode* p, TreeNode* q) {
+        int x = root -> val;
+        if(p -> val < x && q -> val < x)return lowestCommonAncestor(root -> left, p, q);
+        if(p -> val > x && q -> val > x)return lowestCommonAncestor(root -> right, p, q);
+        return root;
+    }
+};
+			</code></pre>
+			<h3>1123.最深叶节点的最近公共祖先</h3>
+			<a href="https://leetcode.cn/problems/lowest-common-ancestor-of-deepest-leaves/description/" class="link link-bold" target="_blank" rel="noopener noreferrer">1123.最深叶节点的最近公共祖先</a>
+			<p>两种dfs的方法</p>
+			<pre><code class="language-cpp">
+class Solution {
+    pair<int, TreeNode*> dfs(TreeNode* node){
+        if(!node)return {0, nullptr};
+        auto [lh, ln] = dfs(node -> left);
+        auto [rh, rn] = dfs(node -> right);
+        if(lh > rh)return{lh + 1, ln};
+        if(lh < rh)return{rh + 1, rn};
+        return {lh + 1, node};
+    };
+public:
+    TreeNode* lcaDeepestLeaves(TreeNode* root) {
+        return dfs(root).second;
+    }
+};
+			</code></pre>
+			<pre><code class="language-cpp">
+class Solution {
+public:
+    TreeNode* lcaDeepestLeaves(TreeNode* root) {
+        int maxDepth = -1;
+        TreeNode* ans = nullptr;
+        auto dfs = [&](this auto&& dfs, TreeNode* node, int depth) -> int{
+            if(!node){
+                maxDepth = max(maxDepth, depth);
+                return depth;
+            }
+            int l = dfs(node -> left, depth + 1);
+            int r = dfs(node -> right, depth + 1);
+            if( l == r && r== maxDepth)ans = node;
+            return max(l, r);
+        };
+        dfs(root, 0);
+        return ans;
+    }
+};
+			</code></pre>
 		    </div>
 		</article>
 	    </main>

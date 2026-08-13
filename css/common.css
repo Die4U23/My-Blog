@@ -165,3 +165,14 @@ body {
     align-items: center;
     gap: 6px;
 }
+/* 图片样式 */
+figure {
+    display: inline-block;  /* 让figure宽度随图片自适应 */
+    text-align: center;
+    margin: 20px;
+}
+figcaption {
+    font-size: 12px;       /* 小字 */
+    color: #666;           /* 灰色，常见的图名颜色 */
+    margin-top: 6px;       /* 与图片的间距 */
+}
