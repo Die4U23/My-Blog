@@ -1,29 +1,27 @@
-	/* 正文 */
-
-        .container{
-            max-width: 1400px;
-            margin: 30px auto;
-            margin-left=0;
-            padding: 20px;
-            border-radius: 16px;
-            display: flex;
-            gap: 30px;
-            flex-direction: row;
-            flex-wrap: wrap;
-        }
+/* 正文 */
+.container {
+    width: calc(100% - 32px);
+    max-width: 1400px;
+    margin: 30px auto;
+    padding: 20px;
+    border-radius: 16px;
+    display: flex;
+    gap: 30px;
+    flex-flow: row wrap;
+}
 
         /* 左侧个人介绍卡片 */
         .profile {
-            flex: none;
+            flex: 0 0 220px;
             width: 220px;
-	    height: 300px;
+            min-height: 300px;
             background-color: rgba(255, 255, 255, 0.6);
             backdrop-filter: blur(10px);
             border-radius: 12px;
             padding: 10px;
             border: 1px solid rgba(255, 255, 255, 0.3);
             box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-	    transition: all 0.3s ease;
+            transition: all 0.3s ease;
         }
 
 	.profile:hover {
@@ -35,7 +33,7 @@
             color: #2c3e66;
             margin-bottom: 12px;
             text-align: center;
-            font-size: 1.4rem
+            font-size: 1.4rem;
         }
 
         .profile p {
@@ -60,6 +58,7 @@
 	/* 右侧文章列表区域 */
         .posts-area {
             flex: 1;
+            min-width: 0;
             background-color: rgba(255, 255, 255, 0.6);
             backdrop-filter: blur(10px);
             border-radius: 12px;
@@ -80,3 +79,45 @@
             border-left: 4px solid #0066cc;
             padding-left: 12px;
         }
+
+@media (max-width: 768px) {
+    .container {
+        width: 100%;
+        margin: 18px auto;
+        padding: 0 12px;
+        gap: 16px;
+        flex-direction: column;
+    }
+
+    .profile {
+        width: 100%;
+        min-height: 0;
+        padding: 16px;
+        flex-basis: auto;
+    }
+
+    .profile .avatar {
+        margin-bottom: 10px;
+    }
+
+    .profile .avatar img {
+        width: 88px;
+        height: 88px;
+    }
+
+    .posts-area {
+        width: 100%;
+        padding: 16px;
+    }
+
+    .posts-area h2 {
+        font-size: 1.4rem;
+    }
+}
+
+@media (hover: none) {
+    .profile:hover,
+    .posts-area:hover {
+        transform: none;
+    }
+}
