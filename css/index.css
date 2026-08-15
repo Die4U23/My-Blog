@@ -15,29 +15,29 @@
             flex: 0 0 220px;
             width: 220px;
             min-height: 300px;
-            background-color: rgba(255, 255, 255, 0.6);
+            background-color: var(--surface);
             backdrop-filter: blur(10px);
             border-radius: 12px;
             padding: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-soft);
             transition: all 0.3s ease;
         }
 
 	.profile:hover {
 	    transform: translateY(-5px);
-	    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+	    box-shadow: var(--shadow-raised);
 	}
 
 	.profile h3 {
-            color: #2c3e66;
+            color: var(--text-link);
             margin-bottom: 12px;
             text-align: center;
             font-size: 1.4rem;
         }
 
         .profile p {
-            color: #444;
+            color: var(--text-primary);
             line-height: 1.6;
             margin-bottom: 10px;
         }
@@ -52,31 +52,31 @@
             height: 100px;
             border-radius: 50%;
             object-fit: cover;
-            border: 2px solid #e6f0ff;
+            border: 2px solid var(--avatar-border);
         }
 
 	/* 右侧文章列表区域 */
         .posts-area {
             flex: 1;
             min-width: 0;
-            background-color: rgba(255, 255, 255, 0.6);
+            background-color: var(--surface);
             backdrop-filter: blur(10px);
             border-radius: 12px;
             padding: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-soft);
 	    transition: all 0.25s ease;
         }
 
 	.posts-area:hover {
 	    transform: translateY(-5px);
-	    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+	    box-shadow: var(--shadow-raised);
 	}
 
         .posts-area h2 {
-            color: #2c3e66;
+            color: var(--text-link);
             margin-bottom: 20px;
-            border-left: 4px solid #0066cc;
+            border-left: 4px solid var(--accent);
             padding-left: 12px;
         }
 
