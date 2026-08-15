@@ -40,9 +40,7 @@ pre::-webkit-scrollbar-corner {
 .hljs {
     display: inline-block;
     min-width: 100%;
-    width: fit-content;
-    width:-moz-fit-content;
-    width:-webkit-fit-content;
+    width: max-content;
     background: transparent;          /* 深色背景，可改为任意颜色 */
     color: #cdd6f4;              /* 默认文字颜色 */
     padding: 1.2rem 1.5rem;
@@ -53,6 +51,13 @@ pre::-webkit-scrollbar-corner {
     box-sizing: border-box;
     white-space: pre;
     tab-size: 4;
+}
+
+@media (max-width: 768px) {
+    .hljs {
+        padding: 1rem;
+        font-size: 13px;
+    }
 }
 
 /* ---------- 语法高亮---------- */

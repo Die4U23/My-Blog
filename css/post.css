@@ -1,5 +1,5 @@
 body {
-    overflow-x: auto;
+    overflow-x: hidden;
     overflow-y: auto;
     min-width: 0;
 }
@@ -31,7 +31,8 @@ body::-webkit-scrollbar-button {
 .layout {
     margin: 30px auto;
     overflow: visible;
-    width: 1200px;
+    width: 100%;
+    max-width: 1200px;
     display: flex;
     flex-wrap: nowrap;
     gap: 30px;
@@ -95,6 +96,7 @@ body::-webkit-scrollbar-button {
 /* 中间文章内容 */
 .post-content {
     width: 720px;
+    min-width: 0;
     flex-shrink: 0;
 }
 
@@ -131,6 +133,8 @@ body::-webkit-scrollbar-button {
     line-height: 1.7;
     font-size: 1.05rem;
     color: #334155;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
 .post-article .content h2 {
@@ -200,5 +204,111 @@ body::-webkit-scrollbar-button {
 .toc-link:hover {
     color: #0033cc;
     transform: translateX(3px);
+}
+
+.post-article .content table {
+    display: block;
+    max-width: 100%;
+    overflow-x: auto;
+}
+
+.post-article .content mjx-container[display="true"] {
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+@media (max-width: 1024px) {
+    .layout {
+        max-width: 900px;
+    }
+
+    .post-sidebar {
+        width: 230px;
+    }
+
+    .post-content {
+        width: auto;
+        flex: 1 1 auto;
+    }
+
+    .post-right {
+        display: none;
+    }
+}
+
+@media (max-width: 768px) {
+    .layout {
+        margin: 18px auto;
+        padding: 0 12px;
+        gap: 16px;
+        flex-direction: column;
+    }
+
+    .post-sidebar {
+        position: static;
+        width: 100%;
+        height: auto;
+        max-height: 320px;
+        padding: 16px;
+        border-radius: 12px;
+        overflow-y: auto;
+        scrollbar-color: rgba(44, 62, 102, 0.35) transparent;
+    }
+
+    .post-sidebar::-webkit-scrollbar {
+        display: block;
+        width: 6px;
+    }
+
+    .post-sidebar::-webkit-scrollbar-thumb {
+        background: rgba(44, 62, 102, 0.35);
+        border-radius: 3px;
+    }
+
+    #toc-container {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
+    }
+
+    .post-content {
+        width: 100%;
+    }
+
+    .post-article {
+        padding: 24px 18px;
+        border-radius: 18px;
+    }
+
+    .post-article h1 {
+        font-size: 1.8rem;
+        line-height: 1.25;
+    }
+
+    .post-article .content {
+        font-size: 1rem;
+        line-height: 1.75;
+    }
+
+    .post-article .content h2 {
+        font-size: 1.4rem;
+        padding-left: 0.75rem;
+    }
+
+    .post-article .content h3 {
+        font-size: 1.2rem;
+    }
+
+    .toc-list ul {
+        padding-left: 0.8rem;
+    }
+}
+
+@media (hover: none) {
+    .post-sidebar:hover,
+    .post-article:hover {
+        transform: none;
+    }
 }
 

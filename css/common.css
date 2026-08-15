@@ -1,4 +1,8 @@
 /* 页面公有格式 */
+:root {
+    --color-primary: #2c3e66;
+}
+
 * {
     margin: 0;
     padding: 0;
@@ -10,6 +14,8 @@ body {
     background: linear-gradient(120deg, #d4e6f1, #e8daef);
     padding-top: 60px;
     min-height: 100vh;
+    color: #334155;
+    overflow-wrap: break-word;
 }
 
 /* 顶部导航栏 */
@@ -50,7 +56,7 @@ body {
     bottom: 0;
     left: 50%;
     transform: translateX(-50%);
-    width: 0px;
+    width: 0;
     height: 3px;
     background-color: #0033cc;
     transition: all 0.25s ease-out;
@@ -95,7 +101,7 @@ body {
 
 .post-list h3 a {
     font-size: 1.3rem;
-    font_weight: 600;
+    font-weight: 600;
     color: #1e466e;
     text-decoration: none;
     position: relative;
@@ -112,12 +118,12 @@ body {
     height: 2px;
     background: linear-gradient(90deg, #a0c4ff, rgba(203, 213, 224, 0));
     border-radius: 2px;
-    transition: width 0.3 ease, background 0.2 ease;
+    transition: width 0.3s ease, background 0.2s ease;
 }
 
 .post-list h3 a:hover::after {
     width: 100%;
-    backgroud: linear-gradient(90deg, #4a90e2, #c084fc);
+    background: linear-gradient(90deg, #4a90e2, #c084fc);
 }
 
 .post-list h3 a:hover {
@@ -167,12 +173,66 @@ body {
 }
 /* 图片样式 */
 figure {
-    display: inline-block;  /* 让figure宽度随图片自适应 */
+    display: block;
+    max-width: 100%;
     text-align: center;
-    margin: 20px;
+    margin: 20px auto;
 }
+
+figure img,
+.content img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+}
+
 figcaption {
     font-size: 12px;       /* 小字 */
     color: #666;           /* 灰色，常见的图名颜色 */
     margin-top: 6px;       /* 与图片的间距 */
+}
+
+@media (max-width: 768px) {
+    body {
+        padding-top: 52px;
+    }
+
+    .navbar {
+        padding: 0 8px;
+    }
+
+    .navbar a {
+        padding: 14px 12px;
+        margin-right: 0;
+        font-size: 0.95rem;
+    }
+
+    .post-list li {
+        padding: 16px;
+        margin-bottom: 18px;
+        border-radius: 12px;
+    }
+
+    .post-list h3 a {
+        font-size: 1.15rem;
+    }
+
+    .site-footer {
+        padding: 24px 12px 18px;
+        margin-top: 28px;
+    }
+
+    .footer-links {
+        flex-direction: column;
+        gap: 8px;
+    }
+}
+
+@media (hover: none) {
+    .navbar a:hover,
+    .post-list li:hover,
+    .post-list h3 a:hover {
+        transform: none;
+    }
 }
