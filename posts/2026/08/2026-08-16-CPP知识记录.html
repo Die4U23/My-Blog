@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/js/theme.js"></script>
+    <title>CPP知识记录</title>
+    <script src="/js/highlight.min.js"></script>
+    <link rel="stylesheet" href="/css/link.css">
+    <link rel="stylesheet" href="/css/code.css">
+    <link rel="stylesheet" href="/css/post.css">
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about.html">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info">
+                <div id="toc-container"></div>
+            </div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>CPP知识记录</h1>
+                <p class="post-date">2026-08-16</p>
+
+                <div class="content">
+                    <p>这是一份持续更新的 C++ 基础语义笔记。对象、存储和生命周期看起来接近，却分别描述“什么存在”“放在哪里”和“存在多久”。先把这些概念分清，许多悬空引用、资源泄漏和未定义行为问题都会更容易定位。</p>
+
+                    <h2>对象、变量、存储与生命周期</h2>
+                    <dl class="concept-list">
+                        <dt>对象（object）</dt>
+                        <dd>某种类型在一段存储区域中的实例。对象不仅包含一组原始字节，还受到类型、对齐、生命周期和访问规则的约束。</dd>
+
+                        <dt>变量（variable）</dt>
+                        <dd>由声明引入的对象或引用。变量通常有名字，但并非所有对象都是变量，例如表达式产生的临时对象。</dd>
+
+                        <dt>存储（storage）</dt>
+                        <dd>承载对象的原始空间。只有一块可用内存，并不代表其中已经存在一个可以按某种类型访问的对象。</dd>
+
+                        <dt>生命周期（lifetime）</dt>
+                        <dd>对象或引用从开始存在到结束存在的时间区间。对象生命周期结束后，即使原来的存储仍在，通常也不能再通过旧指针或旧引用访问该对象。</dd>
+                    </dl>
+
+                    <div class="note-box">
+                        <strong>关键区别：</strong>存储期描述底层存储保持有效的时间；生命周期描述具体对象在该存储中存在的时间。两者相关，但不能画等号。
+                    </div>
+
+                    <h2>四种存储期</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>存储期</th>
+                                    <th>典型对象</th>
+                                    <th>开始与结束</th>
+                                    <th>重点注意</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>自动存储期</td>
+                                    <td>普通局部变量、函数参数</td>
+                                    <td>执行到声明后构造，离开所在作用域时销毁</td>
+                                    <td>最容易产生返回局部指针或引用的问题</td>
+                                </tr>
+                                <tr>
+                                    <td>动态存储期</td>
+                                    <td>通常由 <code>new</code> 创建的对象</td>
+                                    <td>由程序显式创建，并在所有者释放时结束</td>
+                                    <td>优先交给智能指针、容器或其他 RAII 类型管理</td>
+                                </tr>
+                                <tr>
+                                    <td>静态存储期</td>
+                                    <td>全局变量、命名空间变量、<code>static</code> 变量</td>
+                                    <td>存储贯穿程序运行期；局部静态对象通常在首次执行到声明时初始化</td>
+                                    <td>不同源文件之间的动态初始化顺序可能不明确</td>
+                                </tr>
+                                <tr>
+                                    <td>线程存储期</td>
+                                    <td><code>thread_local</code> 对象</td>
+                                    <td>每个线程拥有独立实例，通常在线程结束时销毁</td>
+                                    <td>线程池中的工作线程可能长期不退出</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>一个典型的悬空引用</h3>
+                    <pre><code class="language-cpp">const int&amp; bad_reference() {
+    int value = 42;
+    return value;  // value 离开作用域后被销毁
+}
+
+int main() {
+    const int&amp; answer = bad_reference();
+    // 使用 answer：未定义行为
+}</code></pre>
+                    <p>函数返回时，<code>value</code> 的生命周期已经结束。引用本身还能被复制和保存，但它不再指向一个仍然存在的 <code>int</code> 对象。</p>
+
+                    <h2>构造、析构与类不变量</h2>
+                    <p>构造函数的职责是让对象进入可用状态；析构函数的职责是结束对象持有资源的生命周期。资源不只包括堆内存，也可能是文件、锁、套接字、线程或数据库连接。</p>
+                    <p>类不变量是对象在对外可观察的稳定状态中必须满足的条件。构造函数应建立不变量，公开成员函数退出前应恢复不变量，析构开始后则不应再把对象当作完整可用的实例。</p>
+
+                    <h3>构造函数抛出异常时</h3>
+                    <p>如果正在构造的对象抛出异常，它自身的析构函数不会执行，因为完整对象尚未构造成功。但是，已经构造完成的成员对象和基类子对象会按构造顺序的逆序自动析构。</p>
+                    <ol>
+                        <li>先销毁已经构造完成的成员。</li>
+                        <li>再销毁已经构造完成的基类子对象。</li>
+                        <li>最外层对象的析构函数不会被调用。</li>
+                    </ol>
+                    <p>因此，成员本身应采用 RAII 管理资源。不要等到最外层析构函数才尝试收拾构造过程中的半成品。</p>
+
+                    <h2>未定义行为（Undefined Behavior）</h2>
+                    <p>未定义行为表示 C++ 标准不再规定程序必须产生什么结果。程序可能崩溃、看似正常、输出随机结果，或者只在开启优化后出现完全不同的表现。</p>
+
+                    <h3>重点排错位置</h3>
+                    <ul>
+                        <li><strong>越界访问：</strong>访问数组或容器有效范围之外的位置。</li>
+                        <li><strong>无效指针：</strong>解引用空指针、悬空指针或已经释放对象的地址。</li>
+                        <li><strong>未初始化值：</strong>读取不确定或错误的标量值；具体分类会随类型和标准版本变化，但都不应依赖其结果。</li>
+                        <li><strong>有符号整数溢出：</strong>计算结果超出有符号类型可表示范围。</li>
+                        <li><strong>数据竞争：</strong>多个线程没有同步地访问同一内存位置，并且至少一个操作是写入。</li>
+                        <li><strong>错误的类型访问：</strong>通过不具备类型可访问关系的左值、指针或引用读取对象存储。</li>
+                    </ul>
+
+                    <div class="note-box warning">
+                        <strong>错误判断：</strong>“Debug 模式能运行”不代表程序正确。优化器会假设未定义行为不会发生，并据此重排、合并甚至删除代码，所以问题经常只在 Release 模式暴露。
+                    </div>
+
+                    <h2>使用 Sanitizer 检查</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>工具</th>
+                                    <th>主要用途</th>
+                                    <th>常见目标</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>AddressSanitizer（ASan）</td>
+                                    <td>检查内存访问错误</td>
+                                    <td>堆、栈或全局缓冲区越界，use-after-free，double-free</td>
+                                </tr>
+                                <tr>
+                                    <td>UndefinedBehaviorSanitizer（UBSan）</td>
+                                    <td>检查一部分可在运行时捕获的 UB</td>
+                                    <td>有符号溢出、错误移位、空指针或未对齐访问等</td>
+                                </tr>
+                                <tr>
+                                    <td>ThreadSanitizer（TSan）</td>
+                                    <td>检查线程间的数据竞争</td>
+                                    <td>缺少互斥锁、原子操作或 happens-before 关系</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>Clang 编译示例</h3>
+                    <pre><code class="language-bash"># 内存错误与部分未定义行为
+clang++ -std=c++20 -O1 -g \
+  -fsanitize=address,undefined \
+  -fno-omit-frame-pointer main.cpp -o app-asan
+
+# 数据竞争：单独构建一个 TSan 版本
+clang++ -std=c++20 -O1 -g \
+  -fsanitize=thread main.cpp -o app-tsan</code></pre>
+                    <p>Sanitizer 是动态检查工具，只能检查实际执行到的路径；它不能替代测试用例、代码审查和静态分析。ASan 与 TSan 通常应分别构建，不要放进同一个测试二进制文件。</p>
+
+                    <h2>排错清单</h2>
+                    <ol>
+                        <li>先确认对象是否已经完成构造、是否仍在生命周期内。</li>
+                        <li>再确认指针、引用和迭代器有没有因销毁、移动或容器扩容而失效。</li>
+                        <li>检查索引、长度和整数运算是否可能越界或溢出。</li>
+                        <li>多线程代码明确标出共享状态和同步关系。</li>
+                        <li>分别运行 ASan + UBSan 和 TSan 构建，并保留可读的调试符号。</li>
+                    </ol>
+
+                    <h2>参考资料</h2>
+                    <ul>
+                        <li><a class="link" href="https://www.open-std.org/jtc1/sc22/wg21/docs/papers/" target="_blank" rel="noopener">WG21 C++ 标准委员会文档</a></li>
+                        <li><a class="link" href="https://clang.llvm.org/docs/AddressSanitizer.html" target="_blank" rel="noopener">Clang AddressSanitizer 文档</a></li>
+                        <li><a class="link" href="https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html" target="_blank" rel="noopener">Clang UndefinedBehaviorSanitizer 文档</a></li>
+                        <li><a class="link" href="https://clang.llvm.org/docs/ThreadSanitizer.html" target="_blank" rel="noopener">Clang ThreadSanitizer 文档</a></li>
+                    </ul>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right">
+            <!-- 空置空间 -->
+        </aside>
+    </div>
+
+    <script>
+        hljs.highlightAll();
+    </script>
+    <script src="/js/footer.js"></script>
+    <script src="/js/toc.js"></script>
+</body>
+</html>
