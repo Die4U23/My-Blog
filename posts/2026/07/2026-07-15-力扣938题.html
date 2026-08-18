@@ -1,216 +1,58 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<script src="/js/theme.js"></script>
-	<title>力扣938题</title>
-	<script src="/js/highlight.min.js"></script>
-	<link rel="stylesheet" href="/css/code.css">
+	<title>938. 二叉搜索树的范围和</title>
 	<link rel="stylesheet" href="/css/post.css">
 	<link rel="stylesheet" href="/css/common.css">
 	<link rel="stylesheet" href="/css/link.css">
 	<link rel="icon" type="image/x-icon" href="/favicon.ico">
-	<script>
-            MathJax = {
-                tex:{
-                    inlineMath: [['$', '$'], ['\(', '\)']],
-                    displayMath: [['357576', '357576'], ['\[', '\]']]
-                }
-            };
-        </script>
-	<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
-	</script>
 </head>
 <body>
 	<div class="navbar">
-	    <div class="left-group">
-		<a href="/">首页</a>
-		<a href="/about.html">关于</a>
-	    </div>
-	    <div class="right-group">
-		<a href="https://github.com/Die4U23" target="_blank">Github</a>
-	    </div>
-	</div>
-	<div class="layout">
-	    <aside class="post-sidebar">
-		<div class="site-info">
-		<div id="toc-container"></div>
+		<div class="left-group">
+			<a href="/">首页</a>
+			<a href="/about.html">关于</a>
 		</div>
-	    </aside>
-	    <main class="post-content">
-		<article class="post-article">
-		    <h1>力扣938题</h1>
-		    <p class="post-date">2026-07-15</p>
-		    <div class="content">
-			<h2>前言</h2>
-			<p>这题是力扣<a href="https://leetcode.cn/problems/range-sum-of-bst/" class="link link-bold" target="_blank" rel="noopener noreferrer">938.二叉搜索树的范围和</a>，题目本身并不难解决，用简单的递归便可以解决，起初采用的是按照中序排序的方法进行简单递归:</p>
-                        <pre><code class="language-cpp">
-class Solution {
-public:
-    int rangeSumBST(TreeNode* root, int low, int high) {
-        int ans = 0;
-        if(!root)return 0;
-        ans += rangeSumBST(root -> left, low, high);
-        if(root -> val >= low && root -> val <= high) ans += root ->val;
-        ans += rangeSumBST(root -> right, low, high);
-        return ans;
-    }
-};
-                        </code></pre>
-			<p>然而这种方法的效率远低于前序遍历的版本:</p>
-			<pre><code class="language-cpp">
-class Solution {
-public:
-    int rangeSumBST(TreeNode* root, int low, int high) {
-        if(root==nullptr) return 0;
-        TreeNode* cur=root;
-        int ans=0;
-        if(cur->val>=low&&cur->val<=high) ans+=cur->val;
-        return ans+rangeSumBST(cur->left,low,high)+rangeSumBST(cur->right,low,high);
-    }
-    
-};
-			</code></pre>
-			<p>经过验证为编译器处理算法过程中优化的差异导致的(通常为常数级别的差异)，下面我们将学习编译器对不同算法的反应。</p>
-		<h2>分析</h2>
-			<h3>中间变量的修改次数不同</h3>
-			<p>前一种方法ans累加左子树结果、根节点值、右子树结果。ans在整个函数期间多次读写。</p>
-			<p>而后一种方法只对ans赋值1次，减少了对同一变量的反复修改。</p>
-			<p>这种写法更容易被编译器优化成高效的指令序列，减少不必要的内存操作。</p>
-			<h3>表达式求值</h3>
-			<p>后一个代码返回一个完整的加法表达式，编译器在生成代码时可以更灵活地安排递归调用和加法指令，而前一个代码强制顺序执行，不利于指令级并行。</p>
-			<h2>原则</h2>
-			<p>虽然只影响常数级别的复杂度，但还是尽量写出清晰简单的代码，以便编译器生成更优秀的机器码。</p>
-			<p>下面是一些基本原则:</p>
-			<h3>1. 写清楚数据依赖，避免不必要的中间变量修改</h3>
-			<p>编译器喜欢：每个值的“生产—消费”关系简单，一条线到底。不喜欢：同一个变量反复赋值，形成复杂的写后读、读后写链条，这会限制寄存器复用和指令重排。</p>
-			<p>不好的写法（多次修改 <code>ans</code>）</p>
-			<pre><code class="language-cpp">int ans = 0;
-ans += left_sum;
-ans += root_val;
-ans += right_sum;
-return ans;
-			</code></pre>
-			<p>好的写法（直接构造返回值）</p>
-			<pre><code class="language-cpp">
-return left_sum + root_val + right_sum;
-			</code></pre>
-			<p>后者让编译器看到加法是可以多项并列执行的，它能更好地分配寄存器、并行计算。</p>
-
-<h3>2. 用局部变量缓存频繁访问的全局/成员数据</h3>
-<p>编译器受别名分析限制，如果它不确定某个内存位置会不会在函数调用或赋值中改变，就不会把值缓存在寄存器里，而是反复从内存读取。你主动拷贝到局部变量，相当于告诉编译器“这个值不会变”，它就能安心优化。</p>
-<p>例子：</p>
-<pre><code class="language-cpp">// 不信任编译器能优化掉重复读取 global_val
-if (global_val &gt; 0 &amp;&amp; global_val &lt; 100) ...
-
-// 更好：用局部副本
-int val = global_val;
-if (val &gt; 0 &amp;&amp; val &lt; 100) ...
-</code></pre>
-<p>特别是对全局变量、类成员变量，在非简单场景下这么做很有好处。</p>
-
-<h3>3. 减少对于指针/引用的过度解引用</h3>
-<p>即使你用局部引用，编译器可能仍需处理别名问题。如果确定数据不会被意外修改，可以用 <code>const</code> 修饰，或直接取副本。</p>
-<p>更好：</p>
-<pre><code class="language-cpp">void foo(const std::vector&lt;int&gt;&amp; v) {
-    for (size_t i = 0, n = v.size(); i &lt; n; ++i) {
-        int x = v[i];    // 如果后面多次使用 x，可以缓存
-        ...
-    }
-}
-</code></pre>
-<p>如果 v 随时可能被外部修改（哪怕不是本函数）编译器就得多次读内存，用局部变量 <code>x</code> 避免重复 <code>v[i]</code>。</p>
-
-<h3>4. 优先使用简单的返回值形式，避免通过参数返回</h3>
-<p>不好（通过非 const 引用输出结果）</p>
-<pre><code class="language-cpp">void compute(int a, int b, int&amp; result) {
-    result = a + b;
-}
-</code></pre>
-<p>好（直接返回）</p>
-<pre><code class="language-cpp">int compute(int a, int b) {
-    return a + b;
-}
-</code></pre>
-<p>直接返回不仅清晰，还支持返回值优化（RVO），甚至能被尾调用优化。对编译器来说，纯函数的分析也比有副作用的函数简单很多。</p>
-
-<h3>5. 用常量、const 给编译器更多信息</h3>
-<p>能加 <code>const</code> 就加（变量、函数参数、成员函数），告诉编译器“这个值不会变”，它就可以做常量传播、死代码消除等优化。用 <code>constexpr</code> 让编译期计算出结果，完全消除运行时开销。</p>
-<pre><code class="language-cpp">const int size = 1024;          // 明确常量
-constexpr double pi = 3.14159;  // 编译期计算
-</code></pre>
-
-<h3>6. 让循环结构清晰，减少分支</h3>
-<p>把不变量的计算提到循环外。使用 <code>for (auto&amp;&amp; item : container)</code> 等现代写法，让迭代器操作内联优化。如果循环内有条件判断，考虑是否可以拆成两个循环，或者用无分支的方式（如位运算）处理，避免分支预测失败。</p>
-<p>不好（条件在循环内，且条件不变）</p>
-<pre><code class="language-cpp">for (int i = 0; i &lt; n; ++i) {
-    if (flag) {
-        doA(i);
-    } else {
-        doB(i);
-    }
-}
-</code></pre>
-<p>如果 <code>flag</code> 是外部传入不变，可以：</p>
-<pre><code class="language-cpp">if (flag) {
-    for (int i = 0; i &lt; n; ++i) doA(i);
-} else {
-    for (int i = 0; i &lt; n; ++i) doB(i);
-}
-</code></pre>
-<p>减少每次循环检查 <code>flag</code>，也利于向量化。</p>
-
-<h3>7. 善用标准库和现成的算法</h3>
-<p>标准库函数通常是专家精调过的，内部做了许多微优化，并且编译器对内建函数和常见模式有特殊处理。比如用 <code>std::copy</code>、<code>std::fill</code> 可能比自己写的循环更容易触发 SIMD 指令。</p>
-
-<h3>8. 函数短小精悍，让内联更容易</h3>
-<p>编译器对短函数更愿意内联，内联后很多跨语句的优化（常数折叠、死代码消除）才能发生。避免写巨大无比函数，职责单一，长度通常不超过几十行。</p>
-
-<h3>9. 如果是递归，尝试写成尾递归形式（哪怕语言不保证）</h3>
-<p>尾递归的形式：</p>
-<pre><code class="language-cpp">return func(...);
-</code></pre>
-<p>不处理返回值，只是直接返回调用结果。编译器可以优化成循环，减少栈使用。日常写递归时，如果最后一步是调用自身并直接返回，就写成一个单一的 <code>return</code> 语句，不要暂存到变量再返回。</p>
-
-<h3>10. 减少临时对象与不必要的拷贝</h3>
-<p>用移动语义（<code>std::move</code>）或完美转发减少深拷贝。对于传入的大对象，用 <code>const &amp;</code>，返回时如果必须构造新对象，直接返回表达式，依靠 RVO / NRVO 避免额外拷贝。</p>
-<p>不好：</p>
-<pre><code class="language-cpp">std::string make() {
-    std::string tmp = ...;
-    return tmp; // 可能拷贝（不过现代编译器会优化，但写法仍不直接）
-}
-</code></pre>
-<p>好：</p>
-<pre><code class="language-cpp">std::string make() {
-    return std::string(...); // 保证 RVO
-}
-</code></pre>
-
-<h2>总结：编译器喜欢的代码长这样</h2>
-<ul>
-  <li>数据流：<strong>一次赋值、直接返回</strong>，少改局部变量。</li>
-  <li>别名：<strong>用局部副本隔离全局/成员</strong>，减少解引用。</li>
-  <li>分支：<strong>顺序执行，少跳转，条件提前判断</strong>（如 guard clause）。</li>
-  <li>函数：<strong>短小、纯函数、多返回值少副作用</strong>。</li>
-  <li>信息：<strong>多用 const / constexpr</strong>。</li>
-  <li>循环：<strong>不变量外提，少条件内联</strong>。</li>
-  <li>尾调用：<strong>递归直接 return 自身调用</strong>。</li>
-</ul>
-		    </div>
-		</article>
-	    </main>
-
-	    <aside class="post-right">
-		<!-- 空置空间 -->
-	    </aside>
+		<div class="right-group">
+			<a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+		</div>
 	</div>
-	
-	<script>
-		hljs.highlightAll();
-	</script>
+
+	<div class="layout">
+		<aside class="post-sidebar">
+			<div class="site-info">
+				<div id="toc-container"></div>
+			</div>
+		</aside>
+
+		<main class="post-content">
+			<article class="post-article">
+				<h1>938. 二叉搜索树的范围和</h1>
+				<p class="post-date">2026-07-15</p>
+				<div class="content">
+					<h2>题目链接</h2>
+					<p><a href="https://leetcode.cn/problems/range-sum-of-bst/" class="link link--bold" target="_blank" rel="noopener noreferrer">938. 二叉搜索树的范围和</a></p>
+
+					<h2>题目内容</h2>
+					<p>给定一棵二叉搜索树的根节点和两个整数 low、high，计算树中所有节点值位于闭区间 low 到 high 内的节点值之和。</p>
+
+					<h2>题目分类</h2>
+					<ul>
+						<li>二叉树</li>
+						<li>二叉搜索树</li>
+						<li>范围统计</li>
+					</ul>
+				</div>
+			</article>
+		</main>
+
+		<aside class="post-right" aria-hidden="true"></aside>
+	</div>
+
 	<script src="/js/footer.js"></script>
 	<script src="/js/toc.js"></script>
-
 </body>
 </html>
