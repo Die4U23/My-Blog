@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="从 LeetCode 136、137、260、268、389、645 出发，系统整理异或、lowbit、拆位统计、集合配对、状态压缩与常用位操作。">
+    <script src="/js/theme.js"></script>
+    <title>从「只出现一次的数字」到位运算工具箱</title>
+    <script src="/js/highlight.min.js"></script>
+    <link rel="stylesheet" href="/css/link.css">
+    <link rel="stylesheet" href="/css/code.css">
+    <link rel="stylesheet" href="/css/post.css">
+    <link rel="stylesheet" href="/css/common.css">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about.html">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info">
+                <div id="toc-container"></div>
+            </div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>从「只出现一次的数字」到位运算工具箱</h1>
+                <p class="post-date">2026-08-18</p>
+
+                <div class="content">
+                    <p>写到 LeetCode 136「只出现一次的数字」时，我先后想到了双重循环、排序和哈希表。它们都能找到答案，却不能同时满足题目的两个要求：<strong>线性时间复杂度</strong>与<strong>常量额外空间</strong>。看了题解才发现，突破口居然是一直被我忽略的位运算。</p>
+                    <p>这篇文章从这道题出发，把常见位运算技巧整理成一套可以复用的工具箱。重点不只是记住公式，还要弄清楚每个公式为什么成立、适合解决什么问题，以及 C++ 中有哪些容易踩到的边界。</p>
+
+                    <div class="note-box">
+                        <strong>核心视角：</strong>把一个整数看成一排固定宽度的二进制位。多数位运算不会让相邻位互相影响，因此可以“每一位独立计算，最后再合并”。
+                    </div>
+
+                    <h2>起点：只出现一次的数字</h2>
+                    <p><a class="link link--bold" href="https://leetcode.cn/problems/single-number/description/?envType=study-plan-v2&amp;envId=top-100-liked" target="_blank" rel="noopener noreferrer">LeetCode 136. 只出现一次的数字</a>给出一个非空整数数组：除一个元素只出现一次外，其余元素都出现两次。题目要求在线性时间内找出这个元素，并且只使用常量额外空间。</p>
+
+                    <h3>常规方案为什么差一点</h3>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>思路</th>
+                                    <th>时间复杂度</th>
+                                    <th>额外空间</th>
+                                    <th>问题</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>对每个数再遍历一次查重</td>
+                                    <td><code>O(n²)</code></td>
+                                    <td><code>O(1)</code></td>
+                                    <td>空间合格，时间不合格</td>
+                                </tr>
+                                <tr>
+                                    <td>排序后检查相邻元素</td>
+                                    <td><code>O(n log n)</code></td>
+                                    <td>取决于排序实现</td>
+                                    <td>时间不合格，而且会修改原数组</td>
+                                </tr>
+                                <tr>
+                                    <td>哈希表记录出现次数</td>
+                                    <td>平均 <code>O(n)</code></td>
+                                    <td><code>O(n)</code></td>
+                                    <td>时间合格，空间不合格</td>
+                                </tr>
+                                <tr>
+                                    <td>把所有元素异或起来</td>
+                                    <td><code>O(n)</code></td>
+                                    <td><code>O(1)</code></td>
+                                    <td>同时满足两个要求</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>异或到底做了什么</h3>
+                    <p>异或运算符是 <code>^</code>。对于同一位，两个二进制位不同则结果为 1，相同则结果为 0：</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th><code>a</code></th>
+                                    <th><code>b</code></th>
+                                    <th><code>a ^ b</code></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>0</td><td>0</td><td>0</td></tr>
+                                <tr><td>0</td><td>1</td><td>1</td></tr>
+                                <tr><td>1</td><td>0</td><td>1</td></tr>
+                                <tr><td>1</td><td>1</td><td>0</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>从真值表可以得到三个关键性质：</p>
+                    <ul>
+                        <li><code>x ^ x = 0</code>：相同的数会抵消。</li>
+                        <li><code>x ^ 0 = x</code>：0 是异或运算的单位元。</li>
+                        <li>异或满足交换律和结合律：元素出现的顺序不会影响最终结果，成对的数隔得再远也能抵消。</li>
+                    </ul>
+
+                    <p>以数组 <code>[4, 1, 2, 1, 2]</code> 为例，按遍历顺序计算：</p>
+                    <pre><code class="language-text">0 ^ 4 = 4
+4 ^ 1 = 5
+5 ^ 2 = 7
+7 ^ 1 = 6
+6 ^ 2 = 4</code></pre>
+                    <p>换一种写法，抵消关系会更清楚：</p>
+                    <pre><code class="language-text">4 ^ 1 ^ 2 ^ 1 ^ 2
+= 4 ^ (1 ^ 1) ^ (2 ^ 2)
+= 4 ^ 0 ^ 0
+= 4</code></pre>
+                    <p>所以只需要一个变量保存累计异或值：</p>
+                    <pre><code class="language-cpp">#include &lt;vector&gt;
+
+int singleNumber(const std::vector&lt;int&gt;&amp; nums) {
+    int answer = 0;
+    for (int value : nums) {
+        answer ^= value;
+    }
+    return answer;
+}</code></pre>
+                    <p>即使数组中有负数，两个相同的负数也拥有相同的位表示，异或后仍然会变成全 0，因此这个抵消规律照样成立。</p>
+
+                    <h2>先看懂这组相似题的共同结构</h2>
+                    <p>下面五道题都在寻找“正常数据”与“实际数据”之间的差异。关键不是看到题目就机械地异或，而是先判断：把应该成对的内容放在一起后，最后会剩下几个特殊值。</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>题目</th>
+                                    <th>抵消后剩下什么</th>
+                                    <th>对应工具</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><a class="link" href="https://leetcode.cn/problems/single-number-ii/description/" target="_blank" rel="noopener noreferrer">137. 只出现一次的数字 II</a></td>
+                                    <td>三个相同数字不能被普通异或消掉</td>
+                                    <td>逐位统计，对 3 取模</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="link" href="https://leetcode.cn/problems/single-number-iii" target="_blank" rel="noopener noreferrer">260. 只出现一次的数字 III</a></td>
+                                    <td>两个只出现一次的数字 <code>p ^ q</code></td>
+                                    <td>全员异或，再用 lowbit 分组</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="link" href="https://leetcode.cn/problems/missing-number" target="_blank" rel="noopener noreferrer">268. 丢失的数字</a></td>
+                                    <td>完整范围与数组相差的那个数字</td>
+                                    <td>把下标、长度和数组一起异或</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="link" href="https://leetcode.cn/problems/find-the-difference" target="_blank" rel="noopener noreferrer">389. 找不同</a></td>
+                                    <td>两个字符串之间多出的一个字符</td>
+                                    <td>把两串字符全部异或</td>
+                                </tr>
+                                <tr>
+                                    <td><a class="link" href="https://leetcode.cn/problems/set-mismatch/description/" target="_blank" rel="noopener noreferrer">645. 错误的集合</a></td>
+                                    <td>重复数字 <code>D</code> 与缺失数字 <code>M</code> 的异或</td>
+                                    <td>lowbit 分组；也可直接使用数学法</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="note-box">
+                        <strong>统一理解：</strong>异或特别适合比较两个“本应相同”的多重集合。共同元素出现两次后全部抵消，剩下的就是两边的差异。如果只剩一个值，可以直接返回；如果剩两个值，就要再找一个不同的二进制位把它们分开。
+                    </div>
+
+                    <h2>lowbit：只保留最低位的 1</h2>
+                    <p><code>x &amp; -x</code> 通常叫作 <code>lowbit(x)</code>，它只保留 <code>x</code> 最低位的那个 1，其余位全部清零。</p>
+                    <p>例如用 8 位二进制观察十进制数 44：</p>
+                    <pre><code class="language-text">x       = 0010 1100   (44)
+-x      = 1101 0100   (按位取反后加 1)
+x &amp; -x  = 0000 0100   (4)</code></pre>
+                    <p>原因在于：求补码相反数时，最低位 1 右边的 0 最终仍是 0，最低位的这个 1 会在“取反再加 1”后重新变成 1，而它左边的位都与原数相反。两者按位与后，只有这个最低位的 1 能留下来。</p>
+
+                    <pre><code class="language-cpp">#include &lt;cstdint&gt;
+
+std::uint32_t lowbit(std::uint32_t x) {
+    return x &amp; (0u - x);
+}</code></pre>
+                    <div class="note-box warning">
+                        <strong>C++ 边界：</strong>无符号整数的运算按模 <code>2^N</code> 进行，所以 <code>0u - x</code> 有明确定义。若对有符号最小值直接求负，会发生有符号溢出；写通用底层代码时优先使用无符号类型。<code>lowbit(0)</code> 的结果是 0。
+                    </div>
+
+                    <h3>LeetCode 260：只出现一次的数字 III</h3>
+                    <p><a class="link" href="https://leetcode.cn/problems/single-number-iii" target="_blank" rel="noopener noreferrer">这道题</a>把特殊数字从一个增加到了两个：其余数字仍出现两次，但现在有两个数字 <code>p</code> 和 <code>q</code> 只出现一次。全部异或只能得到 <code>p ^ q</code>。因为 <code>p != q</code>，所以 <code>p ^ q</code> 至少有一位是 1；取它的 <code>lowbit</code>，就能找到 <code>p</code> 与 <code>q</code> 必然不同的一位。</p>
+                    <p>接着按这一位是 0 还是 1 把所有数字分成两组。相同数字一定进入同一组并在组内抵消，而 <code>p</code> 和 <code>q</code> 会被分开。</p>
+                    <pre><code class="language-cpp">#include &lt;bit&gt;
+#include &lt;cstdint&gt;
+#include &lt;utility&gt;
+#include &lt;vector&gt;
+
+std::pair&lt;std::int32_t, std::int32_t&gt; twoSingleNumbers(
+    const std::vector&lt;std::int32_t&gt;&amp; nums) {
+    std::uint32_t mixed = 0;
+    for (std::int32_t value : nums) {
+        mixed ^= static_cast&lt;std::uint32_t&gt;(value);
+    }
+
+    const std::uint32_t dividingBit = mixed &amp; (0u - mixed);
+    std::uint32_t first = 0;
+    std::uint32_t second = 0;
+
+    for (std::int32_t value : nums) {
+        const auto bits = static_cast&lt;std::uint32_t&gt;(value);
+        if ((bits &amp; dividingBit) == 0) {
+            first ^= bits;
+        } else {
+            second ^= bits;
+        }
+    }
+
+    return {
+        std::bit_cast&lt;std::int32_t&gt;(first),
+        std::bit_cast&lt;std::int32_t&gt;(second)
+    };
+}</code></pre>
+                    <p>以 <code>[1, 2, 1, 3, 2, 5]</code> 为例，全部异或得到 <code>3 ^ 5 = 6</code>，也就是二进制 <code>110</code>。它的 <code>lowbit</code> 是 <code>010</code>，说明 3 和 5 在第 1 位上不同，正好可以据此分组。</p>
+
+                    <h3>lowbit 与树状数组</h3>
+                    <p>树状数组用 <code>lowbit(i)</code> 表示节点 <code>i</code> 负责的区间长度。查询前缀和时不断清除最低位的 1，向父区间移动；单点更新时不断加上 <code>lowbit(i)</code>，访问所有包含当前位置的上级区间。</p>
+                    <pre><code class="language-cpp">// 查询前缀和：i 逐步变小
+for (int i = index; i &gt; 0; i -= i &amp; -i) {
+    answer += tree[i];
+}
+
+// 单点增加：i 逐步跳到上级区间
+for (int i = index; i &lt;= n; i += i &amp; -i) {
+    tree[i] += delta;
+}</code></pre>
+
+                    <h2>清除最低位的 1：x &amp; (x - 1)</h2>
+                    <p><code>x - 1</code> 会把 <code>x</code> 最低位的 1 变成 0，并把它右边的所有 0 变成 1。再与原数按位与，就会清除最低位的 1，其他更高位保持不变。</p>
+                    <pre><code class="language-text">x           = 0010 1100   (44)
+x - 1       = 0010 1011   (43)
+x &amp; (x - 1) = 0010 1000   (40)</code></pre>
+
+                    <h3>统计二进制中 1 的个数</h3>
+                    <p>每执行一次 <code>x &amp;= x - 1</code>，就会删除一个 1，因此循环次数正好等于 1 的数量。</p>
+                    <pre><code class="language-cpp">int countOnes(std::uint32_t x) {
+    int count = 0;
+    while (x != 0) {
+        x &amp;= x - 1;
+        ++count;
+    }
+    return count;
+}</code></pre>
+                    <p>例如 <code>44 = 0010 1100</code> 的变化过程是 <code>44 → 40 → 32 → 0</code>，总共执行 3 次，所以它有 3 个 1。</p>
+
+                    <h3>判断是否为 2 的幂</h3>
+                    <p>正的 2 的幂只有一个二进制位是 1。清除这个 1 后结果必然为 0：</p>
+                    <pre><code class="language-cpp">bool isPowerOfTwo(std::uint32_t x) {
+    return x != 0 &amp;&amp; (x &amp; (x - 1)) == 0;
+}</code></pre>
+                    <p>不能省略 <code>x != 0</code>，因为 0 也会让后半个表达式得到 0，但 0 不是 2 的幂。</p>
+
+                    <h3>计算汉明距离</h3>
+                    <p>两个整数的汉明距离，就是它们有多少个二进制位不同。先异或标出不同的位置，再数 1：</p>
+                    <pre><code class="language-cpp">int hammingDistance(std::uint32_t a, std::uint32_t b) {
+    return countOnes(a ^ b);
+}</code></pre>
+
+                    <h2>用位运算模拟加法</h2>
+                    <p>普通二进制加法包含两部分：</p>
+                    <ul>
+                        <li><code>a ^ b</code>：计算每一位“不考虑进位”的和。</li>
+                        <li><code>(a &amp; b) &lt;&lt; 1</code>：找出两边同时为 1 的位置，并把进位左移一位。</li>
+                    </ul>
+                    <p>因此有下面这个恒等关系：</p>
+                    <pre><code class="language-text">a + b = (a ^ b) + ((a &amp; b) &lt;&lt; 1)</code></pre>
+                    <p>注意右侧仍然有加法。真正模拟时，要把“无进位的和”与“进位”继续重复计算，直到进位变成 0。</p>
+
+                    <p>以 <code>13 + 9</code> 为例：</p>
+                    <pre><code class="language-text">a             = 0 1101   (13)
+b             = 0 1001   (9)
+a ^ b         = 0 0100   (4)
+(a &amp; b) &lt;&lt; 1  = 1 0010   (18)
+
+继续计算 4 与 18：
+0 0100 ^ 1 0010        = 1 0110   (22)
+(0 0100 &amp; 1 0010) &lt;&lt; 1 = 0       (没有进位，结束)</code></pre>
+
+                    <pre><code class="language-cpp">std::uint32_t addWithoutPlus(std::uint32_t a, std::uint32_t b) {
+    while (b != 0) {
+        const std::uint32_t carry = (a &amp; b) &lt;&lt; 1;
+        a ^= b;
+        b = carry;
+    }
+    return a;
+}</code></pre>
+                    <div class="note-box warning">
+                        <strong>适用范围：</strong>这段代码实现的是无符号整数模 <code>2^32</code> 加法。使用无符号类型可以避免左移和有符号溢出的未定义行为。实际业务代码直接写 <code>a + b</code> 更清晰；这个技巧主要用于理解进位或解决明确禁止加号的算法题。
+                    </div>
+
+                    <h2>状态压缩：用一个整数表示集合</h2>
+                    <p>当元素数量很少，每个元素只有“选”或“不选”两种状态时，可以让整数的第 <code>j</code> 位表示第 <code>j</code> 个元素是否被选中。</p>
+                    <p>例如有 <code>A、B、C</code> 三个元素，掩码 <code>101</code> 表示选中 <code>A</code> 和 <code>C</code>，没有选 <code>B</code>。于是，一个 <code>n</code> 位整数就能表示 <code>2^n</code> 个不同子集。</p>
+
+                    <h3>枚举 n 个元素的所有子集</h3>
+                    <pre><code class="language-cpp">#include &lt;cstdint&gt;
+
+// 前提：0 &lt;= n &lt; 64
+const std::uint64_t limit = std::uint64_t{1} &lt;&lt; n;
+for (std::uint64_t mask = 0; mask &lt; limit; ++mask) {
+    for (int j = 0; j &lt; n; ++j) {
+        if ((mask &gt;&gt; j) &amp; 1u) {
+            // 第 j 个元素被选中
+        }
+    }
+}</code></pre>
+                    <p>外层一共枚举 <code>2^n</code> 个掩码。如果每次还要扫描 <code>n</code> 位，完整复杂度是 <code>O(n · 2^n)</code>。</p>
+
+                    <h3>枚举 mask 的所有非空子集</h3>
+                    <pre><code class="language-cpp">for (std::uint64_t subset = mask;
+     subset != 0;
+     subset = (subset - 1) &amp; mask) {
+    // subset 是 mask 的一个非空子集
+}</code></pre>
+                    <p><code>subset - 1</code> 产生比当前值小的下一个候选状态，再用 <code>&amp; mask</code> 删除所有不属于原集合的位。以 <code>mask = 1101</code> 为例，枚举顺序是：</p>
+                    <pre><code class="language-text">1101 → 1100 → 1001 → 1000 → 0101 → 0100 → 0001 → 结束</code></pre>
+                    <p>如果 <code>mask</code> 中有 <code>p</code> 个 1，它有 <code>2^p</code> 个子集，所以这段循环的复杂度是 <code>O(2^popcount(mask))</code>。</p>
+
+                    <h3>枚举每个集合的所有子集</h3>
+                    <pre><code class="language-cpp">for (std::uint64_t mask = 0; mask &lt; limit; ++mask) {
+    for (std::uint64_t subset = mask;
+         subset != 0;
+         subset = (subset - 1) &amp; mask) {
+        // subset 是 mask 的非空子集
+    }
+}</code></pre>
+                    <p>看起来像两层 <code>2^n</code>，但总复杂度不是 <code>O(4^n)</code>，而是 <code>O(3^n)</code>。对于每一个元素，它只有三种归属：</p>
+                    <ol>
+                        <li>不在 <code>mask</code> 中；</li>
+                        <li>在 <code>mask</code> 中，但不在 <code>subset</code> 中；</li>
+                        <li>同时在 <code>mask</code> 和 <code>subset</code> 中。</li>
+                    </ol>
+                    <p><code>n</code> 个元素各有 3 种选择，因此总状态数是 <code>3^n</code>。</p>
+
+                    <h3>枚举恰好含 k 个 1 的掩码</h3>
+                    <p>Gosper's Hack 可以直接跳到“下一个拥有相同 1 的数量”的整数，不需要扫描全部 <code>2^n</code> 个状态。</p>
+                    <pre><code class="language-cpp">// 前提：1 &lt;= k &lt;= n &lt; 64
+const std::uint64_t limit = std::uint64_t{1} &lt;&lt; n;
+
+for (std::uint64_t mask = (std::uint64_t{1} &lt;&lt; k) - 1;
+     mask &lt; limit; ) {
+    // 处理 mask
+
+    const std::uint64_t low = mask &amp; (std::uint64_t{0} - mask);
+    const std::uint64_t ripple = mask + low;
+    mask = ripple | (((mask ^ ripple) &gt;&gt; 2) / low);
+}</code></pre>
+                    <p>当 <code>n = 5、k = 3</code> 时，掩码按下面的顺序出现：</p>
+                    <pre><code class="language-text">00111, 01011, 01101, 01110, 10011,
+10101, 10110, 11001, 11010, 11100</code></pre>
+                    <p>一共恰好有 <code>C(5, 3) = 10</code> 个状态。若 <code>k = 0</code>，唯一结果是空集 <code>0</code>，应单独处理。</p>
+
+                    <h2>拆位：每一位独立统计贡献</h2>
+                    <p>很多题看起来在操作整个整数，实际上每一位之间互不影响。通用步骤是：</p>
+                    <ol>
+                        <li>从低位到高位枚举二进制位；</li>
+                        <li>只统计当前位的 0 和 1；</li>
+                        <li>计算这一位对答案的贡献；</li>
+                        <li>把各位贡献合并成最终答案。</li>
+                    </ol>
+
+                    <h3>LeetCode 137：只出现一次的数字 II</h3>
+                    <p><a class="link" href="https://leetcode.cn/problems/single-number-ii/description/" target="_blank" rel="noopener noreferrer">这道题</a>中，其余数字从出现两次改成了出现三次。此时不能直接全员异或，因为 <code>x ^ x ^ x = x</code>，三个相同数字不会消失。解决方法是把每一位上的 1 分别统计出来，再对 3 取模。</p>
+                    <p>以数组 <code>[2, 2, 2, 5]</code> 为例，2 的二进制是 <code>010</code>，5 是 <code>101</code>。逐位统计 1 的数量：</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>二进制位</th>
+                                    <th>1 的总数</th>
+                                    <th>对 3 取模</th>
+                                    <th>答案位</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td>第 2 位（4）</td><td>1</td><td>1</td><td>1</td></tr>
+                                <tr><td>第 1 位（2）</td><td>3</td><td>0</td><td>0</td></tr>
+                                <tr><td>第 0 位（1）</td><td>1</td><td>1</td><td>1</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>最后重新拼出 <code>101</code>，也就是 5。出现三次的数在每一位产生的 1 都是 3 的倍数，对 3 取模后会被消掉。</p>
+                    <pre><code class="language-cpp">#include &lt;bit&gt;
+#include &lt;cstdint&gt;
+#include &lt;vector&gt;
+
+std::int32_t singleNumberAmongTriples(
+    const std::vector&lt;std::int32_t&gt;&amp; nums) {
+    std::uint32_t answer = 0;
+
+    for (int bit = 0; bit &lt; 32; ++bit) {
+        int ones = 0;
+        for (std::int32_t value : nums) {
+            const auto bits = static_cast&lt;std::uint32_t&gt;(value);
+            ones += (bits &gt;&gt; bit) &amp; 1u;
+        }
+
+        if (ones % 3 != 0) {
+            answer |= std::uint32_t{1} &lt;&lt; bit;
+        }
+    }
+
+    return std::bit_cast&lt;std::int32_t&gt;(answer);
+}</code></pre>
+                    <p>这里使用无符号数移动和拼接全部 32 位，最后用 C++20 的 <code>std::bit_cast</code> 原样解释这些位，因此也能正确还原负数。</p>
+
+                    <h3>另一个拆位案例：所有数对的异或之和</h3>
+                    <p>假设要计算所有无序数对的异或之和。对第 <code>bit</code> 位来说，只有一个数该位为 1、另一个数该位为 0 时，异或结果才会在这一位贡献 <code>2^bit</code>。</p>
+                    <p>若当前位有 <code>ones</code> 个 1、<code>zeros</code> 个 0，就有 <code>ones × zeros</code> 个数对在这一位不同：</p>
+                    <pre><code class="language-cpp">#include &lt;cstddef&gt;
+#include &lt;vector&gt;
+
+long long sumOfPairwiseXor(const std::vector&lt;int&gt;&amp; nums) {
+    long long answer = 0;
+
+    // 这个简单版本假设 nums 中都是非负 int
+    for (int bit = 0; bit &lt; 31; ++bit) {
+        long long ones = 0;
+        for (int value : nums) {
+            ones += (value &gt;&gt; bit) &amp; 1;
+        }
+
+        const long long zeros =
+            static_cast&lt;long long&gt;(nums.size()) - ones;
+        answer += ones * zeros * (1LL &lt;&lt; bit);
+    }
+    return answer;
+}</code></pre>
+                    <p>例如 <code>[1, 2, 3]</code> 的三个数对为 <code>1 ^ 2 = 3</code>、<code>1 ^ 3 = 2</code>、<code>2 ^ 3 = 1</code>，总和是 6。拆位后，第 0 位贡献 2，第 1 位贡献 4，加起来仍然是 6。</p>
+
+                    <h2>把参照集合一起异或：丢失、增加与错位</h2>
+                    <p>LeetCode 136 直接在一个数组内部寻找成对元素。下面三题多了一份“正常数据”作为参照：完整的数字范围、原字符串，或者原本应有的集合。把实际数据与参照数据一起异或，共同部分仍会成对消失。</p>
+
+                    <h3>LeetCode 268：丢失的数字</h3>
+                    <p><a class="link" href="https://leetcode.cn/problems/missing-number" target="_blank" rel="noopener noreferrer">题目</a>给出 <code>[0, n]</code> 中的 <code>n</code> 个不同数字，其中恰好缺少一个。数组本身提供了实际数字，下标 <code>0</code> 到 <code>n - 1</code> 再加上数组长度 <code>n</code>，正好组成完整范围 <code>[0, n]</code>。</p>
+                    <p>以 <code>nums = [3, 0, 1]</code> 为例，<code>n = 3</code>：</p>
+                    <pre><code class="language-text">完整范围：0 ^ 1 ^ 2 ^ 3
+实际数组：3 ^ 0 ^ 1
+
+全部异或：(0 ^ 0) ^ (1 ^ 1) ^ (3 ^ 3) ^ 2 = 2</code></pre>
+                    <p>0、1、3 都出现两次并抵消，唯一没有配对的 2 就是答案。</p>
+                    <pre><code class="language-cpp">#include &lt;cstddef&gt;
+#include &lt;vector&gt;
+
+int missingNumber(const std::vector&lt;int&gt;&amp; nums) {
+    int answer = static_cast&lt;int&gt;(nums.size());
+
+    for (std::size_t i = 0; i &lt; nums.size(); ++i) {
+        answer ^= static_cast&lt;int&gt;(i);
+        answer ^= nums[i];
+    }
+    return answer;
+}</code></pre>
+                    <p>循环开始前先把 <code>n</code> 放进答案，是因为下标只能自然提供 <code>0</code> 到 <code>n - 1</code>，还缺少完整范围中的最后一个数 <code>n</code>。</p>
+
+                    <h3>LeetCode 389：找不同</h3>
+                    <p><a class="link" href="https://leetcode.cn/problems/find-the-difference" target="_blank" rel="noopener noreferrer">题目</a>给出字符串 <code>s</code>，再向其中添加一个字母并打乱顺序得到 <code>t</code>。顺序对异或没有影响，因此把两串的所有字符编码异或起来，相同字符就会成对抵消，只剩新增字符。</p>
+                    <pre><code class="language-text">s = "abcd"
+t = "abcde"
+
+'a' ^ 'b' ^ 'c' ^ 'd'
+^ 'a' ^ 'b' ^ 'c' ^ 'd' ^ 'e'
+= 'e'</code></pre>
+                    <pre><code class="language-cpp">#include &lt;string_view&gt;
+
+char findTheDifference(std::string_view s, std::string_view t) {
+    unsigned char answer = 0;
+
+    for (unsigned char ch : s) {
+        answer ^= ch;
+    }
+    for (unsigned char ch : t) {
+        answer ^= ch;
+    }
+    return static_cast&lt;char&gt;(answer);
+}</code></pre>
+                    <p>即使 <code>s</code> 中本来就有重复字母也没有关系：<code>t</code> 包含 <code>s</code> 的全部字符，所以每一个原字符在两串合并后都会出现偶数次。</p>
+
+                    <h3>LeetCode 645：错误的集合——位运算法</h3>
+                    <p><a class="link" href="https://leetcode.cn/problems/set-mismatch/description/" target="_blank" rel="noopener noreferrer">题目</a>原本应包含 <code>1</code> 到 <code>n</code>，但一个数字被重复写入，导致另一个数字缺失。设重复数字为 <code>D</code>，缺失数字为 <code>M</code>。把实际数组和完整范围 <code>[1, n]</code> 全部异或后，正常数字会抵消，得到：</p>
+                    <pre><code class="language-text">mixed = D ^ M</code></pre>
+                    <p>这和 LeetCode 260 一样，只知道两个不同数字的异或值。取 <code>lowbit(mixed)</code> 后分组，便能分别还原 <code>D</code> 和 <code>M</code>。但分组结果没有顺序，还要回到原数组检查哪一个出现过两次。</p>
+                    <p>以 <code>[1, 2, 2, 4]</code> 为例，实际数组与 <code>[1, 2, 3, 4]</code> 一起异或后只剩 <code>2 ^ 3 = 1</code>。最低位就是分组位：偶数组最终留下 2，奇数组最终留下 3。扫描原数组后可知 2 是重复值、3 是缺失值。</p>
+                    <pre><code class="language-cpp">#include &lt;cstdint&gt;
+#include &lt;vector&gt;
+
+std::vector&lt;int&gt; findErrorNumsByXor(
+    const std::vector&lt;int&gt;&amp; nums) {
+    const auto n = static_cast&lt;std::uint32_t&gt;(nums.size());
+    std::uint32_t mixed = 0;
+
+    for (std::uint32_t i = 1; i &lt;= n; ++i) {
+        mixed ^= i;
+        mixed ^= static_cast&lt;std::uint32_t&gt;(nums[i - 1]);
+    }
+
+    const std::uint32_t dividingBit = mixed &amp; (0u - mixed);
+    std::uint32_t first = 0;
+    std::uint32_t second = 0;
+
+    auto absorb = [&amp;](std::uint32_t value) {
+        if ((value &amp; dividingBit) == 0) {
+            first ^= value;
+        } else {
+            second ^= value;
+        }
+    };
+
+    for (std::uint32_t i = 1; i &lt;= n; ++i) {
+        absorb(i);
+        absorb(static_cast&lt;std::uint32_t&gt;(nums[i - 1]));
+    }
+
+    for (int value : nums) {
+        if (value == static_cast&lt;int&gt;(first)) {
+            return {static_cast&lt;int&gt;(first),
+                    static_cast&lt;int&gt;(second)};
+        }
+    }
+    return {static_cast&lt;int&gt;(second),
+            static_cast&lt;int&gt;(first)};
+}</code></pre>
+                    <p>这段代码是 <code>O(n)</code> 时间、<code>O(1)</code> 额外空间，但要经历“求异或值、分组、判断身份”三个阶段。位运算法很适合串联 136、260 和 645 的共同思想，不过这道题还有更直接的数学解法。</p>
+
+                    <h3>LeetCode 645：更直接的数学法</h3>
+                    <p>仍设重复数字为 <code>D</code>，缺失数字为 <code>M</code>。实际数组与正确集合的元素和之差为：</p>
+                    <pre><code class="language-text">sumDiff = D - M</code></pre>
+                    <p>平方和之差则是：</p>
+                    <pre><code class="language-text">squareDiff = D² - M²
+           = (D - M)(D + M)</code></pre>
+                    <p>因为 <code>D != M</code>，所以 <code>sumDiff</code> 不会是 0。两式相除可得 <code>D + M = squareDiff / sumDiff</code>，再与 <code>D - M</code> 联立即可求出两个数：</p>
+                    <pre><code class="language-cpp">#include &lt;cstddef&gt;
+#include &lt;vector&gt;
+
+std::vector&lt;int&gt; findErrorNumsByMath(
+    const std::vector&lt;int&gt;&amp; nums) {
+    long long sumDiff = 0;     // D - M
+    long long squareDiff = 0;  // D² - M²
+
+    for (std::size_t i = 0; i &lt; nums.size(); ++i) {
+        const long long actual = nums[i];
+        const long long expected = static_cast&lt;long long&gt;(i) + 1;
+
+        sumDiff += actual - expected;
+        squareDiff += actual * actual - expected * expected;
+    }
+
+    const long long sum = squareDiff / sumDiff;  // D + M
+    const long long duplicate = (sumDiff + sum) / 2;
+    const long long missing = sum - duplicate;
+
+    return {static_cast&lt;int&gt;(duplicate),
+            static_cast&lt;int&gt;(missing)};
+}</code></pre>
+                    <p>数学法同样是 <code>O(n)</code> 时间和 <code>O(1)</code> 额外空间，只需一次遍历，推导也更直接。在这道题的取值范围内使用 <code>long long</code> 可以容纳平方和；如果数据范围更大，就必须重新检查乘法与累加是否会溢出。位运算法没有平方和溢出的问题，但步骤更多。这里的“更好”主要是指代码与推导更简洁，并不意味着所有场景都应无条件选数学法。</p>
+
+                    <h2>基础位操作组合</h2>
+                    <p>下面假设 <code>x</code> 是无符号整数，并且位编号 <code>k</code> 从 0 开始。对 32 位整数，必须保证 <code>0 &lt;= k &lt; 32</code>。</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>操作</th>
+                                    <th>写法</th>
+                                    <th>含义</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>判断奇偶</td>
+                                    <td><code>(x &amp; 1u) != 0</code></td>
+                                    <td>最低位是 1 表示奇数</td>
+                                </tr>
+                                <tr>
+                                    <td>取第 k 位</td>
+                                    <td><code>(x &gt;&gt; k) &amp; 1u</code></td>
+                                    <td>先右移到最低位，再屏蔽其他位</td>
+                                </tr>
+                                <tr>
+                                    <td>第 k 位置 1</td>
+                                    <td><code>x |= 1u &lt;&lt; k</code></td>
+                                    <td>可理解为向集合加入元素 k</td>
+                                </tr>
+                                <tr>
+                                    <td>第 k 位清 0</td>
+                                    <td><code>x &amp;= ~(1u &lt;&lt; k)</code></td>
+                                    <td>可理解为从集合删除元素 k</td>
+                                </tr>
+                                <tr>
+                                    <td>第 k 位翻转</td>
+                                    <td><code>x ^= 1u &lt;&lt; k</code></td>
+                                    <td>0 变 1，1 变 0</td>
+                                </tr>
+                                <tr>
+                                    <td>判断 a 是否是 b 的子集</td>
+                                    <td><code>(a &amp; b) == a</code></td>
+                                    <td>a 中的每一个 1 都必须出现在 b 中</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p><code>x &amp; 1</code> 很适合表达“只关心最低位”，但不必把它当成对 <code>x % 2</code> 的性能优化。现代编译器通常能很好地优化这种简单运算，应优先选择最能表达意图的写法。</p>
+
+                    <h3>异或交换的陷阱</h3>
+                    <p>下面三行确实可以在两个变量之间交换位模式：</p>
+                    <pre><code class="language-cpp">a ^= b;
+b ^= a;
+a ^= b;</code></pre>
+                    <p>但是，如果 <code>a</code> 和 <code>b</code> 实际引用同一个对象，第一行就会执行 <code>x ^= x</code>，立刻把它清成 0。现代代码直接使用 <code>std::swap(a, b)</code> 更清楚，也不会因为同地址而损坏数据；异或交换更适合作为理解异或性质的小实验，而不是生产代码技巧。</p>
+
+                    <h2>ASCII 英文字母大小写转换</h2>
+                    <p>在 ASCII 编码中，同一个英文字母的大写与小写只相差第 5 位，也就是十进制 32：</p>
+                    <pre><code class="language-text">'A' = 0100 0001   (65)
+'a' = 0110 0001   (97)
+' ' = 0010 0000   (32)
+'_' = 0101 1111   (95)</code></pre>
+                    <p>因此可以得到这些小技巧：</p>
+                    <pre><code class="language-cpp">('A' | ' ') == 'a';   // 大写转小写
+('b' &amp; '_') == 'B';   // 小写转大写
+('d' ^ ' ') == 'D';   // 大小写互相切换</code></pre>
+                    <p>这里要特别注意方向：与空格按位或是<strong>大写转小写</strong>，与下划线按位与是<strong>小写转大写</strong>。</p>
+                    <div class="note-box warning">
+                        <strong>适用前提：</strong>这些写法只适用于已经确认是 ASCII 英文字母的字符，不能处理中文、Unicode、区域规则或非法输入。实际字符处理应优先使用标准库，并避免把负的 <code>char</code> 直接传给 <code>std::tolower</code>、<code>std::toupper</code>。
+                    </div>
+
+                    <h2>区间异或：异或前缀和</h2>
+                    <p>异或也能像加法一样建立前缀数组。令 <code>prefix[i]</code> 表示前 <code>i</code> 个元素的异或值：</p>
+                    <pre><code class="language-cpp">#include &lt;cstddef&gt;
+#include &lt;vector&gt;
+
+std::vector&lt;int&gt; buildXorPrefix(const std::vector&lt;int&gt;&amp; nums) {
+    std::vector&lt;int&gt; prefix(nums.size() + 1, 0);
+    for (std::size_t i = 0; i &lt; nums.size(); ++i) {
+        prefix[i + 1] = prefix[i] ^ nums[i];
+    }
+    return prefix;
+}
+
+int rangeXor(const std::vector&lt;int&gt;&amp; prefix,
+             std::size_t left,
+             std::size_t right) {
+    return prefix[right + 1] ^ prefix[left];
+}</code></pre>
+                    <p>因为区间左侧的前缀会出现两次并自行抵消，所以闭区间 <code>[left, right]</code> 的异或值是 <code>prefix[right + 1] ^ prefix[left]</code>。</p>
+                    <p>例如数组 <code>[3, 8, 2, 6]</code> 的前缀异或是 <code>[0, 3, 11, 9, 15]</code>。查询下标 <code>[1, 3]</code> 时，结果为 <code>15 ^ 3 = 12</code>，与直接计算 <code>8 ^ 2 ^ 6 = 12</code> 一致。</p>
+
+                    <h2>看到什么特征，就想到什么工具</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>题目特征</th>
+                                    <th>优先想到</th>
+                                    <th>原因</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>“恰好一次”“其余成对出现”</td>
+                                    <td>全员异或</td>
+                                    <td>相同元素两两抵消</td>
+                                </tr>
+                                <tr>
+                                    <td>实际数据与完整参照只差一个元素</td>
+                                    <td>把两份数据一起异或</td>
+                                    <td>共同部分抵消，只留下单个差异</td>
+                                </tr>
+                                <tr>
+                                    <td>抵消后剩下两个不同元素</td>
+                                    <td>先异或，再用 lowbit 分组</td>
+                                    <td>lowbit 能找到两者必然不同的一位</td>
+                                </tr>
+                                <tr>
+                                    <td>已知范围内一个重复、一个缺失</td>
+                                    <td>元素和与平方和；或异或分组</td>
+                                    <td>数学法更直接，位运算法可避免平方和</td>
+                                </tr>
+                                <tr>
+                                    <td>其余元素都出现 m 次</td>
+                                    <td>拆位统计后对 m 取模</td>
+                                    <td>每一位上的成组贡献都能被消掉</td>
+                                </tr>
+                                <tr>
+                                    <td>求 1 的个数、判断 2 的幂、汉明距离</td>
+                                    <td><code>x &amp; (x - 1)</code></td>
+                                    <td>每次清除最低位的一个 1</td>
+                                </tr>
+                                <tr>
+                                    <td>元素很少，每个元素选或不选</td>
+                                    <td>bitmask 枚举或状压 DP</td>
+                                    <td>一位就能保存一个二元状态</td>
+                                </tr>
+                                <tr>
+                                    <td>静态数组上的区间异或</td>
+                                    <td>异或前缀和</td>
+                                    <td>重复前缀可以用异或抵消</td>
+                                </tr>
+                                <tr>
+                                    <td>动态单点修改与前缀和查询</td>
+                                    <td>lowbit 与树状数组</td>
+                                    <td>lowbit 决定节点管理的区间和跳转路径</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>C++ 位运算检查清单</h2>
+                    <ol>
+                        <li><strong>先写清位宽。</strong>使用 <code>std::uint32_t</code>、<code>std::uint64_t</code> 比依赖 <code>int</code> 的具体宽度更明确。</li>
+                        <li><strong>优先在无符号数上移位。</strong>有符号溢出、负数左移以及超范围移位都容易产生未定义行为。</li>
+                        <li><strong>移位量必须小于类型位宽。</strong>例如 64 位掩码要求 <code>0 &lt;= k &lt; 64</code>，不能计算 <code>1ULL &lt;&lt; 64</code>。</li>
+                        <li><strong>别忘记 0。</strong><code>lowbit(0) = 0</code>；判断 2 的幂时必须显式排除 0；Gosper's Hack 中 <code>k = 0</code> 要单独处理。</li>
+                        <li><strong>把技巧和可读性分开。</strong>位运算适合表示位级意图，但不要为了“看起来更快”替换清晰的普通运算。</li>
+                    </ol>
+
+                    <h2>总结</h2>
+                    <p>LeetCode 136 最值得记住的不是一行 <code>answer ^= value</code>，而是它展示的思考方式：当题目描述中出现“成对抵消”“每一位独立”“选或不选”“只保留某个 1”这些信号时，不妨先把十进制整数拆成二进制位再观察。</p>
+                    <p>异或负责抵消，<code>lowbit</code> 负责定位最低位的 1，<code>x &amp; (x - 1)</code> 负责删除最低位的 1，bitmask 负责压缩集合状态，拆位统计负责累积每一位的贡献。把这些操作和具体题型联系起来，位运算就不再是一堆难背的公式，而会逐渐变成一套自然的算法工具。</p>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right" aria-hidden="true"></aside>
+    </div>
+
+    <script>
+        hljs.highlightAll();
+    </script>
+    <script src="/js/footer.js"></script>
+    <script src="/js/toc.js"></script>
+</body>
+</html>
