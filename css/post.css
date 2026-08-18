@@ -166,6 +166,29 @@ body::-webkit-scrollbar-button {
     padding-left: 0.2em;
 }
 
+.problem-list {
+    list-style: none;
+    margin-left: 0 !important;
+    padding-left: 0 !important;
+}
+
+.post-article .content .problem-list li {
+    margin-bottom: 1rem;
+    padding: 14px 16px;
+    background: var(--subtle-border);
+    border-radius: 10px;
+}
+
+.problem-list a,
+.problem-list span {
+    display: block;
+}
+
+.problem-list span {
+    margin-top: 0.35rem;
+    color: var(--text-primary);
+}
+
 .post-article .content p code,
 .post-article .content li code,
 .post-article .content td code,
