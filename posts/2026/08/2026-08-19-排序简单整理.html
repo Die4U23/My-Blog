@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="图解冒泡、选择、插入、归并、快速、希尔、堆、计数、桶和基数排序，整理复杂度、稳定性、C++ 实现与选择方法。">
+    <script src="/js/theme.js?v=20260819-1"></script>
+    <title>排序简单整理</title>
+    <script src="/js/highlight.min.js?v=20260819-1"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260819-1">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-1">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-1">
+    <link rel="stylesheet" href="/css/common.css?v=20260819-1">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about.html">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>排序简单整理</h1>
+                <p class="post-date">2026-08-19</p>
+
+                <div class="content">
+                    <p>排序的目标，是按照某个关键字把一组元素重新排列。算法题里经常只问“把整数从小到大排好”，但真正选择算法时，还要关心数据规模、是否接近有序、值域大小、能不能使用额外内存，以及相等元素的先后顺序能否改变。</p>
+                    <p>这篇文章把常见排序方法放在一起整理。每种算法都先看一个小图，再看它的核心思路、复杂度和一份尽量短的 C++ 实现。</p>
+
+                    <div class="note-box">
+                        <strong>先记结论：</strong>通用场景优先使用标准库的 <code>std::sort</code>；学习手写排序的主要价值，是理解分治、堆、局部有序、计数和稳定性等思想，而不是在项目中重新造一个更快的 <code>sort</code>。
+                    </div>
+
+                    <h2>先认识四个评价指标</h2>
+                    <ul>
+                        <li><strong>时间复杂度：</strong>数据量为 <code>n</code> 时，大约需要多少次比较或移动。</li>
+                        <li><strong>空间复杂度：</strong>除原数组外，还需要多少额外空间。</li>
+                        <li><strong>稳定性：</strong>两个关键字相等的元素，排序后是否仍保持原来的先后顺序。</li>
+                        <li><strong>原地排序：</strong>是否只用常量级或很少的额外空间直接修改原数组。</li>
+                    </ul>
+
+                    <p>稳定性在只有整数时不明显。假设学生记录按分数排序，<code>小王(90)</code> 原本在 <code>小李(90)</code> 前面；稳定排序会保留这个顺序。因此可以先按姓名排序，再稳定地按分数排序，得到“分数优先、同分时姓名有序”的结果。</p>
+
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>算法</th><th>平均时间</th><th>最坏时间</th><th>额外空间</th><th>稳定</th><th>适合场景</th></tr></thead>
+                            <tbody>
+                                <tr><td>冒泡排序</td><td><code>O(n²)</code></td><td><code>O(n²)</code></td><td><code>O(1)</code></td><td>是</td><td>教学、小规模且接近有序</td></tr>
+                                <tr><td>选择排序</td><td><code>O(n²)</code></td><td><code>O(n²)</code></td><td><code>O(1)</code></td><td>否</td><td>写入代价高、数据很少</td></tr>
+                                <tr><td>插入排序</td><td><code>O(n²)</code></td><td><code>O(n²)</code></td><td><code>O(1)</code></td><td>是</td><td>小数组、近乎有序</td></tr>
+                                <tr><td>归并排序</td><td><code>O(n log n)</code></td><td><code>O(n log n)</code></td><td><code>O(n)</code></td><td>是</td><td>需要稳定、链表、外部排序</td></tr>
+                                <tr><td>快速排序</td><td><code>O(n log n)</code></td><td><code>O(n²)</code></td><td>平均 <code>O(log n)</code></td><td>否</td><td>通用内存数组，缓存友好</td></tr>
+                                <tr><td>希尔排序</td><td>取决于间隔</td><td>常见上界 <code>O(n²)</code></td><td><code>O(1)</code></td><td>否</td><td>中小规模、实现简单且不需额外空间</td></tr>
+                                <tr><td>堆排序</td><td><code>O(n log n)</code></td><td><code>O(n log n)</code></td><td><code>O(1)</code></td><td>否</td><td>要求最坏时间保证且空间严格</td></tr>
+                                <tr><td>计数排序</td><td><code>O(n + k)</code></td><td><code>O(n + k)</code></td><td><code>O(n + k)</code></td><td>可稳定</td><td>整数值域 <code>k</code> 较小</td></tr>
+                                <tr><td>桶排序</td><td>平均 <code>O(n + k)</code></td><td><code>O(n²)</code></td><td><code>O(n + k)</code></td><td>取决于桶内排序</td><td>分布较均匀</td></tr>
+                                <tr><td>基数排序</td><td><code>O(d(n + b))</code></td><td><code>O(d(n + b))</code></td><td><code>O(n + b)</code></td><td>是</td><td>固定位数整数或字符串</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>其中 <code>k</code> 表示值域或桶数，<code>d</code> 表示处理的位数，<code>b</code> 表示每一位的进制。复杂度表只是第一层判断，常数、缓存访问和输入分布同样会影响实际速度。</p>
+
+                    <h2>基础比较排序</h2>
+
+                    <h3>冒泡排序：较大的数逐轮浮到右边</h3>
+                    <p>从左向右比较相邻元素，如果左边更大就交换。完成一轮后，当前未排序部分的最大值一定到达最右端。若某一轮没有发生交换，说明数组已经有序，可以提前结束。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：对 [5, 2, 4, 1] 完成第一轮冒泡</figcaption>
+                        <div class="sort-step"><span class="sort-label">开始</span><span class="sort-array"><b class="sort-cell is-active">5</b><b class="sort-cell is-active">2</b><b class="sort-cell">4</b><b class="sort-cell">1</b></span><span class="sort-note">5 &gt; 2，交换</span></div>
+                        <div class="sort-step"><span class="sort-label">比较 5,4</span><span class="sort-array"><b class="sort-cell">2</b><b class="sort-cell is-active">5</b><b class="sort-cell is-active">4</b><b class="sort-cell">1</b></span><span class="sort-note">5 &gt; 4，交换</span></div>
+                        <div class="sort-step"><span class="sort-label">比较 5,1</span><span class="sort-array"><b class="sort-cell">2</b><b class="sort-cell">4</b><b class="sort-cell is-active">5</b><b class="sort-cell is-active">1</b></span><span class="sort-note">5 &gt; 1，交换</span></div>
+                        <div class="sort-step"><span class="sort-label">第一轮后</span><span class="sort-array"><b class="sort-cell">2</b><b class="sort-cell">4</b><b class="sort-cell">1</b><b class="sort-cell is-fixed">5</b></span><span class="sort-note">最大值 5 已固定</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void bubbleSort(std::vector&lt;int&gt;&amp; a) {
+    for (std::size_t end = a.size(); end &gt; 1; --end) {
+        bool swapped = false;
+        for (std::size_t i = 1; i &lt; end; ++i) {
+            if (a[i - 1] &gt; a[i]) {
+                std::swap(a[i - 1], a[i]);
+                swapped = true;
+            }
+        }
+        if (!swapped) break;
+    }
+}</code></pre>
+                    <p>只有严格大于时才交换，相等元素不会越过彼此，所以冒泡排序是稳定的。带提前结束时，已经有序的输入只需 <code>O(n)</code>。</p>
+
+                    <h3>选择排序：每轮选出最小值</h3>
+                    <p>把数组分为左侧已排序区和右侧未排序区。每一轮从未排序区找出最小值，与未排序区第一个元素交换。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：对 [5, 2, 4, 1] 做两轮选择</figcaption>
+                        <div class="sort-step"><span class="sort-label">找最小值</span><span class="sort-array"><b class="sort-cell">5</b><b class="sort-cell">2</b><b class="sort-cell">4</b><b class="sort-cell is-picked">1</b></span><span class="sort-note">1 是全局最小值</span></div>
+                        <div class="sort-step"><span class="sort-label">第 1 轮</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell">2</b><b class="sort-cell">4</b><b class="sort-cell">5</b></span><span class="sort-note">1 与首元素交换</span></div>
+                        <div class="sort-step"><span class="sort-label">第 2 轮</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">2</b><b class="sort-cell">4</b><b class="sort-cell">5</b></span><span class="sort-note">未排序区最小值 2 已在原位</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void selectionSort(std::vector&lt;int&gt;&amp; a) {
+    for (std::size_t i = 0; i &lt; a.size(); ++i) {
+        std::size_t minIndex = i;
+        for (std::size_t j = i + 1; j &lt; a.size(); ++j) {
+            if (a[j] &lt; a[minIndex]) minIndex = j;
+        }
+        if (minIndex != i) std::swap(a[i], a[minIndex]);
+    }
+}</code></pre>
+                    <p>选择排序无论输入是否有序，都要完成约 <code>n²/2</code> 次比较；但最多只交换 <code>n - 1</code> 次。一次远距离交换可能跨过相等元素，因此普通选择排序不稳定。</p>
+
+                    <h3>插入排序：把新牌插进有序手牌</h3>
+                    <p>假设左侧已经有序，取出右侧第一个元素作为 <code>key</code>，把比它大的元素依次右移，再把它放进空出的位置。它很像摸到一张新扑克牌后插入手牌。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：把 2 插入已经有序的 [1, 4, 5]</figcaption>
+                        <div class="sort-step"><span class="sort-label">取出 2</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">4</b><b class="sort-cell is-fixed">5</b><b class="sort-cell is-picked">2</b></span><span class="sort-note">左侧 [1,4,5] 已有序</span></div>
+                        <div class="sort-step"><span class="sort-label">右移</span><span class="sort-array"><b class="sort-cell">1</b><b class="sort-cell is-active">4</b><b class="sort-cell is-active">5</b><b class="sort-cell">·</b></span><span class="sort-note">5、4 都比 2 大</span></div>
+                        <div class="sort-step"><span class="sort-label">插入</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell is-picked">2</b><b class="sort-cell is-fixed">4</b><b class="sort-cell is-fixed">5</b></span><span class="sort-note">把 2 放进空位</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void insertionSort(std::vector&lt;int&gt;&amp; a) {
+    for (std::size_t i = 1; i &lt; a.size(); ++i) {
+        int key = a[i];
+        std::size_t j = i;
+        while (j &gt; 0 &amp;&amp; a[j - 1] &gt; key) {
+            a[j] = a[j - 1];
+            --j;
+        }
+        a[j] = key;
+    }
+}</code></pre>
+                    <p>数组越接近有序，需要移动的元素越少，最好时间为 <code>O(n)</code>。判断条件写成 <code>a[j - 1] &gt; key</code> 而不是 <code>&gt;=</code>，就不会越过相等元素，因此保持稳定。</p>
+
+                    <h2>分治排序</h2>
+
+                    <h3>归并排序：先分开，再合并</h3>
+                    <p>归并排序把数组不断对半分，直到每段只剩一个元素。单个元素天然有序，再把相邻的两个有序段合并。合并时只比较两个段的队首，取较小者放入临时数组。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：拆分并合并 [5, 2, 4, 1]</figcaption>
+                        <div class="sort-step"><span class="sort-label">拆分</span><span class="sort-array"><b class="sort-cell">5</b><b class="sort-cell">2</b><b class="sort-cell">4</b><b class="sort-cell">1</b></span><span class="sort-note">对半分为 [5,2] 与 [4,1]</span></div>
+                        <div class="sort-step"><span class="sort-label">小段有序</span><span class="sort-array"><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">5</b><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">4</b></span><span class="sort-note">分别得到 [2,5] 与 [1,4]</span></div>
+                        <div class="sort-step"><span class="sort-label">合并 1</span><span class="sort-array"><b class="sort-cell is-picked">1</b><b class="sort-cell">2</b><b class="sort-cell">5</b><b class="sort-cell">4</b></span><span class="sort-note">比较队首 2 与 1，先取 1</span></div>
+                        <div class="sort-step"><span class="sort-label">完成</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">4</b><b class="sort-cell is-fixed">5</b></span><span class="sort-note">继续依次取较小者</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void mergeSortImpl(std::vector&lt;int&gt;&amp; a, std::vector&lt;int&gt;&amp; temp,
+                   int left, int right) {
+    if (right - left &lt;= 1) return;
+    const int mid = left + (right - left) / 2;
+    mergeSortImpl(a, temp, left, mid);
+    mergeSortImpl(a, temp, mid, right);
+
+    int i = left, j = mid, out = left;
+    while (i &lt; mid &amp;&amp; j &lt; right) {
+        if (a[i] &lt;= a[j]) temp[out++] = a[i++];
+        else temp[out++] = a[j++];
+    }
+    while (i &lt; mid) temp[out++] = a[i++];
+    while (j &lt; right) temp[out++] = a[j++];
+    for (int k = left; k &lt; right; ++k) a[k] = temp[k];
+}
+
+void mergeSort(std::vector&lt;int&gt;&amp; a) {
+    std::vector&lt;int&gt; temp(a.size());
+    mergeSortImpl(a, temp, 0, static_cast&lt;int&gt;(a.size()));
+}</code></pre>
+                    <p>每一层合并总共处理 <code>n</code> 个元素，一共有约 <code>log n</code> 层，所以时间始终是 <code>O(n log n)</code>。合并时相等就先取左段元素，才能保持稳定。代价是通常需要 <code>O(n)</code> 临时空间。</p>
+
+                    <h3>快速排序：让基准一次归位</h3>
+                    <p>选一个基准值 <code>pivot</code>，把小于等于它的元素放到左侧，更大的放到右侧；基准到达最终位置后，再递归处理两边。下面使用末尾元素作基准的 Lomuto 分区。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：以 4 为基准划分 [5, 2, 1, 4]</figcaption>
+                        <div class="sort-step"><span class="sort-label">选基准</span><span class="sort-array"><b class="sort-cell">5</b><b class="sort-cell">2</b><b class="sort-cell">1</b><b class="sort-cell is-picked">4</b></span><span class="sort-note">pivot = 4</span></div>
+                        <div class="sort-step"><span class="sort-label">扫描</span><span class="sort-array"><b class="sort-cell">2</b><b class="sort-cell">1</b><b class="sort-cell is-active">5</b><b class="sort-cell is-picked">4</b></span><span class="sort-note">2、1 被移到左侧</span></div>
+                        <div class="sort-step"><span class="sort-label">基准归位</span><span class="sort-array"><b class="sort-cell">2</b><b class="sort-cell">1</b><b class="sort-cell is-fixed">4</b><b class="sort-cell">5</b></span><span class="sort-note">4 的最终下标已经确定</span></div>
+                        <div class="sort-step"><span class="sort-label">递归后</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">4</b><b class="sort-cell is-fixed">5</b></span><span class="sort-note">分别排序左右两段</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">int partition(std::vector&lt;int&gt;&amp; a, int left, int right) {
+    const int pivot = a[right];
+    int boundary = left;
+    for (int i = left; i &lt; right; ++i) {
+        if (a[i] &lt;= pivot) {
+            std::swap(a[i], a[boundary]);
+            ++boundary;
+        }
+    }
+    std::swap(a[boundary], a[right]);
+    return boundary;
+}
+
+void quickSort(std::vector&lt;int&gt;&amp; a, int left, int right) {
+    if (left &gt;= right) return;
+    const int pivotIndex = partition(a, left, right);
+    quickSort(a, left, pivotIndex - 1);
+    quickSort(a, pivotIndex + 1, right);
+}</code></pre>
+                    <p>分区均衡时递归约 <code>log n</code> 层，总时间为 <code>O(n log n)</code>。若每次都选到最小或最大值，递归会退化成链，时间与栈深度分别变成 <code>O(n²)</code> 和 <code>O(n)</code>。随机选基准、三数取中和三路分区都能降低退化风险。分区中的跨越交换会改变相等元素的顺序，所以通常不稳定。</p>
+
+                    <h2>希尔排序与堆排序</h2>
+
+                    <h3>希尔排序：先让元素大步接近目标位置</h3>
+                    <p>插入排序在近乎有序时很快，但一个小元素若在数组末尾，只能一步一步向前移动。希尔排序先选较大的间隔 <code>gap</code>，对相隔 <code>gap</code> 的元素做插入排序，再逐步缩小间隔，最后以 <code>gap = 1</code> 完成普通插入排序。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：对 [8, 5, 3, 7, 6, 2, 1, 4] 先用 gap = 4</figcaption>
+                        <div class="sort-step"><span class="sort-label">分组</span><span class="sort-array"><b class="sort-cell is-active">8</b><b class="sort-cell">5</b><b class="sort-cell">3</b><b class="sort-cell">7</b><b class="sort-cell is-active">6</b><b class="sort-cell">2</b><b class="sort-cell">1</b><b class="sort-cell">4</b></span><span class="sort-note">下标 0、4 属于同一组</span></div>
+                        <div class="sort-step"><span class="sort-label">gap = 4</span><span class="sort-array"><b class="sort-cell">6</b><b class="sort-cell">2</b><b class="sort-cell">1</b><b class="sort-cell">4</b><b class="sort-cell">8</b><b class="sort-cell">5</b><b class="sort-cell">3</b><b class="sort-cell">7</b></span><span class="sort-note">每组内部有序，大数小数完成远距离移动</span></div>
+                        <div class="sort-step"><span class="sort-label">gap = 2</span><span class="sort-array"><b class="sort-cell">1</b><b class="sort-cell">2</b><b class="sort-cell">3</b><b class="sort-cell">4</b><b class="sort-cell">6</b><b class="sort-cell">5</b><b class="sort-cell">8</b><b class="sort-cell">7</b></span><span class="sort-note">整体更接近有序</span></div>
+                        <div class="sort-step"><span class="sort-label">gap = 1</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">3</b><b class="sort-cell is-fixed">4</b><b class="sort-cell is-fixed">5</b><b class="sort-cell is-fixed">6</b><b class="sort-cell is-fixed">7</b><b class="sort-cell is-fixed">8</b></span><span class="sort-note">最后一次插入排序移动很少</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void shellSort(std::vector&lt;int&gt;&amp; a) {
+    for (std::size_t gap = a.size() / 2; gap &gt; 0; gap /= 2) {
+        for (std::size_t i = gap; i &lt; a.size(); ++i) {
+            int value = a[i];
+            std::size_t j = i;
+            while (j &gt;= gap &amp;&amp; a[j - gap] &gt; value) {
+                a[j] = a[j - gap];
+                j -= gap;
+            }
+            a[j] = value;
+        }
+    }
+}</code></pre>
+                    <p>希尔排序的复杂度高度依赖间隔序列，不能简单写成一个固定平均值。上面的折半间隔容易理解，但不一定最好。相等元素可能分到不同组并跨越移动，因此不稳定。</p>
+
+                    <h3>堆排序：反复取出最大值</h3>
+                    <p>大根堆是一棵完全二叉树，每个父节点都不小于子节点，因此根节点一定是最大值。数组可以直接表示堆：下标 <code>i</code> 的左右孩子是 <code>2i + 1</code> 和 <code>2i + 2</code>。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：把大根堆 [5, 4, 3, 1, 2] 的最大值放到末尾</figcaption>
+                        <div class="sort-step"><span class="sort-label">大根堆</span><span class="sort-array"><b class="sort-cell is-picked">5</b><b class="sort-cell">4</b><b class="sort-cell">3</b><b class="sort-cell">1</b><b class="sort-cell">2</b></span><span class="sort-note">数组首元素就是堆顶最大值</span></div>
+                        <div class="sort-step"><span class="sort-label">交换末尾</span><span class="sort-array"><b class="sort-cell is-active">2</b><b class="sort-cell">4</b><b class="sort-cell">3</b><b class="sort-cell">1</b><b class="sort-cell is-fixed">5</b></span><span class="sort-note">5 离开堆并进入有序区</span></div>
+                        <div class="sort-step"><span class="sort-label">向下调整</span><span class="sort-array"><b class="sort-cell is-picked">4</b><b class="sort-cell">2</b><b class="sort-cell">3</b><b class="sort-cell">1</b><b class="sort-cell is-fixed">5</b></span><span class="sort-note">4 上浮，前四项恢复为大根堆</span></div>
+                        <div class="sort-step"><span class="sort-label">重复</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">3</b><b class="sort-cell is-fixed">4</b><b class="sort-cell is-fixed">5</b></span><span class="sort-note">依次固定剩余最大值</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void siftDown(std::vector&lt;int&gt;&amp; a, int root, int heapSize) {
+    while (true) {
+        int largest = root;
+        const int left = 2 * root + 1;
+        const int right = 2 * root + 2;
+        if (left &lt; heapSize &amp;&amp; a[left] &gt; a[largest]) largest = left;
+        if (right &lt; heapSize &amp;&amp; a[right] &gt; a[largest]) largest = right;
+        if (largest == root) return;
+        std::swap(a[root], a[largest]);
+        root = largest;
+    }
+}
+
+void heapSort(std::vector&lt;int&gt;&amp; a) {
+    const int n = static_cast&lt;int&gt;(a.size());
+    for (int i = n / 2 - 1; i &gt;= 0; --i) siftDown(a, i, n);
+    for (int end = n - 1; end &gt; 0; --end) {
+        std::swap(a[0], a[end]);
+        siftDown(a, 0, end);
+    }
+}</code></pre>
+                    <p>从最后一个非叶节点向前调整可以在线性时间建堆；随后取出 <code>n</code> 次堆顶，每次调整 <code>O(log n)</code>，总时间是 <code>O(n log n)</code>。它原地且最坏时间有保证，但访问位置跳跃，缓存局部性通常不如快速排序；交换堆顶也会破坏稳定性。</p>
+
+                    <h2>不基于比较的线性排序</h2>
+                    <p>只依靠“两个元素谁更小”的比较排序，在一般模型下最坏需要 <code>Ω(n log n)</code> 次比较。计数、桶和基数排序之所以有机会接近线性时间，是因为它们利用了整数值域、分布或数位结构等额外信息，并不是突破了比较排序的下界。</p>
+
+                    <h3>计数排序：统计每个值出现几次</h3>
+                    <p>如果数据都是整数且值域不大，可以创建计数数组。遍历输入统计频次，再按值从小到大把元素写回。处理负数时，用最小值作为偏移。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：排序 [3, 1, 2, 3, 0, 2]</figcaption>
+                        <div class="sort-step"><span class="sort-label">原数组</span><span class="sort-array"><b class="sort-cell">3</b><b class="sort-cell">1</b><b class="sort-cell">2</b><b class="sort-cell">3</b><b class="sort-cell">0</b><b class="sort-cell">2</b></span><span class="sort-note">值域只有 0 到 3</span></div>
+                        <div class="sort-step"><span class="sort-label">计数</span><span class="sort-array"><b class="sort-cell">1</b><b class="sort-cell">1</b><b class="sort-cell">2</b><b class="sort-cell">2</b></span><span class="sort-note">count[0..3] = [1,1,2,2]</span></div>
+                        <div class="sort-step"><span class="sort-label">展开</span><span class="sort-array"><b class="sort-cell is-fixed">0</b><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">3</b><b class="sort-cell is-fixed">3</b></span><span class="sort-note">按频次依次写回</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void countingSort(std::vector&lt;int&gt;&amp; a) {
+    if (a.empty()) return;
+    const auto [minIt, maxIt] = std::minmax_element(a.begin(), a.end());
+    const int minValue = *minIt;
+    const int maxValue = *maxIt;
+    const std::int64_t range =
+        static_cast&lt;std::int64_t&gt;(maxValue) - minValue + 1;
+
+    std::vector&lt;std::size_t&gt; count(static_cast&lt;std::size_t&gt;(range));
+    for (int value : a) {
+        const auto offset = static_cast&lt;std::int64_t&gt;(value) - minValue;
+        ++count[static_cast&lt;std::size_t&gt;(offset)];
+    }
+
+    std::size_t out = 0;
+    for (std::int64_t offset = 0; offset &lt; range; ++offset) {
+        auto&amp; frequency = count[static_cast&lt;std::size_t&gt;(offset)];
+        while (frequency &gt; 0) {
+            a[out++] = static_cast&lt;int&gt;(offset + minValue);
+            --frequency;
+        }
+    }
+}</code></pre>
+                    <p>这份简化实现只排序整数值，没有保留附属记录，所以谈不上观察对象稳定性。若要稳定排序“带关键字的记录”，需把频次改为前缀和，并从输入末尾向前放入输出数组。还要先检查 <code>max - min</code> 是否合理：排序 5 个数却开几十亿个计数格显然得不偿失。</p>
+
+                    <h3>桶排序：先分区，再排桶内</h3>
+                    <p>桶排序把数值范围切成若干区间，每个元素先进入对应桶。桶内各自排序后，按桶的顺序拼接。若元素分布均匀，各桶都很小，总耗时可以接近线性。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：把 [29, 25, 3, 49, 9, 37, 21, 43] 按十位分桶</figcaption>
+                        <div class="bucket-row"><span class="bucket-name">0～9</span><span class="bucket-box"><b class="sort-cell">3</b><b class="sort-cell">9</b></span></div>
+                        <div class="bucket-row"><span class="bucket-name">20～29</span><span class="bucket-box"><b class="sort-cell">29</b><b class="sort-cell">25</b><b class="sort-cell">21</b></span><span class="sort-note">桶内再排序为 21,25,29</span></div>
+                        <div class="bucket-row"><span class="bucket-name">30～39</span><span class="bucket-box"><b class="sort-cell">37</b></span></div>
+                        <div class="bucket-row"><span class="bucket-name">40～49</span><span class="bucket-box"><b class="sort-cell">49</b><b class="sort-cell">43</b></span></div>
+                        <div class="sort-step"><span class="sort-label">拼接</span><span class="sort-array"><b class="sort-cell is-fixed">3</b><b class="sort-cell is-fixed">9</b><b class="sort-cell is-fixed">21</b><b class="sort-cell is-fixed">25</b><b class="sort-cell is-fixed">29</b><b class="sort-cell is-fixed">37</b><b class="sort-cell is-fixed">43</b><b class="sort-cell is-fixed">49</b></span><span class="sort-note">按桶编号依次收集</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void bucketSort(std::vector&lt;int&gt;&amp; a, int bucketWidth) {
+    if (a.empty() || bucketWidth &lt;= 0) return;
+    const auto [minIt, maxIt] = std::minmax_element(a.begin(), a.end());
+    const int minValue = *minIt;
+    const std::int64_t range =
+        static_cast&lt;std::int64_t&gt;(*maxIt) - minValue;
+    const std::size_t bucketCount =
+        static_cast&lt;std::size_t&gt;(range / bucketWidth + 1);
+
+    std::vector&lt;std::vector&lt;int&gt;&gt; buckets(bucketCount);
+    for (int value : a) {
+        const auto index = static_cast&lt;std::size_t&gt;(
+            (static_cast&lt;std::int64_t&gt;(value) - minValue) / bucketWidth);
+        buckets[index].push_back(value);
+    }
+
+    std::size_t out = 0;
+    for (auto&amp; bucket : buckets) {
+        std::sort(bucket.begin(), bucket.end());
+        for (int value : bucket) a[out++] = value;
+    }
+}</code></pre>
+                    <p>桶宽过大时，大量元素挤进同一个桶，性能退化为桶内排序的复杂度；桶宽太小又会浪费大量空桶。桶排序的关键不是套公式，而是根据数据分布设计映射。稳定性取决于放桶、桶内排序和收集过程是否都保持顺序。</p>
+
+                    <h3>基数排序：按个位、十位、百位依次整理</h3>
+                    <p>最低位优先（LSD）基数排序先按个位稳定排序，再按十位稳定排序，直到最高位。后一次排序不能打乱前面数位已经形成的顺序，所以每一轮必须使用稳定排序，常见做法是稳定的计数排序。</p>
+                    <figure class="sort-figure">
+                        <figcaption>例：LSD 基数排序 [170, 45, 75, 90, 802, 24, 2, 66]</figcaption>
+                        <div class="sort-step"><span class="sort-label">原数组</span><span class="sort-array"><b class="sort-cell">170</b><b class="sort-cell">45</b><b class="sort-cell">75</b><b class="sort-cell">90</b><b class="sort-cell">802</b><b class="sort-cell">24</b><b class="sort-cell">2</b><b class="sort-cell">66</b></span><span class="sort-note">不足的高位视为 0</span></div>
+                        <div class="sort-step"><span class="sort-label">按个位</span><span class="sort-array"><b class="sort-cell">170</b><b class="sort-cell">90</b><b class="sort-cell">802</b><b class="sort-cell">2</b><b class="sort-cell">24</b><b class="sort-cell">45</b><b class="sort-cell">75</b><b class="sort-cell">66</b></span><span class="sort-note">个位相同时保持原顺序</span></div>
+                        <div class="sort-step"><span class="sort-label">按十位</span><span class="sort-array"><b class="sort-cell">802</b><b class="sort-cell">2</b><b class="sort-cell">24</b><b class="sort-cell">45</b><b class="sort-cell">66</b><b class="sort-cell">170</b><b class="sort-cell">75</b><b class="sort-cell">90</b></span><span class="sort-note">个位顺序仍被保留</span></div>
+                        <div class="sort-step"><span class="sort-label">按百位</span><span class="sort-array"><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">24</b><b class="sort-cell is-fixed">45</b><b class="sort-cell is-fixed">66</b><b class="sort-cell is-fixed">75</b><b class="sort-cell is-fixed">90</b><b class="sort-cell is-fixed">170</b><b class="sort-cell is-fixed">802</b></span><span class="sort-note">排序完成</span></div>
+                    </figure>
+                    <pre><code class="language-cpp">void radixSortNonNegative(std::vector&lt;int&gt;&amp; a) {
+    if (a.empty()) return;
+    const int maxValue = *std::max_element(a.begin(), a.end());
+    std::vector&lt;int&gt; output(a.size());
+
+    for (std::int64_t exp = 1; maxValue / exp &gt; 0; exp *= 10) {
+        std::array&lt;std::size_t, 10&gt; count{};
+        for (int value : a) ++count[(value / exp) % 10];
+        for (std::size_t i = 1; i &lt; count.size(); ++i) {
+            count[i] += count[i - 1];
+        }
+        for (std::size_t i = a.size(); i-- &gt; 0; ) {
+            const int digit = static_cast&lt;int&gt;((a[i] / exp) % 10);
+            output[--count[digit]] = a[i];
+        }
+        a.swap(output);
+    }
+}</code></pre>
+                    <p>这份版本只接受非负整数，并用 64 位 <code>exp</code> 避免乘 10 时溢出。若要处理负数，可以分离负数与非负数后分别处理，也可以对无符号位模式设计统一的字节级基数排序，但不能直接把负数塞进上面的十进制桶下标。</p>
+
+                    <h2>这些算法之间有什么联系</h2>
+                    <ul>
+                        <li><strong>冒泡、选择、插入</strong>都容易手写，但处理普通大数组通常是 <code>O(n²)</code>；其中插入排序最值得作为小区间优化。</li>
+                        <li><strong>归并和快速</strong>都使用分治。归并先递归再合并，稳定但需要缓冲区；快速排序先分区再递归，通常原地且缓存友好。</li>
+                        <li><strong>希尔排序</strong>是分组的插入排序，先消灭远距离逆序；<strong>堆排序</strong>借助堆反复选择最大值，可看作改进的选择排序。</li>
+                        <li><strong>计数、桶、基数</strong>都利用关键字结构。计数排序按完整值计数，桶排序按范围分组，基数排序按数位反复稳定分组。</li>
+                    </ul>
+
+                    <h2>实际应该怎么选</h2>
+                    <ol>
+                        <li><strong>普通 C++ 数组：</strong>使用 <code>std::sort</code>，平均和最坏都能获得可靠的 <code>O(n log n)</code> 级别表现。</li>
+                        <li><strong>必须稳定：</strong>使用 <code>std::stable_sort</code>，或在适合的场景使用归并排序。</li>
+                        <li><strong>数据很小或近乎有序：</strong>插入排序简单而且常数小；成熟通用排序也常在小区间切换到类似策略。</li>
+                        <li><strong>最坏时间必须是 O(n log n)，额外空间又很紧：</strong>考虑堆排序。</li>
+                        <li><strong>整数值域远小于数据量：</strong>计数排序可能非常合适。</li>
+                        <li><strong>数据分布已知且均匀：</strong>可以设计桶排序；先确认极端分布下的退化行为。</li>
+                        <li><strong>大量固定位数整数或字符串：</strong>基数排序有机会超过比较排序，但要考虑内存、位数和实现复杂度。</li>
+                    </ol>
+
+                    <h3>标准库的最小用法</h3>
+                    <pre><code class="language-cpp">#include &lt;algorithm&gt;
+#include &lt;vector&gt;
+
+std::vector&lt;int&gt; values{5, 2, 4, 1};
+
+std::sort(values.begin(), values.end());               // 升序
+std::sort(values.begin(), values.end(), std::greater&lt;&gt;{}); // 降序
+
+struct Student { std::string name; int score; };
+std::vector&lt;Student&gt; students{/* ... */};
+std::stable_sort(students.begin(), students.end(),
+    [](const Student&amp; a, const Student&amp; b) {
+        return a.score &gt; b.score;
+    });</code></pre>
+                    <div class="note-box warning">
+                        <strong>比较器常见错误：</strong>不要写 <code>a.score &gt;= b.score</code>。标准库比较器必须表达严格弱序；当两个元素相等时，<code>comp(a, b)</code> 和 <code>comp(b, a)</code> 都应为假。
+                    </div>
+
+                    <h2>最后的记忆线索</h2>
+                    <ul>
+                        <li>冒泡：交换相邻逆序对，最大值逐轮到右边。</li>
+                        <li>选择：从未排序区选最小值，放到左边。</li>
+                        <li>插入：左侧始终有序，把新元素插进去。</li>
+                        <li>归并：拆成小段，两个有序段再合并。</li>
+                        <li>快速：选基准做分区，让基准一次归位。</li>
+                        <li>希尔：先大步分组插入，最后小步收尾。</li>
+                        <li>堆：建大根堆，反复把最大值送到末尾。</li>
+                        <li>计数：值不多，就数每个值出现几次。</li>
+                        <li>桶：范围可分，就先分桶再排桶内。</li>
+                        <li>基数：一位一位稳定排序，从低位推到高位。</li>
+                    </ul>
+                    <p>真正掌握排序，不是背完十段模板，而是拿到数据后先问：我能利用哪些输入性质？是否要求稳定？空间是否受限？最坏情况能否接受？这些问题回答清楚，算法选择通常就不会太远。</p>
+
+                    <div class="legend-row" aria-label="排序图例">
+                        <span><i class="legend-dot"></i>正在比较或移动</span>
+                        <span><i class="legend-dot picked"></i>当前选中的元素</span>
+                        <span><i class="legend-dot fixed"></i>已确定或已排序</span>
+                    </div>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260819-1"></script>
+    <script src="/js/toc.js?v=20260819-1"></script>
+</body>
+</html>
