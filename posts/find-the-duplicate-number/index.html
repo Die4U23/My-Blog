@@ -35,8 +35,19 @@
                 <p class="post-date">2026-08-19</p>
 
                 <div class="content">
-                    <p><a href="https://leetcode.cn/problems/find-the-duplicate-number/description/?envType=study-plan-v2&amp;envId=top-100-liked" target="_blank" rel="noopener noreferrer">LeetCode 287. 寻找重复数</a> 给出一个长度为 <code>n + 1</code> 的数组，其中每个数都在 <code>[1, n]</code> 内，并且只有一个整数重复出现。要求在不修改数组、只使用 <code>O(1)</code> 额外空间的条件下找出重复数。</p>
+                    <p><strong>LeetCode 287. 寻找重复数</strong> 给出一个长度为 <code>n + 1</code> 的数组，其中每个数都在 <code>[1, n]</code> 内，并且只有一个整数重复出现。要求在不修改数组、只使用 <code>O(1)</code> 额外空间的条件下找出重复数。</p>
                     <p>这道题最难的不是快慢指针本身，而是想到：<strong>数组可以被看成一张链表，而重复数就是链表的环入口。</strong>第一次遇到时，这个转化很不自然，所以这篇笔记重点记录“为什么”，而不只是背两段指针代码。</p>
+
+                    <ul class="problem-list" aria-label="相关题目">
+                        <li>
+                            <a class="link link--bold" href="https://leetcode.cn/problems/find-the-duplicate-number/description/?envType=study-plan-v2&amp;envId=top-100-liked" target="_blank" rel="noopener noreferrer">287. 寻找重复数 ↗</a>
+                            <span>本文主问题：把数组解释成函数图，在 <code>O(1)</code> 额外空间内寻找重复数。</span>
+                        </li>
+                        <li>
+                            <a class="link link--bold" href="https://leetcode.cn/problems/linked-list-cycle-ii/" target="_blank" rel="noopener noreferrer">142. 环形链表 II ↗</a>
+                            <span>真正的链表版本：使用 Floyd 快慢指针寻找链表开始入环的第一个节点。</span>
+                        </li>
+                    </ul>
 
                     <div class="note-box">
                         <strong>核心结论：</strong>把下标 <code>i</code> 看成节点，把 <code>nums[i]</code> 看成节点 <code>i</code> 指向的下一个节点。重复的数组值会让同一个节点拥有多个前驱，于是从下标 <code>0</code> 出发一定会走进一个环；这个环的入口恰好就是重复数。
