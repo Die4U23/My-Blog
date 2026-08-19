@@ -93,7 +93,7 @@ cat > "$FILENAME" <<EOF
 	<script>
 		hljs.highlightAll();
 	</script>
-	<script src="/js/footer.js?v=20260818-1"></script>
+	<script src="/js/footer.js?v=20260819-2"></script>
 	<script src="/js/toc.js?v=20260818-1"></script>
 
 </body>

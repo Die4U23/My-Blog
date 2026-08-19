@@ -14,6 +14,9 @@
             <div>
                 © 2026 Daydreamer.
             </div>
+            <div>
+                <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">桂ICP备2026018300号</a>
+            </div>
         </footer>
     `;
     document.body.insertAdjacentHTML('beforeend', footerHTML);
