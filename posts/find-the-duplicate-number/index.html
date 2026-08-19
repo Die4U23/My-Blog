@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="LeetCode 287 寻找重复数题解：把数组看成函数图，理解为什么重复数等于链表环入口，并用 Floyd 快慢指针在 O(n) 时间、O(1) 空间内求解。">
+    <script src="/js/theme.js?v=20260819-1"></script>
+    <title>287. 寻找重复数：数组为什么能转化成链表环</title>
+    <script src="/js/highlight.min.js?v=20260819-1"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260819-1">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-1">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-1">
+    <link rel="stylesheet" href="/css/common.css?v=20260819-1">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>287. 寻找重复数：数组为什么能转化成链表环</h1>
+                <p class="post-date">2026-08-19</p>
+
+                <div class="content">
+                    <p><a href="https://leetcode.cn/problems/find-the-duplicate-number/description/?envType=study-plan-v2&amp;envId=top-100-liked" target="_blank" rel="noopener noreferrer">LeetCode 287. 寻找重复数</a> 给出一个长度为 <code>n + 1</code> 的数组，其中每个数都在 <code>[1, n]</code> 内，并且只有一个整数重复出现。要求在不修改数组、只使用 <code>O(1)</code> 额外空间的条件下找出重复数。</p>
+                    <p>这道题最难的不是快慢指针本身，而是想到：<strong>数组可以被看成一张链表，而重复数就是链表的环入口。</strong>第一次遇到时，这个转化很不自然，所以这篇笔记重点记录“为什么”，而不只是背两段指针代码。</p>
+
+                    <div class="note-box">
+                        <strong>核心结论：</strong>把下标 <code>i</code> 看成节点，把 <code>nums[i]</code> 看成节点 <code>i</code> 指向的下一个节点。重复的数组值会让同一个节点拥有多个前驱，于是从下标 <code>0</code> 出发一定会走进一个环；这个环的入口恰好就是重复数。
+                    </div>
+
+                    <h2>题目限制在暗示什么</h2>
+                    <p>如果只要求返回重复数，最直观的做法是使用哈希集合：遇到已经出现过的数字就返回。但是集合需要 <code>O(n)</code> 空间，不满足题意。</p>
+                    <p>排序后检查相邻元素也很容易，但排序会修改数组；即使先复制一份再排序，复制又需要 <code>O(n)</code> 空间。题目同时禁止这两条常见路线，说明答案必须利用数组值域的特殊性质。</p>
+
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>条件</th><th>提供的信息</th><th>带来的联想</th></tr></thead>
+                            <tbody>
+                                <tr><td>长度为 <code>n + 1</code></td><td>下标是 <code>0 ... n</code></td><td>一共有 <code>n + 1</code> 个可作为节点的下标</td></tr>
+                                <tr><td><code>1 &lt;= nums[i] &lt;= n</code></td><td>每个数组值都是合法下标</td><td>可以执行 <code>i = nums[i]</code>，不断跳到下一个位置</td></tr>
+                                <tr><td>只有一个整数重复</td><td>至少两个下标保存同一个值</td><td>至少两条边会指向同一个节点</td></tr>
+                                <tr><td>不能修改数组，空间 <code>O(1)</code></td><td>不能排序、标记或使用哈希表</td><td>考虑链表环检测的快慢指针</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>第一步：把数组读成一张“链表”</h2>
+                    <p>通常读取数组时，<code>nums[i]</code> 只是下标 <code>i</code> 处保存的数。现在换一种解释：</p>
+                    <ul>
+                        <li>每个<strong>下标</strong> <code>i</code> 是一个节点；</li>
+                        <li><code>nums[i]</code> 是节点 <code>i</code> 的下一个节点；</li>
+                        <li>也就是定义一条边 <code>i -&gt; nums[i]</code>。</li>
+                    </ul>
+                    <p>因为所有 <code>nums[i]</code> 都在 <code>[1, n]</code> 中，所以每一步跳转都不会越界。每个节点又恰好只有一个“下一个节点”，这和单链表节点只有一个 <code>next</code> 指针完全相同。它更准确的数学名称是<strong>函数图</strong>。</p>
+
+                    <h3>用示例完整走一遍</h3>
+                    <p>对于 <code>nums = [1, 3, 4, 2, 2]</code>，不要先盯着数组元素排列，而要写出下标到数组值的映射：</p>
+
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>节点（下标 i）</th><th>0</th><th>1</th><th>2</th><th>3</th><th>4</th></tr></thead>
+                            <tbody><tr><td>下一个节点（nums[i]）</td><td>1</td><td>3</td><td>4</td><td>2</td><td>2</td></tr></tbody>
+                        </table>
+                    </div>
+
+                    <figure class="sort-figure">
+                        <figcaption>从节点 0 开始，反复执行 next = nums[current]</figcaption>
+                        <div class="sort-step"><span class="sort-label">第 0 步</span><span class="sort-array"><b class="sort-cell is-fixed">0</b><b class="sort-cell">→</b><b class="sort-cell">1</b></span><span class="sort-note">nums[0] = 1</span></div>
+                        <div class="sort-step"><span class="sort-label">第 1 步</span><span class="sort-array"><b class="sort-cell">1</b><b class="sort-cell">→</b><b class="sort-cell">3</b></span><span class="sort-note">nums[1] = 3</span></div>
+                        <div class="sort-step"><span class="sort-label">第 2 步</span><span class="sort-array"><b class="sort-cell">3</b><b class="sort-cell">→</b><b class="sort-cell is-picked">2</b></span><span class="sort-note">nums[3] = 2，第一次到达 2</span></div>
+                        <div class="sort-step"><span class="sort-label">环内</span><span class="sort-array"><b class="sort-cell is-picked">2</b><b class="sort-cell">→</b><b class="sort-cell">4</b><b class="sort-cell">→</b><b class="sort-cell is-picked">2</b></span><span class="sort-note">2 → 4 → 2，从此一直循环</span></div>
+                    </figure>
+
+                    <p>因此从 <code>0</code> 出发得到的路径是：</p>
+                    <pre><code class="language-plaintext">0 → 1 → 3 → 2 → 4
+            ↑       ↓
+            └───────┘</code></pre>
+                    <p>节点 <code>2</code> 是环入口，也正是重复数。数组中下标 <code>3</code> 和下标 <code>4</code> 都保存了值 <code>2</code>，对应图中两条边 <code>3 -&gt; 2</code> 和 <code>4 -&gt; 2</code>。</p>
+
+                    <div class="note-box warning">
+                        <strong>最容易混淆的地方：</strong>图中的节点是<strong>数组下标</strong>，边的终点才是<strong>数组值</strong>。因为值又恰好能充当下标，两种身份才被连接起来。
+                    </div>
+
+                    <h2>第二步：为什么一定会出现环</h2>
+                    <p>从节点 <code>0</code> 开始，每次都按 <code>nums[current]</code> 走到下一个节点。可访问的节点总数有限，而路径可以一直走下去，所以迟早会再次访问某个已经到过的节点。一旦节点重复，后面的路线也会完全重复，于是形成环。</p>
+                    <p>也可以从重复数的角度理解。假设重复数是 <code>d</code>，至少存在两个不同下标 <code>a</code> 和 <code>b</code>，满足：</p>
+                    <pre><code class="language-plaintext">nums[a] = d
+nums[b] = d</code></pre>
+                    <p>在图中，这表示节点 <code>a</code> 和节点 <code>b</code> 都指向节点 <code>d</code>。多条路径在 <code>d</code> 汇合，而每个节点之后又只有唯一的走法，所以继续走下去必然落入循环。</p>
+
+                    <h3>为什么特意从下标 0 出发</h3>
+                    <p>数组值只在 <code>[1, n]</code> 内，因此没有任何节点会指向 <code>0</code>。节点 <code>0</code> 像一条只负责进入图的起跑线，它自己绝不可能位于环内。这样，从 <code>0</code> 出发的路线一定是“先经过一段非环路径，再进入环”的标准带环链表结构。</p>
+
+                    <h2>第三步：为什么环入口就是重复数</h2>
+                    <p>链表进入环时，环入口有两个不同的前驱来源：</p>
+                    <ol>
+                        <li>一个来自环外路径的最后一个节点；</li>
+                        <li>另一个来自环内绕一圈后的前一个节点。</li>
+                    </ol>
+                    <p>两个不同节点都指向环入口，就表示数组中两个不同下标保存了同一个值——环入口这个下标值。因此环入口一定是一个重复的整数。题目又保证只有一个整数重复，所以它只能是题目要求返回的重复数。</p>
+                    <p>这就是整道题的桥梁：</p>
+                    <pre><code class="language-plaintext">数组里同一个值出现多次
+        ⇕
+图里多条边指向同一个节点
+        ⇕
+从 0 出发形成的环入口
+        ⇕
+重复数</code></pre>
+
+                    <h2>Floyd 快慢指针分两阶段找入口</h2>
+                    <p>完成建模后，问题就变成经典的“环形链表 II”：不需要真的创建链表节点，只要把链表中的 <code>p = p-&gt;next</code> 换成 <code>p = nums[p]</code>。</p>
+
+                    <h3>阶段一：让快慢指针在环内相遇</h3>
+                    <p>慢指针每次走一步，快指针每次走两步：</p>
+                    <pre><code class="language-cpp">slow = nums[slow];
+fast = nums[nums[fast]];</code></pre>
+                    <p>两者进入环后，快指针会不断缩小与慢指针的环上距离，因此一定会在环中某处相遇。注意这个相遇点通常<strong>不是</strong>环入口，所以此时不能直接返回。</p>
+
+                    <h3>阶段二：从起点和相遇点同速前进</h3>
+                    <p>保留一个指针在相遇点，把另一个指针放回节点 <code>0</code>。然后两个指针都改为每次走一步，它们下一次相遇的位置就是环入口。</p>
+
+                    <h3>为什么第二阶段一定停在入口</h3>
+                    <p>设从起点到环入口的距离为 <code>μ</code>，环长为 <code>λ</code>，第一次相遇点距离环入口为 <code>x</code>。相遇时，快指针走过的路程是慢指针两倍，因此两者的路程差是若干个完整环：</p>
+                    <pre><code class="language-plaintext">μ + x = kλ
+所以 μ = kλ - x</code></pre>
+                    <p>从相遇点继续走 <code>μ</code> 步，相当于先走完剩余的 <code>λ - x</code> 步到达入口，再绕若干个整环，最终仍停在入口。与此同时，从节点 <code>0</code> 走 <code>μ</code> 步也刚好到达入口，因此两个同速指针会在那里相遇。</p>
+
+                    <h2>C++ 代码</h2>
+                    <pre><code class="language-cpp">class Solution {
+public:
+    int findDuplicate(std::vector&lt;int&gt;&amp; nums) {
+        int slow = 0;
+        int fast = 0;
+
+        // 阶段一：找到环内相遇点
+        do {
+            slow = nums[slow];
+            fast = nums[nums[fast]];
+        } while (slow != fast);
+
+        // 阶段二：找到环入口，也就是重复数
+        slow = 0;
+        while (slow != fast) {
+            slow = nums[slow];
+            fast = nums[fast];
+        }
+
+        return slow;
+    }
+};</code></pre>
+                    <p>这里使用 <code>do ... while</code>，是因为两个指针初始都在 <code>0</code>。必须让它们至少移动一次，再判断是否相遇；如果直接写成条件为 <code>slow != fast</code> 的普通 <code>while</code>，循环会一次也不执行。</p>
+
+                    <h2>用示例跟踪指针</h2>
+                    <p>仍以 <code>[1, 3, 4, 2, 2]</code> 为例：</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>阶段</th><th>轮次</th><th>slow</th><th>fast</th><th>说明</th></tr></thead>
+                            <tbody>
+                                <tr><td>寻找相遇点</td><td>初始</td><td>0</td><td>0</td><td>尚未移动</td></tr>
+                                <tr><td>寻找相遇点</td><td>1</td><td>1</td><td>3</td><td>慢走一步，快走两步</td></tr>
+                                <tr><td>寻找相遇点</td><td>2</td><td>3</td><td>4</td><td>快指针已经进入环</td></tr>
+                                <tr><td>寻找相遇点</td><td>3</td><td>2</td><td>4</td><td>慢指针到达环入口</td></tr>
+                                <tr><td>寻找相遇点</td><td>4</td><td>4</td><td>4</td><td>在环内相遇，但这里不是入口</td></tr>
+                                <tr><td>寻找入口</td><td>重置</td><td>0</td><td>4</td><td>slow 回到起点</td></tr>
+                                <tr><td>寻找入口</td><td>1</td><td>1</td><td>2</td><td>两者各走一步</td></tr>
+                                <tr><td>寻找入口</td><td>2</td><td>3</td><td>4</td><td>继续同速前进</td></tr>
+                                <tr><td>寻找入口</td><td>3</td><td>2</td><td>2</td><td>在环入口相遇，返回 2</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>复杂度</h2>
+                    <ul>
+                        <li><strong>时间复杂度：</strong><code>O(n)</code>。两个阶段中每个指针移动的总次数都是线性级别。</li>
+                        <li><strong>空间复杂度：</strong><code>O(1)</code>。只使用了两个整数指针。</li>
+                        <li><strong>是否修改数组：</strong>否。算法只读取 <code>nums</code>。</li>
+                    </ul>
+
+                    <h2>常见错误</h2>
+                    <ol>
+                        <li><strong>把相遇点直接当作答案。</strong>第一阶段只证明指针进入了同一个环，相遇点不一定是入口。</li>
+                        <li><strong>忘记数组值和节点下标的双重身份。</strong><code>nums[i]</code> 能作为下一下标，完全依赖值域是 <code>[1, n]</code>；若数组值可能越界，这个建模就不能使用。</li>
+                        <li><strong>使用普通 while 却都初始化为 0。</strong>初始状态已经相等，循环不会执行。应使用 <code>do ... while</code>，或先让指针各走一次。</li>
+                        <li><strong>第二阶段仍让 fast 一次走两步。</strong>寻找入口时两个指针必须都一次走一步。</li>
+                        <li><strong>把返回值写成 nums[slow]。</strong>相遇时的节点下标 <code>slow</code> 本身就是重复数；虽然在某些自环示例中两者碰巧相同，但一般不能多跳一步。</li>
+                    </ol>
+
+                    <h2>如果实在想不到链表环</h2>
+                    <p>还有一种不修改数组且只用 <code>O(1)</code> 空间的方法：在值域 <code>[1, n]</code> 上做二分，每次统计数组中小于等于中点的数有多少个。若数量超过中点左侧能够容纳的不同整数数量，重复数就在左半边，否则在右半边。这种方法时间复杂度是 <code>O(n log n)</code>。</p>
+                    <p>它比快慢指针更容易从鸽巢原理推导出来，但 Floyd 算法能做到 <code>O(n)</code>。面试或刷题时如果没有立即想到函数图，可以先写出二分计数的可行解，再继续观察“数组值能否作为下标”。</p>
+
+                    <h2>最后总结：这道题应该记住什么</h2>
+                    <p>不应该只背“重复数题用快慢指针”，而要记住识别信号：</p>
+                    <ul>
+                        <li>数组中的值全部是合法下标；</li>
+                        <li>可以从某个位置出发反复执行 <code>i = nums[i]</code>；</li>
+                        <li>题目要求常数空间，不能用访问标记；</li>
+                        <li>重复、汇合或无限跳转暗示函数图中存在环。</li>
+                    </ul>
+                    <p>看到这些条件时，可以尝试把“数组元素”重新解释成“下一跳指针”。一旦完成这次视角转换，寻找重复数就不再是一道神奇技巧题，而是熟悉的链表环入口问题。</p>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right" aria-hidden="true"></aside>
+    </div>
+
+    <script>
+        hljs.highlightAll();
+    </script>
+    <script src="/js/footer.js?v=20260819-2"></script>
+    <script src="/js/toc.js?v=20260818-1"></script>
+</body>
+</html>
