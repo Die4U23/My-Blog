@@ -1,25 +1,34 @@
 #!/bin/bash
 
-#使用方法：./newpost.sh "文章标题"
+#使用方法：./newpost.sh "文章标题" "english-slug"
 
 #检查是否提供标题参数
-if [ -z "$1" ]; then
-	echo "请提供文章标题，例如 ./newpost.sh \"文章标题\""
+if [ -z "$1" ] || [ -z "$2" ]; then
+	echo "请提供文章标题和英文短名，例如 ./newpost.sh \"位运算工具箱\" \"bitwise-toolbox\""
 	exit 1
 fi
 
 #获取日期以便命名分类
 TITLE="$1"
+SLUG="$2"
+
+# 只允许小写英文、数字和单中划线，确保网址简洁且稳定
+if ! [[ "$SLUG" =~ ^[a-z0-9]+(-[a-z0-9]+)*$ ]]; then
+	echo "英文短名格式错误：只能使用小写英文、数字和单中划线"
+	exit 1
+fi
+
 DATE=$(date +%Y-%m-%d)
+POST_DIR="posts/${SLUG}"
+FILENAME="${POST_DIR}/index.html"
+POST_URL="/posts/${SLUG}/"
 
-#生成不带空格符号的文件名
-SAFE_TITLE=$(echo "$TITLE" | tr ' ' '_' | tr -d '[:punct:]')
+if [ -e "$POST_DIR" ]; then
+	echo "短名已存在：${POST_URL}"
+	exit 1
+fi
 
-YEAR=$(date +%Y)
-MONTH=$(date +%m)
-mkdir -p "posts/${YEAR}/${MONTH}"
-
-FILENAME="posts/${YEAR}/${MONTH}/${DATE}-${SAFE_TITLE}.html"
+mkdir -p "$POST_DIR"
 #生成文章HTML文件
 cat > "$FILENAME" <<EOF
 <!DOCTYPE html>
@@ -50,7 +59,7 @@ cat > "$FILENAME" <<EOF
 	<div class="navbar">
 	    <div class="left-group">
 		<a href="/">首页</a>
-		<a href="/about.html">关于</a>
+		<a href="/about/">关于</a>
 	    </div>
 	    <div class="right-group">
 		<a href="https://github.com/Die4U23" target="_blank">Github</a>
@@ -100,11 +109,12 @@ cat > "$FILENAME" <<EOF
 </html>
 EOF
 
-echo "已创建:$FILENAME"
+echo "已创建：$FILENAME"
+echo "访问地址：$POST_URL"
 
 #在index.html博客列表中添加链接
 
-NEW_LINK="	<li> <h3><a href=\"${FILENAME}\">${TITLE}</a></h3><span class=\"date\">${DATE}</span><p>文章简介</p></li>"
+NEW_LINK="	<li> <h3><a href=\"${POST_URL}\">${TITLE}</a></h3><span class=\"date\">${DATE}</span><p>文章简介</p></li>"
 
 
 #在列表添加新行
