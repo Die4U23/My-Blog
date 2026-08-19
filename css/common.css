@@ -238,6 +238,7 @@ body {
 .footer-links {
     display: flex;
     justify-content: center;
+    align-items: center;
     gap: 20px;
     flex-wrap: wrap;
     margin-bottom: 10px;
@@ -245,7 +246,19 @@ body {
 .cc-logo {
     display: inline-flex;
     align-items: center;
+    justify-content: center;
+}
+.cc-logo a {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
+}
+.cc-logo img {
+    display: block;
+    width: 80px;
+    height: 15px;
+    flex: 0 0 auto;
 }
 /* 图片样式 */
 figure {
