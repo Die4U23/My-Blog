@@ -170,6 +170,90 @@ void mergeSort(std::vector&lt;int&gt;&amp; a) {
 }</code></pre>
                     <p>每一层合并总共处理 <code>n</code> 个元素，一共有约 <code>log n</code> 层，所以时间始终是 <code>O(n log n)</code>。合并时相等就先取左段元素，才能保持稳定。代价是通常需要 <code>O(n)</code> 临时空间。</p>
 
+                    <h3>实战：LeetCode 148 排序链表</h3>
+                    <p><a class="link link--bold" href="https://leetcode.cn/problems/sort-list/description/?envType=study-plan-v2&amp;envId=top-100-liked" target="_blank" rel="noopener noreferrer">LeetCode 148. 排序链表</a>要求把单链表按升序排列。链表最多有 <code>5 × 10⁴</code> 个节点，进阶要求是 <code>O(n log n)</code> 时间与常数级额外空间。</p>
+                    <p>这道题很适合归并排序。数组归并通常要创建临时数组，而链表可以直接修改 <code>next</code> 指针完成拆分和合并，不需要搬动节点。普通自顶向下归并虽然容易写，但递归调用栈需要 <code>O(log n)</code> 空间；若要满足进阶要求，应使用<strong>自底向上的迭代归并</strong>。</p>
+
+                    <figure class="sort-figure">
+                        <figcaption>例：自底向上排序 4 → 2 → 1 → 3</figcaption>
+                        <div class="sort-step"><span class="sort-label">初始链表</span><span class="sort-array"><b class="sort-cell">4</b><span>→</span><b class="sort-cell">2</b><span>→</span><b class="sort-cell">1</b><span>→</span><b class="sort-cell">3</b></span><span class="sort-note">先把每个节点看成长度为 1 的有序段</span></div>
+                        <div class="sort-step"><span class="sort-label">步长 1</span><span class="sort-array"><b class="sort-cell is-picked">2</b><span>→</span><b class="sort-cell is-picked">4</b><span class="sort-note">｜</span><b class="sort-cell is-picked">1</b><span>→</span><b class="sort-cell is-picked">3</b></span><span class="sort-note">两两合并为 [2,4]、[1,3]</span></div>
+                        <div class="sort-step"><span class="sort-label">步长 2</span><span class="sort-array"><b class="sort-cell is-active">2</b><span>→</span><b class="sort-cell">4</b><span class="sort-note">＋</span><b class="sort-cell is-active">1</b><span>→</span><b class="sort-cell">3</b></span><span class="sort-note">合并两个长度为 2 的有序段</span></div>
+                        <div class="sort-step"><span class="sort-label">完成</span><span class="sort-array"><b class="sort-cell is-fixed">1</b><span>→</span><b class="sort-cell is-fixed">2</b><span>→</span><b class="sort-cell is-fixed">3</b><span>→</span><b class="sort-cell is-fixed">4</b></span><span class="sort-note">所有节点重新连接成一个有序链表</span></div>
+                    </figure>
+
+                    <h4>三个关键操作</h4>
+                    <ol>
+                        <li><strong>计算长度：</strong>先遍历链表得到 <code>n</code>，方便控制合并轮数。</li>
+                        <li><strong>按长度断链：</strong>每轮把链表切成长度为 <code>width</code> 的小段；最后一段不够长也没有关系。</li>
+                        <li><strong>合并并接回：</strong>稳定地合并相邻两段，并让 <code>tail</code> 始终指向已排序部分的末尾。</li>
+                    </ol>
+
+                    <pre><code class="language-cpp">class Solution {
+    // 从 head 开始保留 size 个节点并断链，返回下一段的头节点。
+    ListNode* split(ListNode* head, int size) {
+        while (--size &gt; 0 &amp;&amp; head != nullptr) {
+            head = head-&gt;next;
+        }
+        if (head == nullptr) return nullptr;
+
+        ListNode* nextPart = head-&gt;next;
+        head-&gt;next = nullptr;
+        return nextPart;
+    }
+
+    // 把两个有序链表接到 tail 后面，返回合并后的新尾节点。
+    ListNode* merge(ListNode* left, ListNode* right, ListNode* tail) {
+        ListNode* current = tail;
+        while (left != nullptr &amp;&amp; right != nullptr) {
+            if (left-&gt;val &lt;= right-&gt;val) {
+                current-&gt;next = left;
+                left = left-&gt;next;
+            } else {
+                current-&gt;next = right;
+                right = right-&gt;next;
+            }
+            current = current-&gt;next;
+        }
+
+        current-&gt;next = (left != nullptr) ? left : right;
+        while (current-&gt;next != nullptr) {
+            current = current-&gt;next;
+        }
+        return current;
+    }
+
+public:
+    ListNode* sortList(ListNode* head) {
+        if (head == nullptr || head-&gt;next == nullptr) return head;
+
+        int length = 0;
+        for (ListNode* node = head; node != nullptr; node = node-&gt;next) {
+            ++length;
+        }
+
+        ListNode dummy(0, head);
+        for (int width = 1; width &lt; length; width *= 2) {
+            ListNode* tail = &amp;dummy;
+            ListNode* current = dummy.next;
+
+            while (current != nullptr) {
+                ListNode* left = current;
+                ListNode* right = split(left, width);
+                current = split(right, width);
+                tail = merge(left, right, tail);
+            }
+        }
+        return dummy.next;
+    }
+};</code></pre>
+
+                    <p>步长依次为 <code>1、2、4、8……</code>，每一轮都会访问全部 <code>n</code> 个节点，共有 <code>log n</code> 轮，因此时间复杂度是 <code>O(n log n)</code>。算法只保存若干指针和计数器，额外空间是 <code>O(1)</code>。合并时相等就先连接左段节点，所以它也是稳定排序。</p>
+
+                    <div class="note-box warning">
+                        <strong>最容易出错的地方：</strong><code>split</code> 必须把前一段的尾节点指向 <code>nullptr</code>，否则两段仍然相连，合并时可能重复访问节点甚至形成环；每次合并后也必须更新 <code>tail</code>，下一组链表才能接到正确位置。
+                    </div>
+
                     <h3>快速排序：让基准一次归位</h3>
                     <p>选一个基准值 <code>pivot</code>，把小于等于它的元素放到左侧，更大的放到右侧；基准到达最终位置后，再递归处理两边。下面使用末尾元素作基准的 Lomuto 分区。</p>
                     <figure class="sort-figure">
