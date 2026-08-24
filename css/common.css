@@ -260,6 +260,19 @@ body {
     height: 15px;
     flex: 0 0 auto;
 }
+.police-filing {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+}
+.police-filing img {
+    display: block;
+    width: 18px;
+    height: 20px;
+    object-fit: contain;
+    flex: 0 0 auto;
+}
 /* 图片样式 */
 figure {
     display: block;
