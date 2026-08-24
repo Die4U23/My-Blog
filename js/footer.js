@@ -18,7 +18,10 @@
                 <a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener noreferrer">桂ICP备2026018300号</a>
             </div>
             <div>
-                <a href="https://beian.mps.gov.cn/#/query/webSearch?code=45082102000488" target="_blank" rel="noopener noreferrer">桂公网安备45082102000488号</a>
+                <a class="police-filing" href="https://beian.mps.gov.cn/#/query/webSearch?code=45082102000488" target="_blank" rel="noopener noreferrer">
+                    <img src="/images/gongan.png" alt="公安备案图标">
+                    <span>桂公网安备45082102000488号</span>
+                </a>
             </div>
         </footer>
     `;

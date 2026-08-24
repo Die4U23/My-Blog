@@ -42,7 +42,7 @@ cat > "$FILENAME" <<EOF
 	<link rel="stylesheet" href="/css/link.css?v=20260819-3">
 	<link rel="stylesheet" href="/css/code.css?v=20260819-3">
 	<link rel="stylesheet" href="/css/post.css?v=20260819-3">
-	<link rel="stylesheet" href="/css/common.css?v=20260819-3">
+	<link rel="stylesheet" href="/css/common.css?v=20260824-2">
 	<link rel="icon" type="image/x-icon" href="/favicon.ico">
 	<script>
             MathJax = {
@@ -102,7 +102,7 @@ cat > "$FILENAME" <<EOF
 	<script>
 		hljs.highlightAll();
 	</script>
-	<script src="/js/footer.js?v=20260824-1"></script>
+	<script src="/js/footer.js?v=20260824-2"></script>
 	<script src="/js/toc.js?v=20260819-3"></script>
 
 </body>
