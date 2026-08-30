@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="从暴力匹配的重复比较推导 KMP 算法，讲清前缀函数、失配回退、重叠匹配、正确性与线性复杂度，并给出 C++17 完整实现。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>KMP 算法：从前缀函数到线性字符串匹配</title>
+    <script src="/js/highlight.min.js?v=20260819-3"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>KMP 算法：从前缀函数到线性字符串匹配</h1>
+                <p class="post-date">2026-08-30</p>
+
+                <div class="content">
+                    <p>字符串匹配要解决的问题是：给定文本串 <code>text</code> 和模式串 <code>pattern</code>，找出模式串在文本中出现的所有起点。例如在 <code>ababa</code> 中搜索 <code>aba</code>，答案是下标 <code>0</code> 和 <code>2</code>，两次出现可以重叠。</p>
+                    <p>暴力算法在失配后把模式串整体右移一格，再从模式串开头比较。这会忘掉刚刚已经匹配成功的内容。KMP（Knuth–Morris–Pratt）算法的核心是：<strong>失配时不回退文本指针，而是利用模式串自己的前后缀结构，决定模式串应该退到哪里</strong>。</p>
+
+                    <div class="note-box">
+                        <strong>先记一句话：</strong>已经匹配了 <code>j</code> 个字符却发生失配时，下一位候选长度不是随便猜的，而是“已匹配部分的最长相等真前缀与真后缀”的长度。
+                    </div>
+
+                    <h2>暴力匹配浪费在哪里</h2>
+                    <p>假设模式串是 <code>ababac</code>。若前五个字符 <code>ababa</code> 已经匹配，而下一位 <code>c</code> 失配，暴力算法会把模式串挪一格并从头比较。但已匹配串 <code>ababa</code> 的后缀 <code>aba</code> 恰好等于模式串前缀 <code>aba</code>，这三次比较其实不必重做。</p>
+
+                    <figure class="sort-figure">
+                        <figcaption>失配后保留仍然有用的匹配</figcaption>
+                        <div class="sort-step"><span class="sort-label">已匹配</span><span class="sort-array"><b class="sort-cell is-fixed">a</b><b class="sort-cell is-fixed">b</b><b class="sort-cell is-fixed">a</b><b class="sort-cell is-fixed">b</b><b class="sort-cell is-fixed">a</b><b class="sort-cell is-active">c</b></span><span class="sort-note">前五位成功，第六位失配</span></div>
+                        <div class="sort-step"><span class="sort-label">相等部分</span><span class="sort-array"><b class="sort-cell is-picked">a</b><b class="sort-cell is-picked">b</b><b class="sort-cell is-picked">a</b><b class="sort-cell">b</b><b class="sort-cell">a</b></span><span class="sort-note">前缀 aba 等于已匹配部分的后缀 aba</span></div>
+                        <div class="sort-step"><span class="sort-label">继续比较</span><span class="sort-array"><b class="sort-cell is-picked">a</b><b class="sort-cell is-picked">b</b><b class="sort-cell is-picked">a</b><b class="sort-cell is-active">b</b><b class="sort-cell">a</b><b class="sort-cell">c</b></span><span class="sort-note">保留长度 3，从 pattern[3] 继续，不移动文本指针</span></div>
+                    </figure>
+
+                    <h2>前缀函数 pi 的定义</h2>
+                    <p>对模式串 <code>p</code>，定义 <code>pi[i]</code> 为子串 <code>p[0...i]</code> 中，<strong>最长的相等真前缀与真后缀的长度</strong>。</p>
+                    <ul>
+                        <li><strong>前缀：</strong>必须从下标 <code>0</code> 开始；</li>
+                        <li><strong>后缀：</strong>必须在下标 <code>i</code> 结束；</li>
+                        <li><strong>真前缀、真后缀：</strong>不能等于整个 <code>p[0...i]</code>。</li>
+                    </ul>
+                    <p>模式串 <code>ababaca</code> 的前缀函数如下：</p>
+
+                    <figure class="sort-figure">
+                        <figcaption>pattern = ababaca</figcaption>
+                        <div class="sort-step"><span class="sort-label">下标 i</span><span class="sort-array"><b class="sort-cell">0</b><b class="sort-cell">1</b><b class="sort-cell">2</b><b class="sort-cell">3</b><b class="sort-cell">4</b><b class="sort-cell">5</b><b class="sort-cell">6</b></span><span class="sort-note">从 0 开始编号</span></div>
+                        <div class="sort-step"><span class="sort-label">字符</span><span class="sort-array"><b class="sort-cell">a</b><b class="sort-cell">b</b><b class="sort-cell">a</b><b class="sort-cell">b</b><b class="sort-cell">a</b><b class="sort-cell is-active">c</b><b class="sort-cell">a</b></span><span class="sort-note">c 会破坏此前长度 3 的候选边界</span></div>
+                        <div class="sort-step"><span class="sort-label">pi[i]</span><span class="sort-array"><b class="sort-cell is-fixed">0</b><b class="sort-cell is-fixed">0</b><b class="sort-cell is-fixed">1</b><b class="sort-cell is-fixed">2</b><b class="sort-cell is-fixed">3</b><b class="sort-cell is-active">0</b><b class="sort-cell is-fixed">1</b></span><span class="sort-note">完整数组为 [0, 0, 1, 2, 3, 0, 1]</span></div>
+                    </figure>
+
+                    <p>例如 <code>p[0...4] = ababa</code>，最长相等真前后缀都是 <code>aba</code>，所以 <code>pi[4] = 3</code>。而 <code>ababac</code> 没有非空的相等前后缀，所以 <code>pi[5] = 0</code>。</p>
+
+                    <h2>如何在线性时间构造 pi</h2>
+                    <p>从左到右计算 <code>pi[i]</code>。在处理 <code>i</code> 时，先令 <code>j = pi[i - 1]</code>，这表示前一个子串的最长边界长度。接下来尝试用 <code>p[i]</code> 把这条边界向右延长：</p>
+                    <ul>
+                        <li>若 <code>p[i] == p[j]</code>，边界成功增长一位，令 <code>++j</code>；</li>
+                        <li>若不相等，当前长度 <code>j</code> 不可行，就改试它的次长边界 <code>pi[j - 1]</code>；</li>
+                        <li>不断回退，直到字符相等或 <code>j == 0</code>。</li>
+                    </ul>
+
+                    <pre><code class="language-cpp">std::vector&lt;std::size_t&gt; prefixFunction(std::string_view pattern) {
+    std::vector&lt;std::size_t&gt; pi(pattern.size(), 0);
+
+    for (std::size_t i = 1; i &lt; pattern.size(); ++i) {
+        std::size_t j = pi[i - 1];
+
+        while (j &gt; 0 &amp;&amp; pattern[i] != pattern[j]) {
+            j = pi[j - 1];
+        }
+        if (pattern[i] == pattern[j]) {
+            ++j;
+        }
+        pi[i] = j;
+    }
+    return pi;
+}</code></pre>
+
+                    <h3>为什么回退到 pi[j - 1]</h3>
+                    <p>当前已有长度 <code>j</code> 的相等前后缀，但新字符无法接在它们后面。任何仍有可能的更短答案，必须同时是这段长度 <code>j</code> 字符的前缀与后缀；其中最长者正是 <code>pi[j - 1]</code>。因此这不是启发式跳转，而是按候选长度从大到小进行完整排除。</p>
+                    <p>注意代码是 <code>pi[j - 1]</code>，不是 <code>pi[i - 1]</code>，也不是简单的 <code>--j</code>。前者沿着“边界的边界”跳转，后者可能逐位退回并退化为二次复杂度。</p>
+
+                    <h2>用 pi 匹配文本</h2>
+                    <p>扫描文本时，用 <code>j</code> 表示已经匹配的模式串长度。对当前文本字符 <code>text[i]</code>：</p>
+                    <ol>
+                        <li>若它与 <code>pattern[j]</code> 不同，就令 <code>j = pi[j - 1]</code>，尝试更短边界；</li>
+                        <li>若字符相同，就令 <code>++j</code>；</li>
+                        <li>当 <code>j == pattern.size()</code> 时，找到一个起点 <code>i + 1 - pattern.size()</code>；</li>
+                        <li>记录答案后令 <code>j = pi[j - 1]</code>，继续寻找可能重叠的下一次出现。</li>
+                    </ol>
+
+                    <figure class="sort-figure">
+                        <figcaption>在 ababa 中搜索 aba</figcaption>
+                        <div class="sort-step"><span class="sort-label">文本</span><span class="sort-array"><b class="sort-cell is-picked">a</b><b class="sort-cell is-picked">b</b><b class="sort-cell is-picked">a</b><b class="sort-cell">b</b><b class="sort-cell">a</b></span><span class="sort-note">i = 2 时第一次完整匹配，起点为 0</span></div>
+                        <div class="sort-step"><span class="sort-label">匹配后</span><span class="sort-array"><b class="sort-cell">a</b><b class="sort-cell">b</b><b class="sort-cell is-fixed">a</b><b class="sort-cell is-active">b</b><b class="sort-cell">a</b></span><span class="sort-note">j 从 3 回退到 pi[2] = 1，保留结尾 a</span></div>
+                        <div class="sort-step"><span class="sort-label">继续</span><span class="sort-array"><b class="sort-cell">a</b><b class="sort-cell">b</b><b class="sort-cell is-picked">a</b><b class="sort-cell is-picked">b</b><b class="sort-cell is-picked">a</b></span><span class="sort-note">i = 4 时第二次匹配，起点为 2</span></div>
+                    </figure>
+
+                    <h2>完整 C++17 实现</h2>
+                    <pre><code class="language-cpp">#include &lt;cstddef&gt;
+#include &lt;iostream&gt;
+#include &lt;string_view&gt;
+#include &lt;vector&gt;
+
+std::vector&lt;std::size_t&gt; prefixFunction(std::string_view pattern) {
+    std::vector&lt;std::size_t&gt; pi(pattern.size(), 0);
+    for (std::size_t i = 1; i &lt; pattern.size(); ++i) {
+        std::size_t j = pi[i - 1];
+        while (j &gt; 0 &amp;&amp; pattern[i] != pattern[j]) {
+            j = pi[j - 1];
+        }
+        if (pattern[i] == pattern[j]) {
+            ++j;
+        }
+        pi[i] = j;
+    }
+    return pi;
+}
+
+std::vector&lt;std::size_t&gt; findAll(std::string_view text,
+                                 std::string_view pattern) {
+    std::vector&lt;std::size_t&gt; positions;
+
+    // 这里采用数学上的约定：空模式匹配每个字符边界。
+    if (pattern.empty()) {
+        positions.reserve(text.size() + 1);
+        for (std::size_t i = 0; i &lt;= text.size(); ++i) {
+            positions.push_back(i);
+        }
+        return positions;
+    }
+
+    const std::vector&lt;std::size_t&gt; pi = prefixFunction(pattern);
+    std::size_t j = 0;
+
+    for (std::size_t i = 0; i &lt; text.size(); ++i) {
+        while (j &gt; 0 &amp;&amp; text[i] != pattern[j]) {
+            j = pi[j - 1];
+        }
+        if (text[i] == pattern[j]) {
+            ++j;
+        }
+        if (j == pattern.size()) {
+            positions.push_back(i + 1 - pattern.size());
+            j = pi[j - 1];  // 保留边界，允许重叠匹配
+        }
+    }
+    return positions;
+}
+
+int main() {
+    const auto positions = findAll("ababa", "aba");
+    for (std::size_t index : positions) {
+        std::cout &lt;&lt; index &lt;&lt; ' ';  // 输出：0 2
+    }
+}</code></pre>
+
+                    <div class="note-box warning">
+                        <strong>空模式串要先约定语义：</strong>本文把空串视为匹配文本的每个字符边界，因此长度为 <code>n</code> 的文本有 <code>n + 1</code> 个匹配位置。有些题目要求直接返回 <code>0</code> 或空答案，实现时以接口约定为准。
+                    </div>
+
+                    <h2>为什么算法正确</h2>
+                    <h3>构造 pi 时没有漏掉候选</h3>
+                    <p>设当前候选边界长度为 <code>j</code>。若新字符失配，长度 <code>j</code> 不可能成为新边界。任何更短的合法边界都必须是当前边界的边界，因此沿 <code>j = pi[j - 1]</code> 跳转会按从长到短枚举所有可能候选，直到找到能延长的最长者。</p>
+
+                    <h3>匹配时 j 的含义始终成立</h3>
+                    <p>扫描到 <code>text[i]</code> 前，<code>j</code> 表示“文本已扫描部分的后缀”与“模式串前缀”相等的最大长度。字符相等时它增长一位；字符失配时，前缀函数把它替换为下一个可能的最大长度。文本中已经扫描的字符不需要重读，所以不变式在每轮后继续成立。</p>
+
+                    <h3>完整匹配一定被报告</h3>
+                    <p>当 <code>j</code> 达到模式串长度 <code>m</code>，说明当前文本后缀的 <code>m</code> 个字符与整个模式串相等，起点就是 <code>i + 1 - m</code>。匹配后回退到最长真边界，只丢弃不可能参与下一次匹配的部分，因此重叠答案也不会遗漏。</p>
+
+                    <h2>为什么是 O(n + m)</h2>
+                    <p>设文本长度为 <code>n</code>，模式串长度为 <code>m</code>。构造 <code>pi</code> 时，外层下标 <code>i</code> 只向右走；<code>j</code> 每次成功匹配最多增加 1，失配回退则严格减小。所有增加和减小的总次数都是 <code>O(m)</code>，所以预处理为 <code>O(m)</code>。</p>
+                    <p>匹配文本时同理：<code>i</code> 从不回退，<code>j</code> 的增长总次数不超过 <code>n</code>，回退次数也不可能超过此前的增长次数。因此匹配为 <code>O(n)</code>，总时间 <code>O(n + m)</code>，前缀数组占用 <code>O(m)</code> 空间。</p>
+
+                    <h2>pi、next 和 nextval 为什么看起来不同</h2>
+                    <p>不同教材常使用不同定义：</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>名称</th><th>常见含义</th><th>常见特点</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>pi[i]</code></td><td>以 <code>i</code> 结尾子串的最长相等真前后缀长度</td><td>下标和长度关系直观，现代资料常用</td></tr>
+                                <tr><td><code>next[j]</code></td><td>模式下标 <code>j</code> 失配后的跳转位置</td><td>可能从 <code>-1</code> 开始，也可能整体偏移一位</td></tr>
+                                <tr><td><code>nextval</code></td><td>跳过会立即再次失配的状态</td><td>是对特定 next 定义的优化</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>它们表达的是同一类前后缀信息，但数组含义和下标约定不完全相同。最常见的错误就是从一份代码拿 <code>next</code> 的构造方式，再配另一份代码的跳转公式。使用模板前，应先用一句话说清数组每个元素究竟表示“长度”还是“下标”。</p>
+
+                    <h2>常见错误</h2>
+                    <ol>
+                        <li><strong>把真前后缀忘掉：</strong>整个字符串不能同时作为自己的候选前缀和后缀，否则 <code>pi[i]</code> 会失去回退意义。</li>
+                        <li><strong>失配只回退一次：</strong>回退后的候选仍可能失配，所以必须使用 <code>while</code>，不能只写一个 <code>if</code>。</li>
+                        <li><strong>写成 j = pi[i - 1]：</strong>回退链由当前候选 <code>j</code> 决定，应写 <code>j = pi[j - 1]</code>。</li>
+                        <li><strong>找到答案后把 j 清零：</strong>这样会漏掉 <code>ababa</code> 中两个重叠的 <code>aba</code>；应回退到 <code>pi[j - 1]</code>。</li>
+                        <li><strong>空模式越界：</strong>若不提前处理，匹配阶段会访问不存在的 <code>pattern[0]</code>。</li>
+                        <li><strong>混淆字节与字符：</strong><code>std::string_view</code> 按字节比较 UTF-8。纯匹配仍能找到相同字节序列，但返回的是字节下标，不一定是用户看到的字符序号。</li>
+                    </ol>
+
+                    <h2>前缀函数的其他用途</h2>
+                    <h3>判断字符串是否由某个短串重复组成</h3>
+                    <p>字符串长度为 <code>n</code>，令 <code>candidate = n - pi[n - 1]</code>。若 <code>n % candidate == 0</code>，那么最短循环节长度就是 <code>candidate</code>；否则整个字符串自身才是循环节。</p>
+                    <pre><code class="language-cpp">bool isRepeatedPattern(std::string_view s) {
+    if (s.empty()) return false;
+    const auto pi = prefixFunction(s);
+    const std::size_t period = s.size() - pi.back();
+    return period &lt; s.size() &amp;&amp; s.size() % period == 0;
+}</code></pre>
+
+                    <h3>统计每个前缀出现次数</h3>
+                    <p><code>pi</code> 建立了一棵“边界父链”：长度 <code>len</code> 的父边界是 <code>pi[len - 1]</code>。先统计每个 <code>pi[i]</code>，再沿父链从长到短累加，就能求出每个前缀在字符串中作为子串出现了多少次。</p>
+
+                    <h2>建议测试用例</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>文本 / 模式</th><th>期望起点</th><th>检查重点</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>ababa / aba</code></td><td><code>[0, 2]</code></td><td>重叠匹配</td></tr>
+                                <tr><td><code>aaaaa / aaa</code></td><td><code>[0, 1, 2]</code></td><td>大量相同字符与连续回退</td></tr>
+                                <tr><td><code>abc / d</code></td><td><code>[]</code></td><td>完全不匹配</td></tr>
+                                <tr><td><code>abc / abc</code></td><td><code>[0]</code></td><td>整串匹配</td></tr>
+                                <tr><td><code>ab / abcd</code></td><td><code>[]</code></td><td>模式长于文本</td></tr>
+                                <tr><td><code>abc / 空串</code></td><td><code>[0, 1, 2, 3]</code></td><td>空模式约定</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>最后的记忆线索</h2>
+                    <ol>
+                        <li><code>pi[i]</code> 是 <code>pattern[0...i]</code> 的最长相等真前后缀长度；</li>
+                        <li>字符相等就让当前匹配长度 <code>j</code> 增加；</li>
+                        <li>字符失配就沿 <code>j = pi[j - 1]</code> 寻找次长边界；</li>
+                        <li>扫描文本时 <code>i</code> 永不回退；</li>
+                        <li>完整匹配后仍沿前缀函数回退，从而保留重叠答案。</li>
+                    </ol>
+                    <p>KMP 真正解决的不是“怎样更快地比较字符”，而是“失配以后，哪些已知信息仍然有效”。前缀函数把这种信息压缩成一条回退链，因此文本只需从左到右读取一次。</p>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>

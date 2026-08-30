@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="从中心扩展推导 Manacher 算法，图解回文半径、镜像复用与最右边界，给出 C++17 实现、正确性、复杂度、易错点和测试方法。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>Manacher 算法：在线性时间内寻找最长回文子串</title>
+    <script src="/js/highlight.min.js?v=20260819-3"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>Manacher 算法：在线性时间内寻找最长回文子串</h1>
+                <p class="post-date">2026-08-30</p>
+
+                <div class="content">
+                    <p>回文串正着读和反着读完全相同，例如 <code>aba</code>、<code>abba</code>。寻找一个字符串中的最长回文子串，最直观的做法是枚举中心并向两侧扩展，但像 <code>aaaaaa</code> 这样的输入会反复比较同一批字符，最坏需要 <code>O(n²)</code> 时间。</p>
+                    <p>Manacher（通常读作“马拉车”）算法的关键不是换一种扩展方式，而是<strong>保存已经得到的回文信息，用对称位置的答案为新中心提供起点</strong>。它把重复比较压缩掉，使最长回文子串可以在线性时间内求出。</p>
+
+                    <div class="note-box">
+                        <strong>核心结论：</strong>维护当前到达最右位置的回文区间。新中心落在区间内部时，先把它关于旧中心的镜像半径复制过来；只有可能越过最右边界的部分才真正比较。
+                    </div>
+
+                    <h2>问题与三种常见思路</h2>
+                    <p>给定长度为 <code>n</code> 的字符串 <code>s</code>，目标是返回其中最长的连续回文子串。注意“子串”必须连续，“子序列”则可以跳过字符，两者是不同问题。</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>方法</th><th>时间</th><th>空间</th><th>主要思路</th></tr></thead>
+                            <tbody>
+                                <tr><td>枚举所有子串</td><td><code>O(n³)</code></td><td><code>O(1)</code></td><td>枚举左右端点，再逐字符判断回文</td></tr>
+                                <tr><td>中心扩展</td><td><code>O(n²)</code></td><td><code>O(1)</code></td><td>枚举中心，向两边扩展</td></tr>
+                                <tr><td>动态规划</td><td><code>O(n²)</code></td><td><code>O(n²)</code></td><td>由短回文区间推出长回文区间</td></tr>
+                                <tr><td>Manacher</td><td><code>O(n)</code></td><td><code>O(n)</code></td><td>中心扩展 + 镜像半径复用</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>第一步：统一奇数和偶数长度</h2>
+                    <p>奇数长度回文的中心是字符，例如 <code>aba</code> 的中心是 <code>b</code>；偶数长度回文的中心在两个字符之间，例如 <code>abba</code> 的中心在两个 <code>b</code> 之间。若直接在原串上处理，每个中心都要分两种情况。</p>
+                    <p>在每两个字符之间以及首尾插入分隔符，就能把所有回文统一成奇数长度：</p>
+
+                    <figure class="sort-figure">
+                        <figcaption>原串 abba 的变换</figcaption>
+                        <div class="sort-step"><span class="sort-label">原字符串</span><span class="sort-array"><b class="sort-cell">a</b><b class="sort-cell">b</b><b class="sort-cell">b</b><b class="sort-cell">a</b></span><span class="sort-note">偶数回文的中心位于两个 b 之间</span></div>
+                        <div class="sort-step"><span class="sort-label">加入分隔</span><span class="sort-array"><b class="sort-cell">#</b><b class="sort-cell">a</b><b class="sort-cell">#</b><b class="sort-cell">b</b><b class="sort-cell is-active">#</b><b class="sort-cell">b</b><b class="sort-cell">#</b><b class="sort-cell">a</b><b class="sort-cell">#</b></span><span class="sort-note">现在中心就是一个真实位置</span></div>
+                        <div class="sort-step"><span class="sort-label">回文半径</span><span class="sort-array"><b class="sort-cell is-picked">#</b><b class="sort-cell is-picked">a</b><b class="sort-cell is-picked">#</b><b class="sort-cell is-picked">b</b><b class="sort-cell is-active">#</b><b class="sort-cell is-picked">b</b><b class="sort-cell is-picked">#</b><b class="sort-cell is-picked">a</b><b class="sort-cell is-picked">#</b></span><span class="sort-note">从中心向一侧可跨 4 格，原串回文长度也是 4</span></div>
+                    </figure>
+
+                    <p>实际代码还会在两端放入互不相同的哨兵，使扩展时不必反复判断数组是否越界。为了让输入中即使包含 <code>#</code>、<code>^</code> 或 <code>$</code> 也不会发生冲突，后面的实现不直接拼接字符，而是建立 <code>vector&lt;int&gt;</code>：</p>
+                    <ul>
+                        <li><code>-2</code>：左哨兵；</li>
+                        <li><code>-1</code>：字符间的分隔符；</li>
+                        <li><code>0...255</code>：原字符串中的字节；</li>
+                        <li><code>-3</code>：右哨兵。</li>
+                    </ul>
+                    <p>负数标记永远不会和 <code>unsigned char</code> 的值相同，因此扩展一定会在哨兵处停止。</p>
+
+                    <h2>第二步：定义回文半径</h2>
+                    <p>令 <code>p[i]</code> 表示变换串中以 <code>i</code> 为中心、向单侧能够扩展的最大格数。也就是说，区间 <code>[i - p[i], i + p[i]]</code> 是一个回文。</p>
+                    <p>有两个很方便的映射公式：</p>
+                    <ul>
+                        <li>最长回文在原字符串中的长度就是 <code>bestLen</code>，不需要再除以 2；</li>
+                        <li>最长回文的原串起点是 <code>(bestCenter - bestLen) / 2</code>。</li>
+                    </ul>
+                    <p>以 <code>abba</code> 为例，变换串中心下标为 <code>5</code>，半径为 <code>4</code>，所以原串起点是 <code>(5 - 4) / 2 = 0</code>，长度为 <code>4</code>。</p>
+
+                    <h2>第三步：维护最右回文区间</h2>
+                    <p>算法从左到右扫描中心，同时维护两个量：</p>
+                    <ul>
+                        <li><code>center</code>：目前向右延伸最远的回文中心；</li>
+                        <li><code>right</code>：该回文区间的右端点，即 <code>center + p[center]</code>。</li>
+                    </ul>
+                    <p>这里的 <code>right</code> 是已经包含在回文中的位置，不是半开区间的“下一位”。只要全文保持同一约定即可。</p>
+
+                    <h3>镜像位置从哪里来</h3>
+                    <p>若新中心 <code>i</code> 位于 <code>right</code> 左侧，它关于 <code>center</code> 的镜像位置是：</p>
+                    <pre><code class="language-cpp">mirror = 2 * center - i;</code></pre>
+                    <p>大回文关于 <code>center</code> 左右对称，所以 <code>i</code> 附近已经处于大回文内部的字符，与 <code>mirror</code> 附近完全对应。于是可以先令：</p>
+                    <pre><code class="language-cpp">p[i] = std::min(right - i, p[mirror]);</code></pre>
+
+                    <h3>为什么一定要取最小值</h3>
+                    <p><code>p[mirror]</code> 描述镜像中心的完整回文，但镜像回文有可能越过当前大回文的左边界。越界后的字符不再受大回文对称性保证，因此能安全复制的半径最多只有 <code>right - i</code>。</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>镜像回文与边界的关系</th><th>可以直接确定的半径</th><th>之后怎么做</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>p[mirror] &lt; right - i</code></td><td><code>p[mirror]</code></td><td>两侧下一字符已知不同，不会继续扩大</td></tr>
+                                <tr><td><code>p[mirror] &gt; right - i</code></td><td><code>right - i</code></td><td>边界之外未知，从边界处继续比较</td></tr>
+                                <tr><td><code>p[mirror] == right - i</code></td><td><code>right - i</code></td><td>恰好贴边，仍需尝试越过边界</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <figure class="sort-figure">
+                        <figcaption>镜像复用的直观含义</figcaption>
+                        <div class="sort-step"><span class="sort-label">已知区间</span><span class="sort-array"><b class="sort-cell is-fixed">L</b><b class="sort-cell">·</b><b class="sort-cell is-picked">mirror</b><b class="sort-cell">·</b><b class="sort-cell is-active">center</b><b class="sort-cell">·</b><b class="sort-cell is-picked">i</b><b class="sort-cell">·</b><b class="sort-cell is-fixed">right</b></span><span class="sort-note">整个 [L, right] 关于 center 对称</span></div>
+                        <div class="sort-step"><span class="sort-label">先复制</span><span class="sort-array"><b class="sort-cell">p[mirror]</b><b class="sort-cell is-active">→</b><b class="sort-cell">p[i]</b></span><span class="sort-note">只复制仍位于已知边界内的部分</span></div>
+                        <div class="sort-step"><span class="sort-label">再扩展</span><span class="sort-array"><b class="sort-cell is-fixed">right</b><b class="sort-cell is-active">?</b><b class="sort-cell is-active">?</b></span><span class="sort-note">真正比较只发生在可能创造新最右边界的位置</span></div>
+                    </figure>
+
+                    <h2>完整 C++17 实现</h2>
+                    <pre><code class="language-cpp">#include &lt;algorithm&gt;
+#include &lt;iostream&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+
+std::string longestPalindrome(const std::string&amp; s) {
+    // 变换为：左哨兵, 分隔符, 字符, 分隔符, ..., 右哨兵
+    std::vector&lt;int&gt; transformed;
+    transformed.reserve(s.size() * 2 + 3);
+    transformed.push_back(-2);
+    transformed.push_back(-1);
+    for (unsigned char ch : s) {
+        transformed.push_back(static_cast&lt;int&gt;(ch));
+        transformed.push_back(-1);
+    }
+    transformed.push_back(-3);
+
+    std::vector&lt;int&gt; radius(transformed.size(), 0);
+    int center = 0;
+    int right = 0;
+    int bestCenter = 0;
+    int bestLen = 0;
+
+    for (int i = 1; i + 1 &lt; static_cast&lt;int&gt;(transformed.size()); ++i) {
+        if (i &lt; right) {
+            const int mirror = 2 * center - i;
+            radius[i] = std::min(right - i, radius[mirror]);
+        }
+
+        while (transformed[i + 1 + radius[i]] ==
+               transformed[i - 1 - radius[i]]) {
+            ++radius[i];
+        }
+
+        if (i + radius[i] &gt; right) {
+            center = i;
+            right = i + radius[i];
+        }
+        if (radius[i] &gt; bestLen) {
+            bestLen = radius[i];
+            bestCenter = i;
+        }
+    }
+
+    const int start = (bestCenter - bestLen) / 2;
+    return s.substr(start, bestLen);
+}
+
+int main() {
+    for (const std::string s : {"babad", "cbbd", "abba", "a", ""}) {
+        std::cout &lt;&lt; s &lt;&lt; " -&gt; "
+                  &lt;&lt; longestPalindrome(s) &lt;&lt; '\n';
+    }
+}</code></pre>
+
+                    <p>对于 <code>babad</code>，最长答案既可以是 <code>bab</code>，也可以是 <code>aba</code>。上面的代码只在找到严格更长的回文时更新答案，因此会保留最先遇到的 <code>bab</code>。</p>
+
+                    <h2>为什么算法正确</h2>
+                    <h3>不变量一：已经计算的半径是准确的</h3>
+                    <p>处理位置 <code>i</code> 前，所有更小位置的 <code>radius</code> 已经由实际字符比较确定。镜像初始化只复制当前大回文内部由对称性保证相等的部分，所以不会把半径估大；随后的 <code>while</code> 会一直扩展到第一对不同元素，因此最终半径也不会估小。</p>
+
+                    <h3>不变量二：center 对应扫描过的最右回文</h3>
+                    <p>若新回文的右端 <code>i + radius[i]</code> 没有超过 <code>right</code>，旧记录仍然最右；若超过，就用新中心和新右端替换。因而每轮结束后，<code>center</code> 和 <code>right</code> 始终描述已处理中心中向右延伸最远的回文。</p>
+
+                    <h3>最长答案不会遗漏</h3>
+                    <p>变换后，每个奇数回文和偶数回文都对应某个位置的奇数长度回文。算法准确求出每个位置的最大半径，再取其中最大值，所以一定得到原字符串的最长回文子串。</p>
+
+                    <h2>为什么是 O(n)</h2>
+                    <p>变换串长度是 <code>2n + 3</code>，外层循环显然执行 <code>O(n)</code> 次。看起来每一轮还有一个 <code>while</code>，但镜像初始化已经跳过最右边界内的已知部分：</p>
+                    <ul>
+                        <li>成功的新比较会把回文推过旧的 <code>right</code>，使 <code>right</code> 单调右移；</li>
+                        <li><code>right</code> 最多从左端移动到变换串末尾，因此所有成功扩展合计只有 <code>O(n)</code> 次；</li>
+                        <li>每个中心至多再做一次导致停止的失败比较，同样是 <code>O(n)</code> 次。</li>
+                    </ul>
+                    <p>所以总时间为 <code>O(n)</code>，半径数组和变换串占用 <code>O(n)</code> 额外空间。</p>
+
+                    <h2>常见错误</h2>
+                    <ol>
+                        <li><strong>混用 right 的两种定义：</strong>有人把它写成回文最右字符，有人写成右侧第一个未包含位置。两种都能实现，但 <code>i &lt; right</code>、初始化半径和更新公式必须配套。</li>
+                        <li><strong>忘记截断镜像半径：</strong>直接写 <code>radius[i] = radius[mirror]</code> 可能复制到已知大回文之外，得到没有依据的结果。</li>
+                        <li><strong>使用可能与输入冲突的哨兵：</strong>若直接拼成 <code>^#...#$</code>，就要明确输入字符集不包含这些符号；整数标记更稳妥。</li>
+                        <li><strong>把字节当作 Unicode 字符：</strong><code>std::string</code> 按字节存储 UTF-8。若要判断中文字符回文，应先解码为 Unicode 码点序列，再运行相同算法。</li>
+                        <li><strong>起点公式写错：</strong>在本文变换方式下，原串起点为 <code>(bestCenter - bestLen) / 2</code>，返回长度就是 <code>bestLen</code>。</li>
+                    </ol>
+
+                    <h2>除了最长回文还能做什么</h2>
+                    <h3>统计所有回文子串</h3>
+                    <p>一个中心半径为 <code>r</code> 时，它贡献的原串回文数量是 <code>(r + 1) / 2</code>。把所有中心的贡献相加，就得到回文子串总数；相同内容出现在不同位置时会分别计数。</p>
+
+                    <h3>判断前缀或后缀回文</h3>
+                    <p>中心 <code>i</code> 的回文左端为 <code>i - radius[i]</code>、右端为 <code>i + radius[i]</code>。检查端点是否碰到变换串中的首分隔符或尾分隔符，就能筛出回文前缀、回文后缀，常用于最少添加字符构造回文。</p>
+
+                    <h2>建议测试用例</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>输入</th><th>期望性质</th><th>要检查的问题</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>""</code></td><td>返回空串</td><td>空输入是否越界</td></tr>
+                                <tr><td><code>"a"</code></td><td>返回 <code>a</code></td><td>最小非空输入</td></tr>
+                                <tr><td><code>"cbbd"</code></td><td>返回 <code>bb</code></td><td>偶数长度回文</td></tr>
+                                <tr><td><code>"abac"</code></td><td>返回 <code>aba</code></td><td>奇数长度回文</td></tr>
+                                <tr><td><code>"aaaaa"</code></td><td>返回整个字符串</td><td>大量重叠回文与复杂度</td></tr>
+                                <tr><td><code>"a#^$a"</code></td><td>按普通字符处理</td><td>分隔符和哨兵冲突</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>最后的记忆线索</h2>
+                    <ol>
+                        <li>插入分隔符，把奇偶回文统一起来；</li>
+                        <li><code>radius[i]</code> 记录以 <code>i</code> 为中心的回文半径；</li>
+                        <li>用 <code>center</code> 和 <code>right</code> 保存当前最右回文；</li>
+                        <li>区间内部先取 <code>min(镜像半径, 到右边界的距离)</code>；</li>
+                        <li>从已知半径之外继续扩展，并在必要时更新最右边界。</li>
+                    </ol>
+                    <p>Manacher 的线性速度来自一个很通用的思想：<strong>把已经证明过的对称性当作可复用信息，只为未知边界付费</strong>。理解这一点，比背下几行模板更重要。</p>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>
