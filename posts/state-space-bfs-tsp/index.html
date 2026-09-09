@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="通过 LeetCode 3568、864 与 LCP 13，系统讲解网格状态 BFS、位掩码、资源支配剪枝，以及 BFS 预处理结合 TSP 型状态压缩动态规划。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>从状态 BFS 到 TSP：三道网格最短路题串讲</title>
+    <script src="/js/highlight.min.js?v=20260819-3"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>从状态 BFS 到 TSP：三道网格最短路题串讲</h1>
+                <p class="post-date">2026-09-02</p>
+
+                <div class="content">
+                    <p>普通网格最短路只需要记录坐标 <code>(row, col)</code>。但当“能不能继续走”还取决于已经收集的物品、剩余能量或已经完成的任务时，同一个格子就不再是同一个状态。</p>
+                    <p>下面三题正好构成一条递进路线：先在 BFS 中加入“收集集合 + 剩余资源”，再处理“钥匙集合改变可通行边”，最后把大网格压缩成关键点之间的距离，在机关集合上做类似旅行商问题的状态压缩动态规划。</p>
+
+                    <div class="note-box">
+                        <strong>贯穿全文的原则：</strong><code>visited</code> 记录的不是“我来过这个坐标”，而是“我已经用某种能力状态来到这个坐标”。只有未来可做出的选择完全相同，两个状态才可以合并。
+                    </div>
+
+                    <h2>三道题的状态为什么逐步升级</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>题目</th><th>核心状态</th><th>边权</th><th>主要方法</th></tr></thead>
+                            <tbody>
+                                <tr><td>3568. 清理教室的最少移动</td><td>位置、垃圾集合、剩余能量</td><td>每步 1</td><td>状态 BFS + 能量支配剪枝</td></tr>
+                                <tr><td>864. 获取所有钥匙的最短路径</td><td>位置、钥匙集合</td><td>每步 1</td><td>位掩码状态 BFS</td></tr>
+                                <tr><td>LCP 13. 寻宝</td><td>已触发机关集合、最后机关</td><td>BFS 得到的关键点距离</td><td>多源预处理 + TSP 型子集 DP</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <figure class="sort-figure">
+                        <figcaption>状态空间的三次抽象</figcaption>
+                        <div class="sort-step"><span class="sort-label">普通 BFS</span><span class="sort-array"><b class="sort-cell is-picked">r</b><b class="sort-cell is-picked">c</b></span><span class="sort-note">坐标决定未来</span></div>
+                        <div class="sort-step"><span class="sort-label">状态 BFS</span><span class="sort-array"><b class="sort-cell is-picked">r</b><b class="sort-cell is-picked">c</b><b class="sort-cell is-active">mask</b><b class="sort-cell is-active">energy</b></span><span class="sort-note">历史被压缩进有限状态</span></div>
+                        <div class="sort-step"><span class="sort-label">关键点 DP</span><span class="sort-array"><b class="sort-cell is-active">mask</b><b class="sort-cell is-picked">last</b></span><span class="sort-note">坐标移动被 BFS 距离替代</span></div>
+                    </figure>
+
+                    <h2>先把网格看成一张“状态图”</h2>
+                    <p>BFS 能解决无权图最短路。网格只是图的一种表现形式：每个状态是节点，每次合法移动是一条长度为 1 的边。关键不在于“套 BFS 模板”，而在于有没有把节点定义完整。</p>
+
+                    <pre><code class="language-cpp">struct State {
+    int row;
+    int col;
+    int mask;      // 已经完成或收集的集合
+    int resource;  // 如果未来能力还受资源影响，就必须加入状态
+    int distance;
+};</code></pre>
+
+                    <p>位掩码适合表示数量很少的物品集合。第 <code>i</code> 个物品是否已收集，由 <code>mask &amp; (1 &lt;&lt; i)</code> 判断；收集它则写成 <code>mask | (1 &lt;&lt; i)</code>。当 <code>mask == (1 &lt;&lt; k) - 1</code> 时，所有 <code>k</code> 个目标都已完成。</p>
+
+                    <h2>3568. 清理教室的最少移动</h2>
+                    <p>
+                        <a class="link link--bold" href="https://leetcode.cn/problems/minimum-moves-to-clean-the-classroom/" target="_blank" rel="noopener noreferrer">题目链接</a>
+                    </p>
+                    <p>学生每走一步消耗 1 点能量，走到 <code>R</code> 会恢复至上限，走到 <code>L</code> 会收集垃圾。目标是在最多 20 × 20 的网格中收集最多 10 份垃圾。</p>
+
+                    <h3>为什么 visited[row][col] 一定会错</h3>
+                    <p>第一次到达某个格子时，可能还没收集左侧垃圾；第二次回到这里时，垃圾集合已经不同。即使垃圾集合相同，剩余能量不同也会改变接下来能走多远。因此完整状态至少是：</p>
+                    <pre><code class="language-cpp">(row, col, litterMask, energyLeft)</code></pre>
+
+                    <h3>能量维度可以做支配剪枝</h3>
+                    <p>直接建立四维布尔数组是正确的，复杂度为 <code>O(mn · 2^k · E)</code>。还可以对固定的 <code>(row, col, mask)</code> 只记录见过的最大剩余能量。</p>
+                    <p>BFS 按移动次数从小到大扩展。如果此前已经在不更多的步数内，以更高或相同能量到达同一位置并收集同一批垃圾，那么新状态未来能走出的所有路径，旧状态也能走出，新状态可以丢弃。</p>
+
+                    <div class="note-box">
+                        <strong>转移顺序：</strong>先确认当前还有能量，再移动并消耗 1 点；进入 <code>R</code> 后恢复能量；进入 <code>L</code> 后更新位掩码。状态入队前再做支配判断。
+                    </div>
+
+                    <h3>C++17 实现</h3>
+                    <pre><code class="language-cpp" data-solution="3568">#include &lt;algorithm&gt;
+#include &lt;array&gt;
+#include &lt;queue&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+
+class Solution {
+public:
+    int minMoves(std::vector&lt;std::string&gt;&amp; classroom, int energy) {
+        const int rows = static_cast&lt;int&gt;(classroom.size());
+        const int cols = static_cast&lt;int&gt;(classroom[0].size());
+
+        // 题面要求在函数中保存输入；后续统一使用这个副本。
+        auto lumetarkon = classroom;
+
+        int startRow = -1;
+        int startCol = -1;
+        int litterCount = 0;
+        std::vector&lt;int&gt; litterIndex(rows * cols, -1);
+
+        for (int row = 0; row &lt; rows; ++row) {
+            for (int col = 0; col &lt; cols; ++col) {
+                if (lumetarkon[row][col] == 'S') {
+                    startRow = row;
+                    startCol = col;
+                } else if (lumetarkon[row][col] == 'L') {
+                    litterIndex[row * cols + col] = litterCount++;
+                }
+            }
+        }
+
+        const int fullMask = (1 &lt;&lt; litterCount) - 1;
+        if (fullMask == 0) {
+            return 0;
+        }
+
+        struct State {
+            int row;
+            int col;
+            int mask;
+            int energyLeft;
+            int moves;
+        };
+
+        const int stateCount = 1 &lt;&lt; litterCount;
+        std::vector&lt;std::vector&lt;int&gt;&gt; bestEnergy(
+            stateCount, std::vector&lt;int&gt;(rows * cols, -1));
+
+        std::queue&lt;State&gt; states;
+        const int startId = startRow * cols + startCol;
+        bestEnergy[0][startId] = energy;
+        states.push({startRow, startCol, 0, energy, 0});
+
+        constexpr std::array&lt;int, 4&gt; dr{-1, 1, 0, 0};
+        constexpr std::array&lt;int, 4&gt; dc{0, 0, -1, 1};
+
+        while (!states.empty()) {
+            const State current = states.front();
+            states.pop();
+
+            if (current.mask == fullMask) {
+                return current.moves;
+            }
+            if (current.energyLeft == 0) {
+                continue;
+            }
+
+            for (int direction = 0; direction &lt; 4; ++direction) {
+                const int nextRow = current.row + dr[direction];
+                const int nextCol = current.col + dc[direction];
+
+                if (nextRow &lt; 0 || nextRow &gt;= rows ||
+                    nextCol &lt; 0 || nextCol &gt;= cols ||
+                    lumetarkon[nextRow][nextCol] == 'X') {
+                    continue;
+                }
+
+                int nextEnergy = current.energyLeft - 1;
+                int nextMask = current.mask;
+                const char cell = lumetarkon[nextRow][nextCol];
+
+                if (cell == 'R') {
+                    nextEnergy = energy;
+                } else if (cell == 'L') {
+                    const int index =
+                        litterIndex[nextRow * cols + nextCol];
+                    nextMask |= 1 &lt;&lt; index;
+                }
+
+                const int nextId = nextRow * cols + nextCol;
+                if (bestEnergy[nextMask][nextId] &gt;= nextEnergy) {
+                    continue;
+                }
+
+                bestEnergy[nextMask][nextId] = nextEnergy;
+                states.push({
+                    nextRow, nextCol, nextMask,
+                    nextEnergy, current.moves + 1
+                });
+            }
+        }
+
+        return -1;
+    }
+};</code></pre>
+
+                    <p>最坏情况下，同一个 <code>(位置, mask)</code> 的最大能量会被逐步提高多次，因此时间上界仍可写成 <code>O(mn · 2^k · E)</code>；只保存最大能量后，主体数组空间为 <code>O(mn · 2^k)</code>。</p>
+
+                    <h2>864. 获取所有钥匙的最短路径</h2>
+                    <p>
+                        <a class="link link--bold" href="https://leetcode.cn/problems/shortest-path-to-get-all-keys/" target="_blank" rel="noopener noreferrer">题目链接</a>
+                    </p>
+                    <p>这一题没有能量，但钥匙集合会改变地图的可通行性：没有 <code>a</code> 时不能穿过 <code>A</code>，拿到钥匙后同一扇锁就变成可通行边。最多 6 把钥匙，因此用 6 位整数保存集合非常自然。</p>
+
+                    <h3>状态和转移</h3>
+                    <pre><code class="language-cpp">状态：(row, col, keyMask)
+
+遇到墙：丢弃
+遇到锁：没有对应钥匙则丢弃
+遇到钥匙：把对应位加入 keyMask
+keyMask == fullMask：第一次到达就是最短答案</code></pre>
+
+                    <p>不能只记录坐标。比如先经过锁 <code>A</code> 旁边时没有钥匙，之后拿到 <code>a</code> 再回到相同格子，这次拥有全新的后续选择。正确的访问数组是 <code>visited[row][col][keyMask]</code>。</p>
+
+                    <h3>C++17 实现</h3>
+                    <pre><code class="language-cpp" data-solution="864">#include &lt;array&gt;
+#include &lt;queue&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+
+class Solution {
+public:
+    int shortestPathAllKeys(std::vector&lt;std::string&gt;&amp; grid) {
+        const int rows = static_cast&lt;int&gt;(grid.size());
+        const int cols = static_cast&lt;int&gt;(grid[0].size());
+
+        int startRow = -1;
+        int startCol = -1;
+        int fullMask = 0;
+
+        for (int row = 0; row &lt; rows; ++row) {
+            for (int col = 0; col &lt; cols; ++col) {
+                const char cell = grid[row][col];
+                if (cell == '@') {
+                    startRow = row;
+                    startCol = col;
+                } else if (cell &gt;= 'a' &amp;&amp; cell &lt;= 'f') {
+                    fullMask |= 1 &lt;&lt; (cell - 'a');
+                }
+            }
+        }
+
+        struct State {
+            int row;
+            int col;
+            int keyMask;
+            int distance;
+        };
+
+        std::vector&lt;std::vector&lt;std::array&lt;bool, 64&gt;&gt;&gt; visited(
+            rows, std::vector&lt;std::array&lt;bool, 64&gt;&gt;(cols));
+
+        std::queue&lt;State&gt; states;
+        visited[startRow][startCol][0] = true;
+        states.push({startRow, startCol, 0, 0});
+
+        constexpr std::array&lt;int, 4&gt; dr{-1, 1, 0, 0};
+        constexpr std::array&lt;int, 4&gt; dc{0, 0, -1, 1};
+
+        while (!states.empty()) {
+            const State current = states.front();
+            states.pop();
+
+            if (current.keyMask == fullMask) {
+                return current.distance;
+            }
+
+            for (int direction = 0; direction &lt; 4; ++direction) {
+                const int nextRow = current.row + dr[direction];
+                const int nextCol = current.col + dc[direction];
+
+                if (nextRow &lt; 0 || nextRow &gt;= rows ||
+                    nextCol &lt; 0 || nextCol &gt;= cols ||
+                    grid[nextRow][nextCol] == '#') {
+                    continue;
+                }
+
+                const char cell = grid[nextRow][nextCol];
+                if (cell &gt;= 'A' &amp;&amp; cell &lt;= 'F' &amp;&amp;
+                    (current.keyMask &amp; (1 &lt;&lt; (cell - 'A'))) == 0) {
+                    continue;
+                }
+
+                int nextMask = current.keyMask;
+                if (cell &gt;= 'a' &amp;&amp; cell &lt;= 'f') {
+                    nextMask |= 1 &lt;&lt; (cell - 'a');
+                }
+
+                if (visited[nextRow][nextCol][nextMask]) {
+                    continue;
+                }
+
+                visited[nextRow][nextCol][nextMask] = true;
+                states.push({
+                    nextRow, nextCol, nextMask, current.distance + 1
+                });
+            }
+        }
+
+        return -1;
+    }
+};</code></pre>
+
+                    <p>若钥匙数为 <code>k</code>，状态数最多为 <code>mn · 2^k</code>，每个状态检查四个方向，因此时间与空间复杂度都是 <code>O(mn · 2^k)</code>。题目给出 <code>k ≤ 6</code>，最多只有 64 种钥匙集合。</p>
+
+                    <h2>两道状态 BFS 的共同模板</h2>
+                    <pre><code class="language-cpp">queue.push(startState);
+mark(startState);
+
+while (!queue.empty()) {
+    State current = queue.front();
+    queue.pop();
+
+    if (isGoal(current)) {
+        return current.distance;
+    }
+
+    for (State next : expand(current)) {
+        if (!legal(next) || dominatedOrVisited(next)) {
+            continue;
+        }
+        mark(next);
+        queue.push(next);
+    }
+}</code></pre>
+
+                    <p>真正需要为每道题重新设计的只有三件事：状态中哪些信息会影响未来、遇到特殊格子时如何更新状态、什么条件下两个状态可以安全合并。</p>
+
+                    <h2>LCP 13. 寻宝：BFS 与 TSP 型状态压缩</h2>
+                    <p>
+                        <a class="link link--bold" href="https://leetcode.cn/problems/xun-bao/" target="_blank" rel="noopener noreferrer">题目链接</a>
+                    </p>
+                    <p>迷宫中有起点 <code>S</code>、终点 <code>T</code>、机关 <code>M</code> 和石堆 <code>O</code>。每个机关都要放一块石头；石堆有无限石头，但一次只能搬一块。只有全部机关触发后，才能在终点取得宝藏。</p>
+
+                    <h3>为什么不直接在网格上做巨大 BFS</h3>
+                    <p>如果把当前位置、已触发机关集合、当前是否搬着石头以及石头来源全部塞进 BFS，状态和转移会很难维护。更关键的是，网格内部没有会被永久改变的障碍：两处关键点之间的步行最短距离可以提前算好。</p>
+                    <p>因此可以分成两层：</p>
+                    <ol>
+                        <li>从起点和每个机关各做一次普通 BFS，得到它们到所有格子的最短距离；</li>
+                        <li>把起点、机关、终点看成压缩图上的节点，在机关集合上做子集 DP。</li>
+                    </ol>
+
+                    <figure class="sort-figure">
+                        <figcaption>一段合法的“触发下一个机关”路径</figcaption>
+                        <div class="sort-step"><span class="sort-label">第一次</span><span class="sort-array"><b class="sort-cell is-picked">S</b><b class="sort-cell">→</b><b class="sort-cell is-active">O</b><b class="sort-cell">→</b><b class="sort-cell is-picked">Mᵢ</b></span><span class="sort-note">从起点取石并触发第一个机关</span></div>
+                        <div class="sort-step"><span class="sort-label">机关间</span><span class="sort-array"><b class="sort-cell is-picked">Mᵢ</b><b class="sort-cell">→</b><b class="sort-cell is-active">O</b><b class="sort-cell">→</b><b class="sort-cell is-picked">Mⱼ</b></span><span class="sort-note">重新取石，再触发下一个机关</span></div>
+                        <div class="sort-step"><span class="sort-label">全部完成</span><span class="sort-array"><b class="sort-cell is-picked">Mlast</b><b class="sort-cell">→</b><b class="sort-cell is-active">T</b></span><span class="sort-note">最后一段不再需要经过石堆</span></div>
+                    </figure>
+
+                    <h3>关键点之间的边权</h3>
+                    <p>设 <code>distX[p]</code> 表示从关键点 <code>X</code> 普通步行到格子 <code>p</code> 的最短距离。因为搬起和放下石头不额外计步，所以：</p>
+                    <pre><code class="language-cpp">startCost[i] =
+    min(distS[stone] + distMi[stone])
+
+bridge[i][j] =
+    min(distMi[stone] + distMj[stone])
+
+finish[i] = distMi[target]</code></pre>
+                    <p>第一式表示从起点到某个石堆，再搬到机关 <code>i</code>；第二式表示从机关 <code>i</code> 重新去某个石堆取石，再搬到机关 <code>j</code>。每一段都可以独立选择最合适的石堆，因为石堆提供无限石头。</p>
+
+                    <h3>为什么它像 TSP</h3>
+                    <p>压缩后，我们要选择一个顺序访问所有机关。定义：</p>
+                    <pre><code class="language-cpp">dp[mask][i] =
+    已触发的机关集合为 mask，
+    并且当前停在机关 i 时的最少步数</code></pre>
+                    <p>转移为：</p>
+                    <pre><code class="language-cpp">dp[mask | (1 &lt;&lt; j)][j] =
+    min(dp[mask | (1 &lt;&lt; j)][j],
+        dp[mask][i] + bridge[i][j]);</code></pre>
+                    <p>这与 Held–Karp 旅行商动态规划的形状相同：状态是“访问集合 + 最后节点”。但它不是要求回到起点的经典 TSP，而是一条从 <code>S</code> 出发、覆盖全部机关、最后到 <code>T</code> 的最短路径；边权还来自前一层 BFS 和石堆中转。</p>
+
+                    <h3>C++17 实现</h3>
+                    <pre><code class="language-cpp" data-solution="lcp13">#include &lt;algorithm&gt;
+#include &lt;array&gt;
+#include &lt;limits&gt;
+#include &lt;queue&gt;
+#include &lt;string&gt;
+#include &lt;vector&gt;
+
+class Solution {
+private:
+    int rows_ = 0;
+    int cols_ = 0;
+    std::vector&lt;std::string&gt; maze_;
+
+    std::vector&lt;int&gt; bfs(int source) const {
+        std::vector&lt;int&gt; distance(rows_ * cols_, -1);
+        std::queue&lt;int&gt; cells;
+        distance[source] = 0;
+        cells.push(source);
+
+        constexpr std::array&lt;int, 4&gt; dr{-1, 1, 0, 0};
+        constexpr std::array&lt;int, 4&gt; dc{0, 0, -1, 1};
+
+        while (!cells.empty()) {
+            const int current = cells.front();
+            cells.pop();
+            const int row = current / cols_;
+            const int col = current % cols_;
+
+            for (int direction = 0; direction &lt; 4; ++direction) {
+                const int nextRow = row + dr[direction];
+                const int nextCol = col + dc[direction];
+
+                if (nextRow &lt; 0 || nextRow &gt;= rows_ ||
+                    nextCol &lt; 0 || nextCol &gt;= cols_ ||
+                    maze_[nextRow][nextCol] == '#') {
+                    continue;
+                }
+
+                const int next = nextRow * cols_ + nextCol;
+                if (distance[next] != -1) {
+                    continue;
+                }
+
+                distance[next] = distance[current] + 1;
+                cells.push(next);
+            }
+        }
+
+        return distance;
+    }
+
+public:
+    int minimalSteps(std::vector&lt;std::string&gt;&amp; maze) {
+        maze_ = maze;
+        rows_ = static_cast&lt;int&gt;(maze_.size());
+        cols_ = static_cast&lt;int&gt;(maze_[0].size());
+
+        int start = -1;
+        int target = -1;
+        std::vector&lt;int&gt; mechanisms;
+        std::vector&lt;int&gt; stones;
+
+        for (int row = 0; row &lt; rows_; ++row) {
+            for (int col = 0; col &lt; cols_; ++col) {
+                const int id = row * cols_ + col;
+                if (maze_[row][col] == 'S') {
+                    start = id;
+                } else if (maze_[row][col] == 'T') {
+                    target = id;
+                } else if (maze_[row][col] == 'M') {
+                    mechanisms.push_back(id);
+                } else if (maze_[row][col] == 'O') {
+                    stones.push_back(id);
+                }
+            }
+        }
+
+        const std::vector&lt;int&gt; fromStart = bfs(start);
+        const int mechanismCount =
+            static_cast&lt;int&gt;(mechanisms.size());
+
+        if (mechanismCount == 0) {
+            return fromStart[target];
+        }
+
+        std::vector&lt;std::vector&lt;int&gt;&gt; fromMechanism;
+        fromMechanism.reserve(mechanismCount);
+        for (int mechanism : mechanisms) {
+            fromMechanism.push_back(bfs(mechanism));
+        }
+
+        constexpr int inf = std::numeric_limits&lt;int&gt;::max() / 4;
+        std::vector&lt;int&gt; startCost(mechanismCount, inf);
+
+        for (int i = 0; i &lt; mechanismCount; ++i) {
+            for (int stone : stones) {
+                if (fromStart[stone] != -1 &amp;&amp;
+                    fromMechanism[i][stone] != -1) {
+                    startCost[i] = std::min(
+                        startCost[i],
+                        fromStart[stone] + fromMechanism[i][stone]);
+                }
+            }
+            if (startCost[i] == inf) {
+                return -1;
+            }
+        }
+
+        std::vector&lt;std::vector&lt;int&gt;&gt; bridge(
+            mechanismCount,
+            std::vector&lt;int&gt;(mechanismCount, inf));
+
+        for (int i = 0; i &lt; mechanismCount; ++i) {
+            bridge[i][i] = 0;
+            for (int j = i + 1; j &lt; mechanismCount; ++j) {
+                for (int stone : stones) {
+                    if (fromMechanism[i][stone] != -1 &amp;&amp;
+                        fromMechanism[j][stone] != -1) {
+                        bridge[i][j] = std::min(
+                            bridge[i][j],
+                            fromMechanism[i][stone] +
+                                fromMechanism[j][stone]);
+                    }
+                }
+                bridge[j][i] = bridge[i][j];
+            }
+        }
+
+        const int stateCount = 1 &lt;&lt; mechanismCount;
+        std::vector&lt;std::vector&lt;int&gt;&gt; dp(
+            stateCount, std::vector&lt;int&gt;(mechanismCount, inf));
+
+        for (int i = 0; i &lt; mechanismCount; ++i) {
+            dp[1 &lt;&lt; i][i] = startCost[i];
+        }
+
+        for (int mask = 1; mask &lt; stateCount; ++mask) {
+            for (int last = 0; last &lt; mechanismCount; ++last) {
+                if ((mask &amp; (1 &lt;&lt; last)) == 0 ||
+                    dp[mask][last] == inf) {
+                    continue;
+                }
+
+                for (int next = 0; next &lt; mechanismCount; ++next) {
+                    if ((mask &amp; (1 &lt;&lt; next)) != 0 ||
+                        bridge[last][next] == inf) {
+                        continue;
+                    }
+
+                    const int nextMask = mask | (1 &lt;&lt; next);
+                    dp[nextMask][next] = std::min(
+                        dp[nextMask][next],
+                        dp[mask][last] + bridge[last][next]);
+                }
+            }
+        }
+
+        const int fullMask = stateCount - 1;
+        int answer = inf;
+        for (int last = 0; last &lt; mechanismCount; ++last) {
+            const int toTarget = fromMechanism[last][target];
+            if (dp[fullMask][last] != inf &amp;&amp; toTarget != -1) {
+                answer = std::min(
+                    answer, dp[fullMask][last] + toTarget);
+            }
+        }
+
+        return answer == inf ? -1 : answer;
+    }
+};</code></pre>
+
+                    <h3>复杂度</h3>
+                    <p>设网格大小为 <code>mn</code>，机关数为 <code>p</code>，石堆数为 <code>s</code>：</p>
+                    <ul>
+                        <li>从起点和每个机关 BFS：<code>O((p + 1)mn)</code>；</li>
+                        <li>枚举石堆建立机关间边权：<code>O(p²s)</code>；</li>
+                        <li>子集动态规划：<code>O(2^p · p²)</code>；</li>
+                        <li>主要空间：<code>O((p + 1)mn + 2^p · p)</code>。</li>
+                    </ul>
+                    <p>机关最多 16 个，<code>2^16 × 16</code> 约为一百万个 DP 状态，正是状态压缩可以承受的范围。</p>
+
+                    <h2>三题放在一起，真正要学什么</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>判断问题</th><th>选择</th><th>原因</th></tr></thead>
+                            <tbody>
+                                <tr><td>所有移动代价是否都是 1？</td><td>队列 BFS</td><td>分层扩展保证第一次到达目标最短</td></tr>
+                                <tr><td>历史是否只影响“已收集集合”？</td><td><code>(位置, mask)</code></td><td>用位掩码保留未来通行能力</td></tr>
+                                <tr><td>还存在可消耗资源吗？</td><td>把资源加入状态，或证明支配关系</td><td>相同位置和集合不一定拥有相同未来</td></tr>
+                                <tr><td>网格只负责关键点间移动吗？</td><td>BFS 预处理距离</td><td>把大网格压缩成小规模完全图</td></tr>
+                                <tr><td>必须以任意顺序访问全部关键点吗？</td><td><code>dp[mask][last]</code></td><td>使用 TSP/Held–Karp 型子集 DP</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h2>高频错误</h2>
+                    <ol>
+                        <li><strong>只按坐标去重：</strong>丢失钥匙、垃圾或机关集合不同的合法状态；</li>
+                        <li><strong>把步数塞进 visited：</strong>步数是 BFS 层数，不是决定未来能力的状态维度；</li>
+                        <li><strong>能量更新顺序错误：</strong>移动先消耗能量，进入重置格后再恢复；</li>
+                        <li><strong>拿到钥匙后忘记更新 mask：</strong>导致后续对应锁仍被错误拦截；</li>
+                        <li><strong>LCP 13 直接使用机关间步行距离：</strong>触发下一个机关前必须先经过某个石堆取石；</li>
+                        <li><strong>最后去 T 仍强制经过石堆：</strong>所有机关完成后已经不需要新石头；</li>
+                        <li><strong>忘记无机关特判：</strong>LCP 13 此时答案就是 <code>S</code> 到 <code>T</code> 的普通最短路；</li>
+                        <li><strong>把类 TSP 误写成回路：</strong>本题不要求回到起点，而是最终停在 <code>T</code>。</li>
+                    </ol>
+
+                    <h2>建议测试清单</h2>
+                    <ul>
+                        <li>目标数为 0 或 1 的最小情况；</li>
+                        <li>目标被墙完全隔开，答案应为 <code>-1</code>；</li>
+                        <li>必须回到已经经过的格子，验证 visited 包含位掩码；</li>
+                        <li>必须经过 <code>R</code> 才有足够能量，验证重置顺序；</li>
+                        <li>钥匙在锁后方形成死局，验证锁判断；</li>
+                        <li>多个石堆分别适合不同机关转移，验证每条压缩边独立取最小值；</li>
+                        <li>LCP 13 没有机关时直接从 <code>S</code> 到 <code>T</code>；</li>
+                        <li>终点在过程中可以经过，但只能在全部机关触发后结束。</li>
+                    </ul>
+
+                    <h2>最后的记忆线索</h2>
+                    <ol>
+                        <li>BFS 解决的是无权“状态图”最短路，状态不一定只是坐标；</li>
+                        <li>位掩码把少量物品的收集历史压缩成整数；</li>
+                        <li>只有未来能力相同的状态才能合并，资源维度还可以寻找支配关系；</li>
+                        <li>当网格内部只是移动介质时，先用 BFS 计算关键点距离；</li>
+                        <li>“访问全部关键点且顺序任意”通常对应 <code>dp[mask][last]</code>；</li>
+                        <li>LCP 13 是 BFS 构图与 TSP 型子集 DP 的组合，而不是单纯的大状态 BFS。</li>
+                    </ol>
+
+                    <p>题目来源：
+                        <a class="link link--bold" href="https://leetcode.cn/problems/minimum-moves-to-clean-the-classroom/" target="_blank" rel="noopener noreferrer">3568. 清理教室的最少移动</a>、
+                        <a class="link link--bold" href="https://leetcode.cn/problems/shortest-path-to-get-all-keys/" target="_blank" rel="noopener noreferrer">864. 获取所有钥匙的最短路径</a>、
+                        <a class="link link--bold" href="https://leetcode.cn/problems/xun-bao/" target="_blank" rel="noopener noreferrer">LCP 13. 寻宝</a>。
+                    </p>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>
