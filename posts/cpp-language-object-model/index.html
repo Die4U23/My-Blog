@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="系统讲解 C++17/20 的初始化、const/constexpr/consteval、auto 与 decltype、值类别、隐式转换、对象生命周期、对象表示和严格别名规则。">
+    <meta name="description" content="系统讲解 C++17/20 的初始化、类型推导、对象生命周期、指针与引用、数组视图、运行时多态、虚析构以及 RAII 和 Rule of Zero/Five。">
     <script src="/js/theme.js?v=20260819-3"></script>
-    <title>C++ 语言基础与对象模型：从初始化到严格别名</title>
+    <title>C++ 语言基础、对象模型与 RAII：从初始化到资源管理</title>
     <script src="/js/highlight.min.js?v=20260819-3"></script>
     <link rel="stylesheet" href="/css/link.css?v=20260819-3">
     <link rel="stylesheet" href="/css/code.css?v=20260819-3">
@@ -31,12 +31,12 @@
 
         <main class="post-content">
             <article class="post-article">
-                <h1>C++ 语言基础与对象模型：从初始化到严格别名</h1>
-                <p class="post-date">2026-09-01</p>
+                <h1>C++ 语言基础、对象模型与 RAII：从初始化到资源管理</h1>
+                <p class="post-date">2026-09-01 · 更新于 2026-09-09</p>
 
                 <div class="content">
                     <p>C++ 中许多难以解释的错误，并不是“语法记错了”，而是把几个不同层次混在了一起：初始化语法决定候选构造函数，表达式的值类别影响引用绑定，类型决定对象需要怎样的存储，而生命周期又决定某次访问是否合法。</p>
-                    <p>本文以 C++17 与 C++20 的通用语义为主，把初始化、常量求值、类型推导、值类别、转换、存储期和对象表示串成一条完整主线。目标不是背完术语，而是在看到一行代码时，能够按固定顺序判断它到底做了什么。</p>
+                    <p>本文以 C++17 与 C++20 的通用语义为主，把初始化、常量求值、类型推导、值类别、转换、存储期和对象表示串成第一条主线，再沿着“地址—借用—所有权—多态—RAII”继续讨论资源管理。目标不是背完术语，而是在看到一行代码时，能够按固定顺序判断它到底做了什么。</p>
 
                     <div class="note-box">
                         <strong>统一分析顺序：</strong>先看初始化或表达式的语法形式，再确定参与推导与重载的类型，接着判断值类别和引用绑定，最后检查目标对象是否已经开始生命周期、存储是否满足大小与对齐、访问类型是否合法。
@@ -251,7 +251,7 @@ float value = std::bit_cast&lt;float&gt;(bits); // C++20，明确表达等长位
                     <p>为了检查对象表示，可以通过 <code>char</code>、<code>unsigned char</code> 或 <code>std::byte</code> 观察字节。<code>std::memcpy</code> 适合搬运可平凡复制类型的对象表示，但不是所有类对象的复制构造替代品；C++20 的 <code>std::bit_cast</code> 则为等长、可平凡复制类型之间的位级转换提供了明确接口。</p>
 
                     <h2>一份可编译的 C++20 综合示例</h2>
-                    <pre><code class="language-cpp">#include &lt;bit&gt;
+                    <pre><code class="language-cpp" data-example="object-model">#include &lt;bit&gt;
 #include &lt;cassert&gt;
 #include &lt;cstdint&gt;
 #include &lt;iostream&gt;
@@ -317,6 +317,438 @@ int main() {
     std::cout &lt;&lt; "C++ object model checks passed\n";
 }</code></pre>
 
+                    <h2>指针与引用：先区分地址、借用和所有权</h2>
+                    <p>对象存放在某段存储中，地址用来定位这段存储。指针是一个真正的对象，它保存地址值；引用则为某个既有对象提供别名。二者都能间接访问对象，但它们表达的接口契约不同。</p>
+
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>性质</th><th>指针 <code>T*</code></th><th>引用 <code>T&amp;</code></th></tr></thead>
+                            <tbody>
+                                <tr><td>能否表示“没有对象”</td><td>可以使用 <code>nullptr</code></td><td>合法引用必须绑定有效实体</td></tr>
+                                <tr><td>能否改指向</td><td>可以重新赋值</td><td>初始化后不能重新绑定</td></tr>
+                                <tr><td>自身是否是对象</td><td>是，可以取指针自身地址</td><td>标准把它作为引用类型，是否需要存储未作统一要求</td></tr>
+                                <tr><td>是否拥有目标</td><td>裸指针默认不表达所有权</td><td>不拥有，只是借用</td></tr>
+                                <tr><td>算术</td><td>只在同一数组及尾后一位规则内有定义</td><td>不支持引用算术</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>接口参数按语义选择</h3>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>接口含义</th><th>推荐形式</th><th>调用者看到的契约</th></tr></thead>
+                            <tbody>
+                                <tr><td>一定存在，只读借用大型对象</td><td><code>const T&amp;</code></td><td>不能为空，不复制，不修改</td></tr>
+                                <tr><td>一定存在，需要修改</td><td><code>T&amp;</code></td><td>函数会操作原对象</td></tr>
+                                <tr><td>对象可选</td><td><code>const T*</code> 或 <code>T*</code></td><td><code>nullptr</code> 有明确语义</td></tr>
+                                <tr><td>小型标量只读输入</td><td>按值传递</td><td>简单且没有别名关系</td></tr>
+                                <tr><td>转移独占所有权</td><td><code>std::unique_ptr&lt;T&gt;</code> 按值</td><td>调用后所有者发生变化</td></tr>
+                                <tr><td>共享所有权</td><td><code>std::shared_ptr&lt;T&gt;</code> 按值</td><td>确实需要共同延长生命周期</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <pre><code class="language-cpp">void print(const std::string&amp; text);          // 必有对象，只读借用
+void normalize(std::string&amp; text);            // 必有对象，允许修改
+void setLogger(Logger* logger);               // 可传 nullptr
+void consume(std::unique_ptr&lt;Task&gt; task);     // 接收独占所有权
+
+int* find(std::vector&lt;int&gt;&amp; values, int target) {
+    for (int&amp; value : values) {
+        if (value == target) {
+            return &amp;value;                     // 借用容器元素
+        }
+    }
+    return nullptr;                            // 明确表示没找到
+}</code></pre>
+
+                    <div class="note-box">
+                        <strong>最重要的生命周期问题：</strong>指针或引用可能仍保存一个地址，但目标对象已经销毁。返回局部变量的地址或引用、保存已经重分配的 <code>vector</code> 元素指针，都会形成悬垂访问。
+                    </div>
+
+                    <h2>如何读 const T*、T* const 与 const T* const</h2>
+                    <p>从变量名向外读最稳妥。先看星号右侧有没有 <code>const</code>，判断“指针自身能否改变”；再看所指类型是否带 <code>const</code>，判断“能否通过它修改目标”。</p>
+
+                    <pre><code class="language-cpp">int first = 1;
+int second = 2;
+
+const int* pointerToConst = &amp;first;
+pointerToConst = &amp;second;       // 可以改指向
+// *pointerToConst = 3;         // 不可经它修改 int
+
+int* const constPointer = &amp;first;
+*constPointer = 3;              // 可以修改所指 int
+// constPointer = &amp;second;      // 指针自身不可改
+
+const int* const bothConst = &amp;first;
+// *bothConst = 4;              // 两项限制同时存在
+// bothConst = &amp;second;</code></pre>
+
+                    <p><code>T* const</code> 中的 <code>const</code> 是顶层限定，描述指针对象本身；<code>const T*</code> 的限定属于所指类型，常称为底层 <code>const</code>。按值复制指针时顶层限定不会进入新对象的类型，所指对象的只读约束则会保留。</p>
+
+                    <pre><code class="language-cpp">int value = 1;
+const int* readOnly = &amp;value;
+int* writable = const_cast&lt;int*&gt;(readOnly);
+*writable = 2;                  // 合法，因为原对象 value 不是 const
+
+const int fixed = 3;
+const int* fixedView = &amp;fixed;
+int* unsafe = const_cast&lt;int*&gt;(fixedView);
+// *unsafe = 4;                 // 未定义行为：原对象确实是 const</code></pre>
+                    <p><code>const_cast</code> 只改变访问表达式的类型，不会把真正的常量对象变成可写对象。需要频繁去掉 <code>const</code>，通常说明接口设计与真实修改需求不一致。</p>
+
+                    <h2>数组何时退化为指针，为什么需要 span</h2>
+                    <p>内建数组的类型包含元素数量，例如 <code>int[4]</code>。但在大多数表达式中，它会转换为指向首元素的 <code>int*</code>，长度信息随之丢失。函数形参写成 <code>int values[]</code> 也会被调整为 <code>int*</code>。</p>
+
+                    <pre><code class="language-cpp">void oldStyle(int values[]) {
+    // 这里的 values 实际是 int*，sizeof(values) 是指针大小
+}
+
+template&lt;std::size_t N&gt;
+void keepExtent(const int (&amp;values)[N]) {
+    static_assert(N &gt; 0);       // N 在编译期保留下来
+}
+
+int values[4]{1, 2, 3, 4};
+static_assert(sizeof(values) == 4 * sizeof(int));
+keepExtent(values);</code></pre>
+
+                    <p><code>sizeof(array)</code>、取数组地址以及绑定数组引用等语境不会执行普通的数组到指针转换。指向尾后一位的指针可以用于比较和循环终点，但不能解引用。</p>
+
+                    <h3>span 是非拥有的连续序列视图</h3>
+                    <pre><code class="language-cpp">#include &lt;span&gt;
+
+int sum(std::span&lt;const int&gt; values) {
+    int result = 0;
+    for (int value : values) {
+        result += value;
+    }
+    return result;
+}
+
+int builtIn[]{1, 2, 3};
+std::vector&lt;int&gt; dynamic{4, 5, 6};
+
+sum(builtIn);                    // 自动携带 3
+sum(dynamic);                    // 自动携带 vector 的元素数量</code></pre>
+
+                    <p><code>std::span</code> 同时携带首地址和元素数量，能够接入数组、<code>vector</code> 等连续序列。但它不拥有元素，也不会延长底层容器的生命周期；容器销毁、移动或重分配后，原来的 <code>span</code> 可能悬垂。</p>
+
+                    <h2>new/delete 与 malloc/free 的本质差异</h2>
+                    <p><code>new</code> 表达式面对的是“创建 C++ 对象”：先取得满足大小和对齐的存储，再在其中初始化对象。<code>delete</code> 表达式先结束对象生命周期，再释放匹配的存储。<code>malloc</code> 与 <code>free</code> 只管理一段原始字节，不会调用构造函数或析构函数。</p>
+
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>操作</th><th>存储管理</th><th>对象生命周期</th><th>失败方式</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>new T(args)</code></td><td>通常调用分配函数取得存储</td><td>初始化并创建 <code>T</code> 对象</td><td>普通形式通常抛出 <code>std::bad_alloc</code></td></tr>
+                                <tr><td><code>delete pointer</code></td><td>调用匹配的释放函数</td><td>先调用析构函数</td><td>要求来源和类型满足删除规则</td></tr>
+                                <tr><td><code>malloc(bytes)</code></td><td>取得原始存储</td><td>不构造类对象</td><td>失败返回空指针</td></tr>
+                                <tr><td><code>free(pointer)</code></td><td>归还匹配存储</td><td>不调用析构函数</td><td>只能释放相应 C 分配函数得到的存储</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <pre><code class="language-cpp">Widget* one = new Widget(42);
+delete one;
+
+Widget* many = new Widget[10];
+delete[] many;
+
+// 错配都属于未定义行为：
+// free(one);
+// delete[] (new Widget);
+// delete (new Widget[10]);</code></pre>
+
+                    <h3>构造函数抛异常时发生什么</h3>
+                    <p>如果 <code>new T(...)</code> 已取得存储，但 <code>T</code> 的构造随后抛出异常，匹配的释放函数会回收这块存储。对象没有完整构造，所以不会调用 <code>T</code> 自己的析构函数；已经完整构造的基类和成员子对象则会按规则销毁。</p>
+
+                    <pre><code class="language-cpp">class Session {
+public:
+    Session()
+        : buffer_(1024),        // vector 自己负责异常清理
+          socket_(openSocket()) // 假设 Socket 也是 RAII 类型
+    {
+        validate();             // 即使这里抛异常，成员也会自动析构
+    }
+
+private:
+    std::vector&lt;char&gt; buffer_;
+    Socket socket_;
+};</code></pre>
+                    <p>若构造函数体内手动取得裸资源，却没有立即交给 RAII 成员，后续异常可能让资源泄漏。非分配式 placement new 使用调用者提供的存储，销毁对象后也不会替调用者自动归还那块外部存储。</p>
+
+                    <div class="note-box">
+                        <strong>现代 C++ 默认选择：</strong>业务代码优先使用局部对象、标准容器、<code>std::make_unique</code> 和 <code>std::make_shared</code>。裸 <code>new</code>/<code>delete</code> 更适合被封装在容器、智能指针或底层资源组件内部。
+                    </div>
+
+                    <h2>虚函数如何实现运行时多态</h2>
+                    <p>静态类型来自声明，动态类型来自对象实际构造出的最派生类型。当通过基类指针或引用调用虚函数时，程序根据动态类型选择最终覆写函数；普通非虚函数主要按静态类型解析。</p>
+
+                    <pre><code class="language-cpp">class Shape {
+public:
+    virtual double area() const = 0;
+    virtual ~Shape() = default;
+};
+
+class Circle final : public Shape {
+public:
+    explicit Circle(double radius) : radius_(radius) {}
+    double area() const override {
+        return 3.141592653589793 * radius_ * radius_;
+    }
+
+private:
+    double radius_;
+};
+
+void printArea(const Shape&amp; shape) {
+    std::cout &lt;&lt; shape.area(); // 根据动态类型调用 Circle::area
+}</code></pre>
+
+                    <p>虚表和虚表指针是常见实现方式，但 C++ 标准规定的是可观察的动态分派行为，并不强制对象采用某一种具体内存布局。<code>override</code> 可以让编译器检查函数是否真的完成覆写，避免因遗漏 <code>const</code>、参数不同或引用限定不同而悄悄产生新函数。</p>
+
+                    <h3>对象切片会丢掉派生部分</h3>
+                    <pre><code class="language-cpp">void sliced(ShapeValue base);       // 按值接收基类对象
+void polymorphic(const Shape&amp; base); // 引用保留动态对象身份
+
+DerivedValue derived;
+ShapeValue copy = derived;          // 只复制基类子对象，发生切片</code></pre>
+                    <p>派生对象按值复制为基类对象后，只剩下独立的基类子对象，原来的派生数据和动态多态身份都不会保留。多态对象集合通常保存智能指针：</p>
+
+                    <pre><code class="language-cpp">std::vector&lt;std::unique_ptr&lt;Shape&gt;&gt; shapes;
+shapes.push_back(std::make_unique&lt;Circle&gt;(2.0));
+
+for (const auto&amp; shape : shapes) {
+    std::cout &lt;&lt; shape-&gt;area() &lt;&lt; '\n';
+}</code></pre>
+
+                    <h3>构造和析构期间的虚调用</h3>
+                    <p>基类构造期间，派生部分尚未完成；基类析构期间，派生部分已经销毁。因此这两个阶段中的虚调用只会分派到当前正在构造或析构的层次，不会调用尚未构造或已经析毁的派生覆写。不要依赖构造函数中的虚调用初始化派生状态。</p>
+
+                    <h2>基类析构函数为什么常常需要 virtual</h2>
+                    <p>如果对象可能通过基类指针删除，基类析构函数必须允许正确的多态销毁。否则派生部分无法按规定完成析构，程序行为未定义。</p>
+
+                    <pre><code class="language-cpp">class Interface {
+public:
+    virtual void run() = 0;
+    virtual ~Interface() = default; // 允许通过 Interface* 删除派生对象
+};</code></pre>
+
+                    <p>并非每个类都需要虚析构。一个不承担运行时多态基类角色的值类型，通常不应仅为“以防万一”加入虚函数。常见设计选择是：</p>
+                    <ul>
+                        <li><strong>public 且 virtual：</strong>允许外部通过基类指针销毁对象；</li>
+                        <li><strong>protected 且 non-virtual：</strong>阻止外部通过基类指针执行 <code>delete</code>。</li>
+                    </ul>
+
+                    <h3>纯虚析构函数仍然需要定义</h3>
+                    <pre><code class="language-cpp">class Abstract {
+public:
+    virtual ~Abstract() = 0;
+};
+
+Abstract::~Abstract() = default; // 仍需提供定义</code></pre>
+                    <p>把析构函数声明为纯虚可以让类保持抽象，但派生对象销毁时仍然会执行基类析构，所以函数体不能缺失。<code>std::unique_ptr&lt;Base&gt;</code> 的默认删除器最终仍通过 <code>Base*</code> 删除对象；智能指针不会自动修复错误的基类析构设计。</p>
+
+                    <h2>RAII、Rule of Zero 与 Rule of Five</h2>
+                    <p>RAII 的核心不是“智能指针技巧”，而是把资源的有效期绑定到对象生命周期：构造成功意味着资源已经处于可用状态，析构负责释放。函数正常返回、提前返回或异常栈展开时，局部对象都会按规则销毁，因此清理路径不再散落在每个分支里。</p>
+
+                    <pre><code class="language-cpp">void updateSharedState() {
+    std::lock_guard&lt;std::mutex&gt; lock(mutex);
+    // 构造 lock 时加锁
+    changeState();
+} // 离开作用域自动解锁，包括异常离开</code></pre>
+
+                    <p>资源不限于内存，还包括文件、互斥锁、套接字、数据库连接、事务和系统句柄。析构函数通常不应让异常逃出，否则在另一个异常传播期间可能导致程序终止。</p>
+
+                    <h3>Rule of Zero：让成员类型承担资源责任</h3>
+                    <pre><code class="language-cpp">class Document {
+public:
+    Document(std::string title, std::vector&lt;std::string&gt; lines)
+        : title_(std::move(title)), lines_(std::move(lines)) {}
+
+private:
+    std::string title_;
+    std::vector&lt;std::string&gt; lines_;
+};</code></pre>
+                    <p><code>Document</code> 不需要手写析构、复制或移动函数。<code>string</code> 和 <code>vector</code> 已经知道怎样管理自己的资源，编译器生成的组合行为通常正是需要的。Rule of Zero 不是“没有析构”，而是把析构责任交给可靠的成员类型。</p>
+
+                    <h3>Rule of Five：自定义一个，就系统审查五个</h3>
+                    <p>如果类直接管理裸资源，或者需要与成员默认行为不同的复制语义，就要一起审查析构、复制构造、复制赋值、移动构造和移动赋值。重点不是强迫五个函数全部手写，而是防止只写析构后，复制仍在偷偷复制同一个裸句柄。</p>
+
+                    <pre><code class="language-cpp">class ByteBuffer {
+public:
+    explicit ByteBuffer(std::size_t size)
+        : size_(size),
+          data_(size == 0 ? nullptr
+                          : std::make_unique&lt;std::byte[]&gt;(size)) {}
+
+    ByteBuffer(const ByteBuffer&amp; other)
+        : ByteBuffer(other.size_) {
+        if (size_ != 0) {
+            std::copy_n(other.data_.get(), size_, data_.get());
+        }
+    }
+
+    ByteBuffer&amp; operator=(const ByteBuffer&amp; other) {
+        if (this != &amp;other) {
+            ByteBuffer copy(other);
+            swap(copy);              // 先成功复制，再替换当前状态
+        }
+        return *this;
+    }
+
+    ByteBuffer(ByteBuffer&amp;&amp;) noexcept = default;
+    ByteBuffer&amp; operator=(ByteBuffer&amp;&amp;) noexcept = default;
+    ~ByteBuffer() = default;
+
+    void swap(ByteBuffer&amp; other) noexcept {
+        std::swap(size_, other.size_);
+        data_.swap(other.data_);
+    }
+
+private:
+    std::size_t size_ = 0;
+    std::unique_ptr&lt;std::byte[]&gt; data_;
+};</code></pre>
+
+                    <p>这个示例没有直接使用裸 <code>new[]</code>，释放仍交给 <code>unique_ptr</code>；只有“深复制”这一业务语义需要自定义。复制赋值采用先复制后交换，复制失败时原对象保持不变；移动操作可以安全地使用成员的默认实现。</p>
+
+                    <h3>成员初始化与销毁顺序</h3>
+                    <p>成员按照它们在类中声明的顺序初始化，与构造函数初始化列表的书写顺序无关；销毁顺序则相反。让初始化列表故意采用不同顺序，只会制造警告和误导。</p>
+
+                    <pre><code class="language-cpp">class Connection {
+private:
+    Config config_;   // 先初始化
+    Socket socket_;   // 后初始化，并且可以依赖 config_
+
+public:
+    explicit Connection(Config config)
+        : config_(std::move(config)),
+          socket_(config_) {}
+};</code></pre>
+
+                    <h2>新增内容的可编译 C++20 示例</h2>
+                    <pre><code class="language-cpp" data-example="ownership">#include &lt;algorithm&gt;
+#include &lt;cassert&gt;
+#include &lt;cstddef&gt;
+#include &lt;iostream&gt;
+#include &lt;memory&gt;
+#include &lt;span&gt;
+#include &lt;utility&gt;
+#include &lt;vector&gt;
+
+int sum(std::span&lt;const int&gt; values) {
+    int result = 0;
+    for (int value : values) {
+        result += value;
+    }
+    return result;
+}
+
+class Shape {
+public:
+    virtual double area() const = 0;
+    virtual ~Shape() = default;
+};
+
+class Circle final : public Shape {
+public:
+    explicit Circle(double radius) : radius_(radius) {}
+
+    double area() const override {
+        return 3.141592653589793 * radius_ * radius_;
+    }
+
+private:
+    double radius_;
+};
+
+class ByteBuffer {
+public:
+    explicit ByteBuffer(std::size_t size)
+        : size_(size),
+          data_(size == 0 ? nullptr
+                          : std::make_unique&lt;std::byte[]&gt;(size)) {}
+
+    ByteBuffer(const ByteBuffer&amp; other)
+        : ByteBuffer(other.size_) {
+        if (size_ != 0) {
+            std::copy_n(other.data_.get(), size_, data_.get());
+        }
+    }
+
+    ByteBuffer&amp; operator=(const ByteBuffer&amp; other) {
+        if (this != &amp;other) {
+            ByteBuffer copy(other);
+            swap(copy);
+        }
+        return *this;
+    }
+
+    ByteBuffer(ByteBuffer&amp;&amp;) noexcept = default;
+    ByteBuffer&amp; operator=(ByteBuffer&amp;&amp;) noexcept = default;
+    ~ByteBuffer() = default;
+
+    std::byte&amp; operator[](std::size_t index) {
+        return data_[index];
+    }
+
+    const std::byte&amp; operator[](std::size_t index) const {
+        return data_[index];
+    }
+
+    void swap(ByteBuffer&amp; other) noexcept {
+        std::swap(size_, other.size_);
+        data_.swap(other.data_);
+    }
+
+private:
+    std::size_t size_ = 0;
+    std::unique_ptr&lt;std::byte[]&gt; data_;
+};
+
+int main() {
+    int builtIn[]{1, 2, 3};
+    std::vector&lt;int&gt; dynamic{4, 5, 6};
+    assert(sum(builtIn) == 6);
+    assert(sum(dynamic) == 15);
+
+    std::unique_ptr&lt;Shape&gt; shape =
+        std::make_unique&lt;Circle&gt;(2.0);
+    assert(shape-&gt;area() &gt; 12.0 &amp;&amp; shape-&gt;area() &lt; 13.0);
+
+    ByteBuffer original(2);
+    original[0] = std::byte{0x2a};
+    ByteBuffer copy = original;
+    copy[0] = std::byte{0x01};
+    assert(original[0] == std::byte{0x2a});
+    assert(copy[0] == std::byte{0x01});
+
+    ByteBuffer moved = std::move(copy);
+    assert(moved[0] == std::byte{0x01});
+
+    std::cout &lt;&lt; "C++ ownership checks passed\n";
+}</code></pre>
+
+                    <p>这一段把新增主题连在一起：<code>span</code> 表达非拥有视图，<code>unique_ptr&lt;Shape&gt;</code> 同时保留多态和所有权，虚析构保证基类接口可安全销毁派生对象，<code>ByteBuffer</code> 则展示深复制、移动和 RAII 成员如何配合。</p>
+
+                    <h2>接口与所有权速查</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>看到的类型</th><th>默认理解</th><th>必须继续确认</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>T</code></td><td>独立值或按值参数</td><td>复制与移动成本、是否发生切片</td></tr>
+                                <tr><td><code>T&amp;</code></td><td>必有对象的可写借用</td><td>目标生命周期是否覆盖使用期</td></tr>
+                                <tr><td><code>const T&amp;</code></td><td>必有对象的只读借用</td><td>是否意外绑定短命临时对象</td></tr>
+                                <tr><td><code>T*</code></td><td>可选或可重新指向的借用</td><td>能否为空、谁拥有目标</td></tr>
+                                <tr><td><code>std::span&lt;T&gt;</code></td><td>连续序列的非拥有视图</td><td>底层范围是否仍存活且未失效</td></tr>
+                                <tr><td><code>std::unique_ptr&lt;T&gt;</code></td><td>独占所有权</td><td>所有权何时转移</td></tr>
+                                <tr><td><code>std::shared_ptr&lt;T&gt;</code></td><td>共享所有权</td><td>是否真的需要共享，是否形成环</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+
                     <h2>遇到陌生代码时的检查流程</h2>
                     <ol>
                         <li><strong>识别语法：</strong>这是默认、值、直接、拷贝还是列表初始化？</li>
@@ -325,6 +757,8 @@ int main() {
                         <li><strong>列出候选与转换：</strong>是否存在 <code>initializer_list</code> 优先、用户定义转换或二义性？</li>
                         <li><strong>检查生命周期：</strong>被引用对象是否仍然存在，临时对象的生命周期是否真的被延长？</li>
                         <li><strong>检查底层访问：</strong>存储大小、对齐、对象生命周期和访问类型是否同时合法？</li>
+                        <li><strong>检查所有权：</strong>谁负责释放资源，裸指针或视图是否只是借用？</li>
+                        <li><strong>检查多态：</strong>是否发生对象切片，基类析构是否支持预期的删除方式？</li>
                         <li><strong>让编译器帮助证明：</strong>使用 <code>static_assert</code>、<code>decltype</code>、警告、Sanitizer 和小型实验验证判断。</li>
                     </ol>
 
@@ -339,7 +773,13 @@ int main() {
                         <li>认为 <code>std::move</code> 已经完成了移动；</li>
                         <li>依赖多级用户定义转换，或让非 <code>explicit</code> 单参构造产生意外匹配；</li>
                         <li>把“内存地址还在”误认为“原对象仍然存活”；</li>
-                        <li>用 <code>reinterpret_cast</code> 解引用来实现位级类型转换。</li>
+                        <li>用 <code>reinterpret_cast</code> 解引用来实现位级类型转换；</li>
+                        <li>返回局部对象的地址或引用，或长期保存已经失效的 <code>span</code>；</li>
+                        <li>用 <code>const_cast</code> 修改原本确实为 <code>const</code> 的对象；</li>
+                        <li>混用 <code>new/delete</code>、<code>new[]/delete[]</code> 与 <code>malloc/free</code>；</li>
+                        <li>把派生对象按值放入基类容器，意外发生对象切片；</li>
+                        <li>通过没有虚析构函数的多态基类指针删除派生对象；</li>
+                        <li>手写析构管理裸资源，却没有同步审查复制和移动行为。</li>
                     </ul>
 
                     <h2>最后的记忆线索</h2>
@@ -349,7 +789,11 @@ int main() {
                         <li><code>auto</code> 偏向按值推导，<code>decltype</code> 观察声明类型或表达式值类别；</li>
                         <li>值类别属于表达式，有名字的变量表达式是左值；</li>
                         <li>作用域管名字，存储期管存储，生命周期管对象；</li>
-                        <li>合法的底层访问必须同时满足对象存在、对齐正确和类型可访问。</li>
+                        <li>合法的底层访问必须同时满足对象存在、对齐正确和类型可访问；</li>
+                        <li>引用、裸指针与 <code>span</code> 通常表达借用，不会延长目标生命周期；</li>
+                        <li><code>new/delete</code> 管对象与存储，<code>malloc/free</code> 只管原始字节，不能交叉配对；</li>
+                        <li>多态依赖指针或引用保留动态对象身份，按值转成基类会切片；</li>
+                        <li>优先遵循 Rule of Zero；确需自定义资源语义时，系统审查 Rule of Five。</li>
                     </ol>
 
                     <p>标准条款：
@@ -357,7 +801,14 @@ int main() {
                         <a class="link link--bold" href="https://eel.is/c++draft/dcl.constexpr" target="_blank" rel="noopener noreferrer">constexpr 与 consteval</a>、
                         <a class="link link--bold" href="https://eel.is/c++draft/dcl.type.decltype" target="_blank" rel="noopener noreferrer">decltype</a>、
                         <a class="link link--bold" href="https://eel.is/c++draft/basic.lval" target="_blank" rel="noopener noreferrer">值类别与类型可访问性</a>、
-                        <a class="link link--bold" href="https://eel.is/c++draft/basic.life" target="_blank" rel="noopener noreferrer">对象生命周期</a>。
+                        <a class="link link--bold" href="https://eel.is/c++draft/basic.life" target="_blank" rel="noopener noreferrer">对象生命周期</a>、
+                        <a class="link link--bold" href="https://eel.is/c++draft/dcl.ref" target="_blank" rel="noopener noreferrer">引用</a>、
+                        <a class="link link--bold" href="https://eel.is/c++draft/conv.array" target="_blank" rel="noopener noreferrer">数组到指针转换</a>、
+                        <a class="link link--bold" href="https://eel.is/c++draft/span.overview" target="_blank" rel="noopener noreferrer">span</a>、
+                        <a class="link link--bold" href="https://eel.is/c++draft/expr.new" target="_blank" rel="noopener noreferrer">new 表达式</a>、
+                        <a class="link link--bold" href="https://eel.is/c++draft/class.virtual" target="_blank" rel="noopener noreferrer">虚函数</a>、
+                        <a class="link link--bold" href="https://eel.is/c++draft/class.dtor" target="_blank" rel="noopener noreferrer">析构函数</a>，以及
+                        <a class="link link--bold" href="https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-zero" target="_blank" rel="noopener noreferrer">C++ Core Guidelines 的 Rule of Zero</a>。
                     </p>
                 </div>
             </article>
