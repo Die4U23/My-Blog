@@ -39,7 +39,7 @@ cat > "$FILENAME" <<EOF
 	<script src="/js/theme.js?v=20260819-3"></script>
 	<title>主标题</title>
 	<script src="/js/highlight.min.js?v=20260819-3"></script>
-	<link rel="stylesheet" href="/css/link.css?v=20260819-3">
+	<link rel="stylesheet" href="/css/link.css?v=20260915-1">
 	<link rel="stylesheet" href="/css/code.css?v=20260819-3">
 	<link rel="stylesheet" href="/css/post.css?v=20260819-3">
 	<link rel="stylesheet" href="/css/common.css?v=20260824-2">
