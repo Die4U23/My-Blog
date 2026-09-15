@@ -35,8 +35,8 @@
                 <p class="post-date">2026-09-14</p>
 
                 <div class="content">
-<div class="note-box"><strong>从原理到工程：</strong>如果还不熟悉任期、日志匹配和多数派提交，可以先读 <a href="/posts/raft-algorithm/">Raft 算法：从选主到日志复制的共识协议</a>。这篇沿着一次真实写请求，记录这些规则怎样落到 C++ 服务里，以及如何用故障与性能实验检验改动。</div>
-<p>阅读路线：<a href="#architecture">请求经过哪些模块</a> → <a href="#write-success">写入何时返回成功</a> → <a href="#validation">故障下怎样验证</a> → <a href="#reconnect">有效的重连优化</a> / <a href="#client-abba">未观察到收益的客户端优化</a>。</p>
+<div class="note-box"><strong>从原理到工程：</strong>如果还不熟悉任期、日志匹配和多数派提交，可以先读 <a class="link" href="/posts/raft-algorithm/">Raft 算法：从选主到日志复制的共识协议</a>。这篇沿着一次真实写请求，记录这些规则怎样落到 C++ 服务里，以及如何用故障与性能实验检验改动。</div>
+<p>阅读路线：<a class="link" href="#architecture">请求经过哪些模块</a> → <a class="link" href="#write-success">写入何时返回成功</a> → <a class="link" href="#validation">故障下怎样验证</a> → <a class="link" href="#reconnect">有效的重连优化</a> / <a class="link" href="#client-abba">未观察到收益的客户端优化</a>。</p>
 <div class="note-box">
 <p>本文介绍一个 C++ 分布式 KV 学习项目的实现范围、工程改造、测试结果与后续计划，并持续记录版本更新。项目在早期参考代码和教程的基础上发展而来，已有实现与后续改造分别说明，所有实测结论都限定到对应版本、环境和故障范围。</p>
 </div>
