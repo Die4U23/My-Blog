@@ -1,0 +1,124 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 700">
+  <defs>
+    <style>
+      .title { font: bold 20px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 12px sans-serif; fill: #7f8c8d; }
+      .axis { stroke: #34495e; stroke-width: 2; }
+      .grid { stroke: #bdc3c7; stroke-width: 1; stroke-dasharray: 5,5; }
+      .bar1 { fill: #3498db; }
+      .bar2 { fill: #2ecc71; }
+      .bar3 { fill: #f39c12; }
+      .bar4 { fill: #9b59b6; }
+      .bar5 { fill: #e74c3c; }
+      .label { font: 12px sans-serif; fill: #2c3e50; }
+      .value { font: 11px sans-serif; fill: #2c3e50; font-weight: bold; }
+      .legend { font: 13px sans-serif; fill: #2c3e50; }
+    </style>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" class="title">实验结果对比 - 测试集 NDCG@10</text>
+  <text x="500" y="55" text-anchor="middle" class="subtitle">R01-R05 各轮实验效果（整体 + 冷商品）</text>
+
+  <!-- 整体指标图 -->
+  <text x="100" y="100" class="label" font-weight="bold" font-size="14">整体 NDCG@10</text>
+
+  <!-- Y 轴 -->
+  <line x1="100" y1="500" x2="100" y2="120" class="axis"/>
+  <text x="70" y="125" class="label">0.010</text>
+  <text x="70" y="220" class="label">0.008</text>
+  <text x="70" y="315" class="label">0.006</text>
+  <text x="70" y="410" class="label">0.004</text>
+  <text x="70" y="505" class="label">0.000</text>
+
+  <!-- 网格线 -->
+  <line x1="100" y1="120" x2="480" y2="120" class="grid"/>
+  <line x1="100" y1="215" x2="480" y2="215" class="grid"/>
+  <line x1="100" y1="310" x2="480" y2="310" class="grid"/>
+  <line x1="100" y1="405" x2="480" y2="405" class="grid"/>
+
+  <!-- X 轴 -->
+  <line x1="100" y1="500" x2="480" y2="500" class="axis"/>
+
+  <!-- 柱状图 - R01 热门 -->
+  <rect x="120" y="218" width="50" height="282" class="bar1"/>
+  <text x="145" y="210" text-anchor="middle" class="value">0.0074</text>
+  <text x="145" y="520" text-anchor="middle" class="label">R01热门</text>
+
+  <!-- 柱状图 - R01 ItemCF -->
+  <rect x="180" y="268" width="50" height="232" class="bar1"/>
+  <text x="205" y="260" text-anchor="middle" class="value">0.0046</text>
+  <text x="205" y="520" text-anchor="middle" class="label">R01CF</text>
+
+  <!-- 柱状图 - R02 时间衰减协同 -->
+  <rect x="240" y="120" width="50" height="380" class="bar2"/>
+  <text x="265" y="112" text-anchor="middle" class="value">0.0084</text>
+  <text x="265" y="520" text-anchor="middle" class="label">R02协同</text>
+
+  <!-- 柱状图 - R02 序列模型 -->
+  <rect x="300" y="238" width="50" height="262" class="bar3"/>
+  <text x="325" y="230" text-anchor="middle" class="value">0.0056</text>
+  <text x="325" y="520" text-anchor="middle" class="label">R02序列</text>
+
+  <!-- 柱状图 - R03 内容融合 -->
+  <rect x="360" y="167" width="50" height="333" class="bar4"/>
+  <text x="385" y="159" text-anchor="middle" class="value">0.0073</text>
+  <text x="385" y="520" text-anchor="middle" class="label">R03内容</text>
+
+  <!-- 柱状图 - R04 门控策略 -->
+  <rect x="420" y="157" width="50" height="343" class="bar5"/>
+  <text x="445" y="149" text-anchor="middle" class="value">0.0076</text>
+  <text x="445" y="520" text-anchor="middle" class="label">R04门控</text>
+
+  <!-- 冷商品指标图 -->
+  <text x="600" y="100" class="label" font-weight="bold" font-size="14">冷商品 NDCG@10</text>
+
+  <!-- Y 轴 -->
+  <line x1="600" y1="500" x2="600" y2="120" class="axis"/>
+  <text x="570" y="125" class="label">0.006</text>
+  <text x="570" y="220" class="label">0.004</text>
+  <text x="570" y="315" class="label">0.003</text>
+  <text x="570" y="410" class="label">0.001</text>
+  <text x="570" y="505" class="label">0.000</text>
+
+  <!-- 网格线 -->
+  <line x1="600" y1="120" x2="950" y2="120" class="grid"/>
+  <line x1="600" y1="215" x2="950" y2="215" class="grid"/>
+  <line x1="600" y1="310" x2="950" y2="310" class="grid"/>
+  <line x1="600" y1="405" x2="950" y2="405" class="grid"/>
+
+  <!-- X 轴 -->
+  <line x1="600" y1="500" x2="950" y2="500" class="axis"/>
+
+  <!-- 柱状图 - R01 (冷商品=0) -->
+  <rect x="620" y="500" width="50" height="0" class="bar1"/>
+  <text x="645" y="492" text-anchor="middle" class="value">0.0000</text>
+  <text x="645" y="520" text-anchor="middle" class="label">R01</text>
+
+  <!-- 柱状图 - R02 (冷商品=0) -->
+  <rect x="680" y="500" width="50" height="0" class="bar3"/>
+  <text x="705" y="492" text-anchor="middle" class="value">0.0000</text>
+  <text x="705" y="520" text-anchor="middle" class="label">R02</text>
+
+  <!-- 柱状图 - R03 内容双塔 -->
+  <rect x="740" y="310" width="50" height="190" class="bar4"/>
+  <text x="765" y="302" text-anchor="middle" class="value">0.0030</text>
+  <text x="765" y="520" text-anchor="middle" class="label">R03</text>
+
+  <!-- 柱状图 - R04 门控 -->
+  <rect x="800" y="215" width="50" height="285" class="bar5"/>
+  <text x="825" y="207" text-anchor="middle" class="value">0.0045</text>
+  <text x="825" y="520" text-anchor="middle" class="label">R04</text>
+
+  <!-- 柱状图 - R05 加权排序 -->
+  <rect x="860" y="167" width="50" height="333" class="bar2"/>
+  <text x="885" y="159" text-anchor="middle" class="value">0.0053</text>
+  <text x="885" y="520" text-anchor="middle" class="label">R05</text>
+
+  <!-- 图例 -->
+  <rect x="50" y="570" width="900" height="110" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="1" rx="5"/>
+  <text x="70" y="595" class="legend" font-weight="bold">关键发现：</text>
+  <text x="70" y="620" class="label">• R01-R02: 协同过滤方法对冷商品完全失效（6,874 个目标全部未命中）</text>
+  <text x="70" y="640" class="label">• R03: 内容双塔引入语义检索路径，冷商品开始有曝光机会</text>
+  <text x="70" y="660" class="label">• R04: 门控策略提升冷商品排序位置，NDCG 提升 50%</text>
+  <text x="70" y="680" class="label">• R05: 冷样本加权排序进一步优化，冷商品指标持续改善</text>
+</svg>

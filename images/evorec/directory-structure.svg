@@ -1,0 +1,101 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 900">
+  <defs>
+    <style>
+      .title { font: bold 20px sans-serif; fill: #2c3e50; }
+      .folder { font: 14px 'Courier New', monospace; fill: #f39c12; font-weight: bold; }
+      .file { font: 13px 'Courier New', monospace; fill: #2c3e50; }
+      .comment { font: 12px sans-serif; fill: #7f8c8d; font-style: italic; }
+      .layer { fill: #ecf0f1; stroke: #bdc3c7; stroke-width: 1; }
+      .highlight { fill: #d5f4e6; stroke: #27ae60; stroke-width: 2; }
+    </style>
+  </defs>
+
+  <text x="350" y="30" text-anchor="middle" class="title">EvoRec 工程目录结构</text>
+
+  <rect x="50" y="50" width="600" height="820" class="layer" rx="5"/>
+
+  <text x="70" y="80" class="folder">evorec/</text>
+
+  <!-- 应用层 -->
+  <rect x="70" y="95" width="560" height="140" class="highlight" rx="3"/>
+  <text x="90" y="115" class="folder">├── app/</text>
+  <text x="400" y="115" class="comment">应用服务层</text>
+  <text x="110" y="135" class="file">│   ├── main.py</text>
+  <text x="400" y="135" class="comment">FastAPI 入口</text>
+  <text x="110" y="155" class="file">│   ├── routers/</text>
+  <text x="400" y="155" class="comment">推荐、反馈、管理接口</text>
+  <text x="110" y="175" class="file">│   ├── schemas.py</text>
+  <text x="400" y="175" class="comment">请求响应契约</text>
+  <text x="110" y="195" class="file">│   ├── dependencies.py</text>
+  <text x="400" y="195" class="comment">依赖注入</text>
+  <text x="110" y="215" class="file">│   └── middleware.py</text>
+  <text x="400" y="215" class="comment">请求绑定、超时、日志</text>
+
+  <!-- 领域层 -->
+  <rect x="70" y="245" width="560" height="120" class="highlight" rx="3"/>
+  <text x="90" y="265" class="folder">├── domain/</text>
+  <text x="400" y="265" class="comment">核心业务逻辑</text>
+  <text x="110" y="285" class="file">│   ├── entities.py</text>
+  <text x="400" y="285" class="comment">用户、商品、会话实体</text>
+  <text x="110" y="305" class="file">│   ├── services.py</text>
+  <text x="400" y="305" class="comment">推荐服务、发布协调</text>
+  <text x="110" y="325" class="file">│   ├── ports.py</text>
+  <text x="400" y="325" class="comment">模型、编码器、索引接口</text>
+  <text x="110" y="345" class="file">│   └── version.py</text>
+  <text x="400" y="345" class="comment">Bundle 版本绑定</text>
+
+  <!-- 算法层 -->
+  <rect x="70" y="375" width="560" height="140" class="highlight" rx="3"/>
+  <text x="90" y="395" class="folder">├── models/</text>
+  <text x="400" y="395" class="comment">算法实现</text>
+  <text x="110" y="415" class="file">│   ├── sequence_model.py</text>
+  <text x="400" y="415" class="comment">Self-Attention (R02)</text>
+  <text x="110" y="435" class="file">│   ├── content_tower.py</text>
+  <text x="400" y="435" class="comment">内容双塔 (R03)</text>
+  <text x="110" y="455" class="file">│   ├── gating.py</text>
+  <text x="400" y="455" class="comment">门控策略 (R04)</text>
+  <text x="110" y="475" class="file">│   ├── cold_list_mlp.py</text>
+  <text x="400" y="475" class="comment">冷样本加权排序 (R05)</text>
+  <text x="110" y="495" class="file">│   └── baselines.py</text>
+  <text x="400" y="495" class="comment">热门、ItemCF、时间衰减</text>
+
+  <!-- 适配器层 -->
+  <text x="90" y="530" class="folder">├── adapters/</text>
+  <text x="400" y="530" class="comment">外部系统适配</text>
+  <text x="110" y="550" class="file">│   ├── model_adapter.py</text>
+  <text x="400" y="550" class="comment">PyTorch 模型加载</text>
+  <text x="110" y="570" class="file">│   ├── faiss_adapter.py</text>
+  <text x="400" y="570" class="comment">向量索引封装</text>
+  <text x="110" y="590" class="file">│   └── db_adapter.py</text>
+  <text x="400" y="590" class="comment">PostgreSQL 数据访问</text>
+
+  <!-- 实验层 -->
+  <text x="90" y="625" class="folder">├── experiments/</text>
+  <text x="400" y="625" class="comment">离线实验</text>
+  <text x="110" y="645" class="file">│   ├── r01_baseline.py</text>
+  <text x="400" y="645" class="comment">热门、ItemCF</text>
+  <text x="110" y="665" class="file">│   ├── r02_sequence.py</text>
+  <text x="400" y="665" class="comment">序列模型训练</text>
+  <text x="110" y="685" class="file">│   ├── r03_content.py</text>
+  <text x="400" y="685" class="comment">内容双塔</text>
+  <text x="110" y="705" class="file">│   ├── r04_gating.py</text>
+  <text x="400" y="705" class="comment">门控策略验证</text>
+  <text x="110" y="725" class="file">│   ├── r05_cold_ranker.py</text>
+  <text x="400" y="725" class="comment">冷样本加权</text>
+  <text x="110" y="745" class="file">│   └── utils/</text>
+  <text x="400" y="745" class="comment">评价指标、数据加载</text>
+
+  <!-- 测试层 -->
+  <text x="90" y="780" class="folder">├── tests/</text>
+  <text x="400" y="780" class="comment">自动检查</text>
+  <text x="110" y="800" class="file">│   ├── test_api.py</text>
+  <text x="400" y="800" class="comment">接口契约 (55 项通过)</text>
+  <text x="110" y="820" class="file">│   ├── test_domain.py</text>
+  <text x="400" y="820" class="comment">版本绑定、边界保护</text>
+  <text x="110" y="840" class="file">│   └── test_models.py</text>
+  <text x="400" y="840" class="comment">模型输入输出形状</text>
+
+  <!-- 配置 -->
+  <text x="90" y="870" class="folder">└── configs/</text>
+  <text x="400" y="870" class="comment">实验配置、超参数</text>
+</svg>

@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 900">
+  <defs>
+    <style>
+      .title { font: bold 20px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 12px sans-serif; fill: #7f8c8d; }
+      .component { fill: #3498db; stroke: #2980b9; stroke-width: 2; }
+      .text { font: 13px sans-serif; fill: white; }
+      .label { font: 11px sans-serif; fill: #2c3e50; }
+      .arrow { stroke: #34495e; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .dashed { stroke-dasharray: 5,5; }
+      .step { font: 12px sans-serif; fill: #e74c3c; font-weight: bold; }
+      .time { font: 11px sans-serif; fill: #7f8c8d; font-style: italic; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+    </marker>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" class="title">推荐请求时序图</text>
+  <text x="500" y="55" text-anchor="middle" class="subtitle">从接收请求到返回结果的完整链路</text>
+
+  <!-- 时间线 -->
+  <line x1="120" y1="100" x2="120" y2="850" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="280" y1="100" x2="280" y2="850" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="440" y1="100" x2="440" y2="850" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="600" y1="100" x2="600" y2="850" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="760" y1="100" x2="760" y2="850" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="880" y1="100" x2="880" y2="850" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,5"/>
+
+  <!-- 组件名称 -->
+  <rect x="70" y="70" width="100" height="40" class="component" rx="3"/>
+  <text x="120" y="95" text-anchor="middle" class="text">前端</text>
+
+  <rect x="230" y="70" width="100" height="40" class="component" rx="3"/>
+  <text x="280" y="95" text-anchor="middle" class="text">API 层</text>
+
+  <rect x="390" y="70" width="100" height="40" class="component" rx="3"/>
+  <text x="440" y="95" text-anchor="middle" class="text">业务层</text>
+
+  <rect x="550" y="70" width="100" height="40" class="component" rx="3"/>
+  <text x="600" y="95" text-anchor="middle" class="text">模型</text>
+
+  <rect x="710" y="70" width="100" height="40" class="component" rx="3"/>
+  <text x="760" y="95" text-anchor="middle" class="text">索引</text>
+
+  <rect x="830" y="70" width="100" height="40" class="component" rx="3"/>
+  <text x="880" y="95" text-anchor="middle" class="text">数据库</text>
+
+  <!-- 步骤 1: 发起请求 -->
+  <text x="30" y="145" class="step">1</text>
+  <path d="M 120 140 L 280 140" class="arrow"/>
+  <text x="200" y="130" class="label">POST /recommend</text>
+  <text x="200" y="155" class="time">t = 0ms</text>
+
+  <!-- 步骤 2: 生成请求绑定 -->
+  <text x="30" y="195" class="step">2</text>
+  <rect x="230" y="170" width="100" height="40" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="3"/>
+  <text x="280" y="190" text-anchor="middle" class="label">生成 request_id</text>
+  <text x="280" y="205" text-anchor="middle" class="label">绑定 bundle 版本</text>
+  <text x="350" y="195" class="time">t = 2ms</text>
+
+  <!-- 步骤 3: 获取用户历史 -->
+  <text x="30" y="255" class="step">3</text>
+  <path d="M 280 240 L 880 240" class="arrow"/>
+  <text x="580" y="230" class="label">查询用户历史交互</text>
+  <path d="M 880 260 L 280 260" class="arrow" stroke-dasharray="5,5"/>
+  <text x="580" y="275" class="time">t = 8ms</text>
+
+  <!-- 步骤 4: 业务处理 -->
+  <text x="30" y="315" class="step">4</text>
+  <path d="M 280 300 L 440 300" class="arrow"/>
+  <text x="360" y="290" class="label">过滤 + 去重</text>
+  <rect x="390" y="320" width="100" height="40" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="3"/>
+  <text x="440" y="340" text-anchor="middle" class="label">排除已收藏</text>
+  <text x="440" y="355" text-anchor="middle" class="label">排除已下架</text>
+  <text x="520" y="340" class="time">t = 12ms</text>
+
+  <!-- 步骤 5: 序列模型编码 -->
+  <text x="30" y="405" class="step">5</text>
+  <path d="M 440 390 L 600 390" class="arrow"/>
+  <text x="520" y="380" class="label">序列编码</text>
+  <rect x="550" y="410" width="100" height="40" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="3"/>
+  <text x="600" y="430" text-anchor="middle" class="label">Self-Attention</text>
+  <text x="600" y="445" text-anchor="middle" class="label">用户表示</text>
+  <path d="M 600 460 L 440 460" class="arrow" stroke-dasharray="5,5"/>
+  <text x="520" y="475" class="time">t = 35ms</text>
+
+  <!-- 步骤 6: 协同召回 -->
+  <text x="30" y="515" class="step">6</text>
+  <path d="M 440 500 L 760 500" class="arrow"/>
+  <text x="600" y="490" class="label">协同过滤召回</text>
+  <rect x="710" y="520" width="100" height="40" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="3"/>
+  <text x="760" y="540" text-anchor="middle" class="label">Faiss 检索</text>
+  <text x="760" y="555" text-anchor="middle" class="label">Top-100</text>
+  <path d="M 760 570 L 440 570" class="arrow" stroke-dasharray="5,5"/>
+  <text x="600" y="585" class="time">t = 58ms</text>
+
+  <!-- 步骤 7: 内容召回 -->
+  <text x="30" y="625" class="step">7</text>
+  <path d="M 440 610 L 760 610" class="arrow"/>
+  <text x="600" y="600" class="label">内容检索召回</text>
+  <rect x="710" y="630" width="100" height="40" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="3"/>
+  <text x="760" y="650" text-anchor="middle" class="label">语义向量</text>
+  <text x="760" y="665" text-anchor="middle" class="label">Top-50</text>
+  <path d="M 760 680 L 440 680" class="arrow" stroke-dasharray="5,5"/>
+  <text x="600" y="695" class="time">t = 76ms</text>
+
+  <!-- 步骤 8: 门控与排序 -->
+  <text x="30" y="735" class="step">8</text>
+  <rect x="390" y="710" width="100" height="60" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="3"/>
+  <text x="440" y="730" text-anchor="middle" class="label">门控策略</text>
+  <text x="440" y="745" text-anchor="middle" class="label">冷商品保留</text>
+  <text x="440" y="760" text-anchor="middle" class="label">精排 Top-10</text>
+  <text x="520" y="740" class="time">t = 105ms</text>
+
+  <!-- 步骤 9: 返回结果 -->
+  <text x="30" y="805" class="step">9</text>
+  <path d="M 440 790 L 280 790" class="arrow"/>
+  <text x="360" y="780" class="label">构建响应</text>
+  <path d="M 280 810 L 120 810" class="arrow"/>
+  <text x="200" y="825" class="label">JSON 响应</text>
+  <text x="200" y="840" class="time">t = 124ms</text>
+
+  <!-- 性能注释 -->
+  <rect x="50" y="860" width="900" height="30" fill="#fff9e6" stroke="#f39c12" stroke-width="1" rx="3"/>
+  <text x="60" y="880" class="label" font-weight="bold">端到端延迟: 124ms | 模型推理: 23ms | 向量检索: 41ms | 业务逻辑: 60ms</text>
+</svg>

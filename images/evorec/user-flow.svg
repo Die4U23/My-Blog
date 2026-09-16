@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 600">
+  <defs>
+    <style>
+      .title { font: bold 20px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 14px sans-serif; fill: #7f8c8d; }
+      .box { fill: #ecf0f1; stroke: #34495e; stroke-width: 2; }
+      .highlight { fill: #3498db; stroke: #2980b9; stroke-width: 2; }
+      .text { font: 14px sans-serif; fill: #2c3e50; }
+      .arrow { stroke: #34495e; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .label { font: 12px sans-serif; fill: #7f8c8d; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+    </marker>
+  </defs>
+
+  <text x="400" y="30" text-anchor="middle" class="title">EvoRec 用户流程图</text>
+  <text x="400" y="50" text-anchor="middle" class="subtitle">动态商品库推荐场景</text>
+
+  <!-- 用户访问 -->
+  <rect x="50" y="80" width="140" height="60" class="box" rx="5"/>
+  <text x="120" y="105" text-anchor="middle" class="text">用户访问</text>
+  <text x="120" y="125" text-anchor="middle" class="label">浏览推荐页面</text>
+
+  <!-- 推荐请求 -->
+  <path d="M 190 110 L 260 110" class="arrow"/>
+  <rect x="260" y="80" width="140" height="60" class="highlight" rx="5"/>
+  <text x="330" y="105" text-anchor="middle" class="text" fill="white">推荐引擎</text>
+  <text x="330" y="125" text-anchor="middle" class="label" fill="white">协同+内容召回</text>
+
+  <!-- 展示结果 -->
+  <path d="M 400 110 L 470 110" class="arrow"/>
+  <rect x="470" y="80" width="140" height="60" class="box" rx="5"/>
+  <text x="540" y="105" text-anchor="middle" class="text">展示商品</text>
+  <text x="540" y="125" text-anchor="middle" class="label">个性化列表</text>
+
+  <!-- 用户反馈 -->
+  <rect x="50" y="200" width="140" height="60" class="box" rx="5"/>
+  <text x="120" y="225" text-anchor="middle" class="text">用户反馈</text>
+  <text x="120" y="245" text-anchor="middle" class="label">点击/收藏/屏蔽</text>
+
+  <!-- 反馈循环 -->
+  <path d="M 540 140 L 540 230 L 190 230" class="arrow"/>
+  <text x="365" y="250" text-anchor="middle" class="label">交互数据</text>
+
+  <!-- 兴趣更新 -->
+  <path d="M 190 230 L 260 230" class="arrow"/>
+  <rect x="260" y="200" width="140" height="60" class="highlight" rx="5"/>
+  <text x="330" y="225" text-anchor="middle" class="text" fill="white">兴趣建模</text>
+  <text x="330" y="245" text-anchor="middle" class="label" fill="white">序列模型更新</text>
+
+  <!-- 新商品入库 -->
+  <rect x="50" y="320" width="140" height="60" class="box" rx="5"/>
+  <text x="120" y="345" text-anchor="middle" class="text">新商品发布</text>
+  <text x="120" y="365" text-anchor="middle" class="label">标题/品牌/类别</text>
+
+  <!-- 内容编码 -->
+  <path d="M 190 350 L 260 350" class="arrow"/>
+  <rect x="260" y="320" width="140" height="60" class="highlight" rx="5"/>
+  <text x="330" y="345" text-anchor="middle" class="text" fill="white">内容编码</text>
+  <text x="330" y="365" text-anchor="middle" class="label" fill="white">语义向量构建</text>
+
+  <!-- 索引更新 -->
+  <path d="M 400 350 L 470 350" class="arrow"/>
+  <rect x="470" y="320" width="140" height="60" class="box" rx="5"/>
+  <text x="540" y="345" text-anchor="middle" class="text">索引更新</text>
+  <text x="540" y="365" text-anchor="middle" class="label">Faiss 增量构建</text>
+
+  <!-- 冷启动路径 -->
+  <path d="M 540 320 L 540 260 L 400 230" class="arrow"/>
+  <text x="470" y="280" text-anchor="middle" class="label">冷商品检索路径</text>
+
+  <!-- 关键特性 -->
+  <rect x="50" y="440" width="700" height="120" fill="#fff9e6" stroke="#f39c12" stroke-width="2" rx="5"/>
+  <text x="60" y="465" class="text" font-weight="bold">关键特性：</text>
+  <text x="60" y="490" class="text">• 协同过滤处理热门商品，内容检索覆盖新品</text>
+  <text x="60" y="515" class="text">• 门控策略根据历史信号动态调整召回路径</text>
+  <text x="60" y="540" class="text">• 冷样本加权排序提升新商品曝光机会</text>
+</svg>

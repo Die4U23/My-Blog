@@ -53,7 +53,14 @@
 <li>最终展示内容：推荐体验、用户反馈、新品发布、策略对比和效果看板。</li>
 <li>成功标准：功能完成、实验可信、结果可追溯。</li>
 </ul>
-<p>配图计划：一张用户流程图、一张目标界面示意图。</p>
+<figure>
+<img src="/images/evorec/user-flow.svg" alt="EvoRec 用户流程图" />
+<figcaption>EvoRec 用户流程图：从用户登录到推荐反馈的完整流程。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/target-interface.svg" alt="EvoRec 目标界面示意图" />
+<figcaption>EvoRec 目标界面示意图：推荐展示、用户反馈与策略对比。</figcaption>
+</figure>
 <h2 id="section-3">三、从想法到技术方案</h2>
 <ul>
 <li>如何编写 PRD，明确功能范围与验收条件。</li>
@@ -63,7 +70,10 @@
 <li>C++ 计划用在哪里，什么情况下值得投入。</li>
 <li>哪些方案经过比较后暂时没有采用，原因是什么。</li>
 </ul>
-<p>配图计划：总体架构图；保留重要技术决策及其日期。</p>
+<figure>
+<img src="/images/evorec/architecture.svg" alt="EvoRec 系统架构图" />
+<figcaption>EvoRec 系统架构图：算法、数据、服务和展示模块的组织关系。</figcaption>
+</figure>
 <h2 id="section-4">四、第一阶段：建立工程框架</h2>
 <ul>
 <li>工程目录如何组织，各模块的职责是什么。</li>
@@ -80,7 +90,18 @@
 <li>模型和存储使用测试替身，公开推荐接口与前端尚未接入。</li>
 </ul>
 <p>这些检查证明当前契约与应用层边界符合设计，不能据此认定推荐效果、数据库事务、模型发布安全性或真实吞吐已经成立。后续适配器必须继续遵守模型、编码器、映射和索引组成的 bundle 版本绑定，以及请求 ID、会话 ID、epoch、历史版本、bundle ID 和下架版本组成的 RequestBinding。</p>
-<p>配图计划：目录结构、接口响应、检查结果。代码只选能解释设计决策的关键片段。</p>
+<figure>
+<img src="/images/evorec/directory-structure.svg" alt="EvoRec 工程目录结构" />
+<figcaption>EvoRec 工程目录结构：各模块的职责划分。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/api-response.svg" alt="EvoRec API 接口响应示例" />
+<figcaption>EvoRec API 接口响应示例：推荐请求的数据契约。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/test-results.svg" alt="自动检查结果" />
+<figcaption>自动检查结果：55 项检查通过，覆盖契约与边界验证。</figcaption>
+</figure>
 <h2 id="section-5">五、第二阶段：准备数据与建立基线</h2>
 <ul>
 <li>数据从哪里来，包含哪些字段。</li>
@@ -164,7 +185,10 @@
 <li>哪些实验没有提升，可能原因是什么。</li>
 <li>哪些观察可以形成结论，哪些还需要更多证据。</li>
 </ul>
-<p>配图计划：结果表、分组指标图、效果与延迟曲线。</p>
+<figure>
+<img src="/images/evorec/metrics-comparison.svg" alt="实验结果对比" />
+<figcaption>实验结果对比：测试集 NDCG@10 - 不同方法在整体、冷物品和低频物品上的表现。</figcaption>
+</figure>
 <p>每张结果图注明数据版本、样本数、运行配置和测量条件。目前已有基线结果与训练曲线，但预算路由、内容检索和生成式方法尚未完成统一对照；均值不替代不确定性分析。</p>
 <h2 id="section-8">八、第五阶段：把算法接入可操作的系统</h2>
 <ul>
@@ -175,7 +199,15 @@
 <li>发布失败、请求超时和版本回滚如何处理。</li>
 <li>前端怎样展示真实状态与实验结果。</li>
 </ul>
-<p>配图计划：请求时序图、商品状态图、真实操作截图。当前已完成领域对象和应用层版本检查，数据库事务、模型推理、发布协调与页面截图仍待接入。</p>
+<figure>
+<img src="/images/evorec/request-sequence.svg" alt="推荐请求时序图" />
+<figcaption>推荐请求时序图：一次推荐请求如何经过各个模块。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/item-state.svg" alt="商品状态图" />
+<figcaption>商品状态图：新品从校验、编码到索引构建与发布的状态流转。</figcaption>
+</figure>
+<p>当前已完成领域对象和应用层版本检查，数据库事务、模型推理、发布协调与页面截图仍待接入。</p>
 <h2 id="section-9">九、第六阶段：性能分析与 C++ 优化</h2>
 <ul>
 <li>如何测量排队、模型、检索和后处理耗时。</li>
