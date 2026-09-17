@@ -1,0 +1,136 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 800">
+  <defs>
+    <style>
+      .title { font: bold 24px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 14px sans-serif; fill: #7f8c8d; }
+      .layer-title { font: bold 16px sans-serif; fill: #2c3e50; }
+      .component { fill: #3498db; stroke: #2980b9; stroke-width: 2; }
+      .storage { fill: #e74c3c; stroke: #c0392b; stroke-width: 2; }
+      .model { fill: #9b59b6; stroke: #8e44ad; stroke-width: 2; }
+      .frontend { fill: #2ecc71; stroke: #27ae60; stroke-width: 2; }
+      .text { font: 13px sans-serif; fill: white; }
+      .label { font: 11px sans-serif; fill: #7f8c8d; }
+      .arrow { stroke: #34495e; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .dashed { stroke-dasharray: 5,5; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+    </marker>
+  </defs>
+
+  <text x="500" y="35" text-anchor="middle" class="title">EvoRec 总体架构</text>
+  <text x="500" y="55" text-anchor="middle" class="subtitle">动态商品库推荐系统 - 技术栈与模块划分</text>
+
+  <!-- 前端层 -->
+  <text x="50" y="100" class="layer-title">前端展示层</text>
+  <rect x="50" y="110" width="900" height="80" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2" rx="5"/>
+
+  <rect x="80" y="130" width="180" height="50" class="frontend" rx="5"/>
+  <text x="170" y="152" text-anchor="middle" class="text">React 前端</text>
+  <text x="170" y="170" text-anchor="middle" class="label" fill="white">用户界面 + 交互</text>
+
+  <rect x="300" y="130" width="180" height="50" class="frontend" rx="5"/>
+  <text x="390" y="152" text-anchor="middle" class="text">商品管理工作台</text>
+  <text x="390" y="170" text-anchor="middle" class="label" fill="white">发布 / 下架 / 审核</text>
+
+  <rect x="520" y="130" width="180" height="50" class="frontend" rx="5"/>
+  <text x="610" y="152" text-anchor="middle" class="text">效果看板</text>
+  <text x="610" y="170" text-anchor="middle" class="label" fill="white">指标可视化</text>
+
+  <rect x="740" y="130" width="180" height="50" class="frontend" rx="5"/>
+  <text x="830" y="152" text-anchor="middle" class="text">策略对比器</text>
+  <text x="830" y="170" text-anchor="middle" class="label" fill="white">A/B 测试展示</text>
+
+  <!-- 应用服务层 -->
+  <text x="50" y="230" class="layer-title">应用服务层</text>
+  <rect x="50" y="240" width="900" height="120" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2" rx="5"/>
+
+  <rect x="80" y="260" width="200" height="80" class="component" rx="5"/>
+  <text x="180" y="290" text-anchor="middle" class="text">FastAPI 服务</text>
+  <text x="180" y="310" text-anchor="middle" class="label" fill="white">推荐接口</text>
+  <text x="180" y="325" text-anchor="middle" class="label" fill="white">反馈接口</text>
+
+  <rect x="320" y="260" width="200" height="80" class="component" rx="5"/>
+  <text x="420" y="290" text-anchor="middle" class="text">商品管理服务</text>
+  <text x="420" y="310" text-anchor="middle" class="label" fill="white">发布 / 校验</text>
+  <text x="420" y="325" text-anchor="middle" class="label" fill="white">版本控制</text>
+
+  <rect x="560" y="260" width="160" height="80" class="component" rx="5"/>
+  <text x="640" y="295" text-anchor="middle" class="text">请求绑定</text>
+  <text x="640" y="315" text-anchor="middle" class="label" fill="white">会话 / Bundle 版本</text>
+
+  <rect x="760" y="260" width="160" height="80" class="component" rx="5"/>
+  <text x="840" y="295" text-anchor="middle" class="text">过滤与超时</text>
+  <text x="840" y="315" text-anchor="middle" class="label" fill="white">边界保护</text>
+
+  <!-- 算法核心层 -->
+  <text x="50" y="400" class="layer-title">算法核心层 (Python/PyTorch)</text>
+  <rect x="50" y="410" width="900" height="160" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2" rx="5"/>
+
+  <rect x="80" y="430" width="150" height="120" class="model" rx="5"/>
+  <text x="155" y="460" text-anchor="middle" class="text">序列模型</text>
+  <text x="155" y="480" text-anchor="middle" class="label" fill="white">Self-Attention</text>
+  <text x="155" y="495" text-anchor="middle" class="label" fill="white">用户兴趣建模</text>
+  <text x="155" y="530" text-anchor="middle" class="label" fill="white" font-weight="bold">R02</text>
+
+  <rect x="260" y="430" width="150" height="120" class="model" rx="5"/>
+  <text x="335" y="460" text-anchor="middle" class="text">内容双塔</text>
+  <text x="335" y="480" text-anchor="middle" class="label" fill="white">Sentence-BERT</text>
+  <text x="335" y="495" text-anchor="middle" class="label" fill="white">语义编码</text>
+  <text x="335" y="530" text-anchor="middle" class="label" fill="white" font-weight="bold">R03</text>
+
+  <rect x="440" y="430" width="150" height="120" class="model" rx="5"/>
+  <text x="515" y="460" text-anchor="middle" class="text">门控策略</text>
+  <text x="515" y="480" text-anchor="middle" class="label" fill="white">冷商品保留</text>
+  <text x="515" y="495" text-anchor="middle" class="label" fill="white">动态路由</text>
+  <text x="515" y="530" text-anchor="middle" class="label" fill="white" font-weight="bold">R04</text>
+
+  <rect x="620" y="430" width="150" height="120" class="model" rx="5"/>
+  <text x="695" y="460" text-anchor="middle" class="text">ColdListMLP</text>
+  <text x="695" y="480" text-anchor="middle" class="label" fill="white">冷样本加权</text>
+  <text x="695" y="495" text-anchor="middle" class="label" fill="white">精排优化</text>
+  <text x="695" y="530" text-anchor="middle" class="label" fill="white" font-weight="bold">R05</text>
+
+  <rect x="800" y="430" width="120" height="120" class="model" rx="5"/>
+  <text x="860" y="460" text-anchor="middle" class="text">Faiss</text>
+  <text x="860" y="480" text-anchor="middle" class="label" fill="white">向量索引</text>
+  <text x="860" y="495" text-anchor="middle" class="label" fill="white">ANN 检索</text>
+
+  <!-- 数据存储层 -->
+  <text x="50" y="610" class="layer-title">数据存储层</text>
+  <rect x="50" y="620" width="900" height="80" fill="#ecf0f1" stroke="#bdc3c7" stroke-width="2" rx="5"/>
+
+  <rect x="100" y="640" width="180" height="50" class="storage" rx="5"/>
+  <text x="190" y="662" text-anchor="middle" class="text">PostgreSQL</text>
+  <text x="190" y="680" text-anchor="middle" class="label" fill="white">商品 / 用户 / 反馈</text>
+
+  <rect x="320" y="640" width="180" height="50" class="storage" rx="5"/>
+  <text x="410" y="662" text-anchor="middle" class="text">版本仓库</text>
+  <text x="410" y="680" text-anchor="middle" class="label" fill="white">Bundle / Mapping</text>
+
+  <rect x="540" y="640" width="180" height="50" class="storage" rx="5"/>
+  <text x="630" y="662" text-anchor="middle" class="text">交互日志</text>
+  <text x="630" y="680" text-anchor="middle" class="label" fill="white">训练数据源</text>
+
+  <rect x="760" y="640" width="140" height="50" class="storage" rx="5"/>
+  <text x="830" y="670" text-anchor="middle" class="text">实验数据集</text>
+
+  <!-- 未来优化层 (虚线) -->
+  <text x="50" y="740" class="layer-title">性能优化层 (计划中)</text>
+  <rect x="50" y="750" width="900" height="30" fill="none" stroke="#bdc3c7" stroke-width="2" stroke-dasharray="5,5" rx="5"/>
+  <text x="500" y="770" text-anchor="middle" class="label">C++ / pybind11 扩展 - 待瓶颈确认后决定</text>
+
+  <!-- 连接箭头 -->
+  <path d="M 170 190 L 170 260" class="arrow"/>
+  <path d="M 390 190 L 390 260" class="arrow"/>
+  <path d="M 180 340 L 180 430" class="arrow"/>
+  <path d="M 420 340 L 420 430" class="arrow"/>
+  <path d="M 190 570 L 190 640" class="arrow"/>
+  <path d="M 410 570 L 410 640" class="arrow"/>
+  <path d="M 630 570 L 630 640" class="arrow"/>
+
+  <!-- 技术决策注释 -->
+  <rect x="50" y="730" width="900" height="50" fill="#fff9e6" stroke="#f39c12" stroke-width="1" rx="5"/>
+  <text x="60" y="752" class="label" font-weight="bold">关键技术决策:</text>
+  <text x="60" y="770" class="label">2026-09-15: R01-R05 完成 | PyTorch+Faiss 组合满足离线需求 | C++ 优化待测量后决定 | 在线接入进行中</text>
+</svg>

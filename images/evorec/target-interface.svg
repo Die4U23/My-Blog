@@ -1,0 +1,87 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700">
+  <defs>
+    <style>
+      .title { font: bold 18px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 12px sans-serif; fill: #7f8c8d; }
+      .header { fill: #3498db; }
+      .card { fill: white; stroke: #bdc3c7; stroke-width: 1; }
+      .text { font: 14px sans-serif; fill: #2c3e50; }
+      .small-text { font: 11px sans-serif; fill: #7f8c8d; }
+      .button { fill: #2ecc71; stroke: #27ae60; stroke-width: 1; cursor: pointer; }
+      .tag { fill: #e74c3c; }
+      .metric { font: bold 16px sans-serif; fill: #3498db; }
+    </style>
+  </defs>
+
+  <!-- 浏览器窗口 -->
+  <rect x="50" y="50" width="800" height="600" fill="#ecf0f1" stroke="#34495e" stroke-width="3" rx="5"/>
+
+  <!-- 浏览器标题栏 -->
+  <rect x="50" y="50" width="800" height="40" class="header" rx="5 5 0 0"/>
+  <circle cx="70" cy="70" r="6" fill="#e74c3c"/>
+  <circle cx="90" cy="70" r="6" fill="#f39c12"/>
+  <circle cx="110" cy="70" r="6" fill="#2ecc71"/>
+  <text x="450" y="75" text-anchor="middle" fill="white" class="text">EvoRec 推荐系统 - 首页</text>
+
+  <!-- 顶部导航 -->
+  <rect x="70" y="110" width="760" height="50" fill="white" stroke="#bdc3c7" stroke-width="1"/>
+  <text x="90" y="140" class="text" font-weight="bold">EvoRec</text>
+  <text x="620" y="140" class="text">推荐</text>
+  <text x="680" y="140" class="text">商品管理</text>
+  <text x="760" y="140" class="text">效果看板</text>
+
+  <!-- 用户信息 -->
+  <rect x="70" y="180" width="760" height="60" fill="white" stroke="#bdc3c7" stroke-width="1"/>
+  <circle cx="100" cy="210" r="20" fill="#95a5a6"/>
+  <text x="130" y="210" class="text">用户 #12345</text>
+  <text x="130" y="230" class="small-text">已收藏 8 件 | 历史交互 42 次</text>
+  <rect x="720" y="195" width="90" height="30" class="button" rx="3"/>
+  <text x="765" y="215" text-anchor="middle" fill="white" class="text">刷新推荐</text>
+
+  <!-- 推荐列表标题 -->
+  <text x="90" y="270" class="title">为你推荐</text>
+  <text x="90" y="290" class="subtitle">基于协同过滤 + 内容检索的混合策略</text>
+
+  <!-- 商品卡片 1 -->
+  <rect x="90" y="310" width="200" height="280" class="card" rx="5"/>
+  <rect x="90" y="310" width="200" height="120" fill="#dfe6e9"/>
+  <text x="190" y="370" text-anchor="middle" class="small-text">商品图片</text>
+  <text x="100" y="450" class="text" font-weight="bold">游戏手柄 Pro</text>
+  <text x="100" y="470" class="small-text">品牌：TechGear</text>
+  <text x="100" y="490" class="text">$89.99</text>
+  <rect x="100" y="510" width="40" height="18" fill="#2ecc71" rx="3"/>
+  <text x="120" y="523" text-anchor="middle" fill="white" class="small-text">热门</text>
+  <text x="100" y="550" class="small-text">协同召回 | 排序分 0.92</text>
+  <rect x="100" y="560" width="80" height="20" fill="#3498db" rx="3"/>
+  <text x="140" y="574" text-anchor="middle" fill="white" class="small-text">收藏</text>
+
+  <!-- 商品卡片 2 (新品) -->
+  <rect x="320" y="310" width="200" height="280" class="card" rx="5"/>
+  <rect x="320" y="310" width="200" height="120" fill="#dfe6e9"/>
+  <text x="420" y="370" text-anchor="middle" class="small-text">商品图片</text>
+  <text x="330" y="450" class="text" font-weight="bold">无线耳机 X1</text>
+  <text x="330" y="470" class="small-text">品牌：AudioPlus</text>
+  <text x="330" y="490" class="text">$129.99</text>
+  <rect x="330" y="510" width="40" height="18" class="tag" rx="3"/>
+  <text x="350" y="523" text-anchor="middle" fill="white" class="small-text">新品</text>
+  <text x="330" y="550" class="small-text">内容召回 | 排序分 0.78</text>
+  <rect x="330" y="560" width="80" height="20" fill="#3498db" rx="3"/>
+  <text x="370" y="574" text-anchor="middle" fill="white" class="small-text">收藏</text>
+
+  <!-- 商品卡片 3 -->
+  <rect x="550" y="310" width="200" height="280" class="card" rx="5"/>
+  <rect x="550" y="310" width="200" height="120" fill="#dfe6e9"/>
+  <text x="650" y="370" text-anchor="middle" class="small-text">商品图片</text>
+  <text x="560" y="450" class="text" font-weight="bold">机械键盘 RGB</text>
+  <text x="560" y="470" class="small-text">品牌：KeyMaster</text>
+  <text x="560" y="490" class="text">$159.99</text>
+  <rect x="560" y="510" width="50" height="18" fill="#95a5a6" rx="3"/>
+  <text x="585" y="523" text-anchor="middle" fill="white" class="small-text">门控</text>
+  <text x="560" y="550" class="small-text">混合召回 | 排序分 0.85</text>
+  <rect x="560" y="560" width="80" height="20" fill="#3498db" rx="3"/>
+  <text x="600" y="574" text-anchor="middle" fill="white" class="small-text">收藏</text>
+
+  <!-- 底部指标面板 -->
+  <rect x="70" y="610" width="760" height="20" fill="#34495e"/>
+  <text x="90" y="625" fill="white" class="small-text">当前会话: session-abc123 | 策略版本: R05-ColdListMLP | 响应时间: 124ms | 冷商品占比: 30%</text>
+</svg>

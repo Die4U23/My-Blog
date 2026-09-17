@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650">
+  <defs>
+    <style>
+      .title { font: bold 18px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 12px sans-serif; fill: #7f8c8d; }
+      .code-bg { fill: #2c3e50; }
+      .code { font: 13px 'Courier New', monospace; fill: #2ecc71; }
+      .key { fill: #3498db; }
+      .string { fill: #e74c3c; }
+      .number { fill: #f39c12; }
+      .label { font: 11px sans-serif; fill: #95a5a6; }
+      .box { fill: white; stroke: #bdc3c7; stroke-width: 1; }
+    </style>
+  </defs>
+
+  <text x="450" y="30" text-anchor="middle" class="title">EvoRec API 接口响应示例</text>
+  <text x="450" y="50" text-anchor="middle" class="subtitle">推荐接口与反馈接口的契约设计</text>
+
+  <!-- 推荐请求 -->
+  <text x="50" y="85" class="title" font-size="16">1. 推荐请求</text>
+  <rect x="50" y="95" width="380" height="220" class="code-bg" rx="5"/>
+
+  <text x="70" y="120" class="code">POST /api/v1/recommend</text>
+  <text x="70" y="145" class="code">{</text>
+  <text x="90" y="165" class="key">"user_id"</text><text x="180" y="165" class="code">: </text><text x="200" y="165" class="string">"user_12345"</text><text x="310" y="165" class="code">,</text>
+  <text x="90" y="185" class="key">"session_id"</text><text x="180" y="185" class="code">: </text><text x="200" y="185" class="string">"sess_abc123"</text><text x="330" y="185" class="code">,</text>
+  <text x="90" y="205" class="key">"top_k"</text><text x="180" y="205" class="code">: </text><text x="200" y="205" class="number">10</text><text x="225" y="205" class="code">,</text>
+  <text x="90" y="225" class="key">"strategy"</text><text x="180" y="225" class="code">: </text><text x="200" y="225" class="string">"cold_list_mlp"</text><text x="330" y="225" class="code">,</text>
+  <text x="90" y="245" class="key">"exclude_items"</text><text x="180" y="245" class="code">: [</text><text x="220" y="245" class="string">"item_001"</text><text x="310" y="245" class="code">]</text>
+  <text x="70" y="265" class="code">}</text>
+
+  <text x="70" y="295" class="label">• user_id: 用户标识</text>
+  <text x="70" y="310" class="label">• session_id: 会话绑定</text>
+
+  <!-- 推荐响应 -->
+  <text x="470" y="85" class="title" font-size="16">2. 推荐响应</text>
+  <rect x="470" y="95" width="380" height="220" class="code-bg" rx="5"/>
+
+  <text x="490" y="120" class="code">HTTP 200 OK</text>
+  <text x="490" y="145" class="code">{</text>
+  <text x="510" y="165" class="key">"request_id"</text><text x="620" y="165" class="code">: </text><text x="640" y="165" class="string">"req_xyz789"</text><text x="750" y="165" class="code">,</text>
+  <text x="510" y="185" class="key">"session_id"</text><text x="620" y="185" class="code">: </text><text x="640" y="185" class="string">"sess_abc123"</text><text x="770" y="185" class="code">,</text>
+  <text x="510" y="205" class="key">"items"</text><text x="620" y="205" class="code">: [</text>
+  <text x="530" y="225" class="code">{</text><text x="550" y="225" class="key">"item_id"</text><text x="630" y="225" class="code">: </text><text x="650" y="225" class="string">"item_102"</text><text x="740" y="225" class="code">,</text>
+  <text x="550" y="245" class="key">"score"</text><text x="630" y="245" class="code">: </text><text x="650" y="245" class="number">0.92</text><text x="695" y="245" class="code">,</text>
+  <text x="550" y="265" class="key">"is_cold"</text><text x="630" y="265" class="code">: </text><text x="650" y="265" class="string">false</text><text x="700" y="265" class="code">}</text>
+  <text x="510" y="285" class="code">]</text>
+  <text x="490" y="305" class="code">}</text>
+
+  <!-- 反馈请求 -->
+  <text x="50" y="355" class="title" font-size="16">3. 反馈请求</text>
+  <rect x="50" y="365" width="380" height="200" class="code-bg" rx="5"/>
+
+  <text x="70" y="390" class="code">POST /api/v1/feedback</text>
+  <text x="70" y="415" class="code">{</text>
+  <text x="90" y="435" class="key">"request_id"</text><text x="200" y="435" class="code">: </text><text x="220" y="435" class="string">"req_xyz789"</text><text x="330" y="435" class="code">,</text>
+  <text x="90" y="455" class="key">"item_id"</text><text x="200" y="455" class="code">: </text><text x="220" y="455" class="string">"item_102"</text><text x="320" y="455" class="code">,</text>
+  <text x="90" y="475" class="key">"action"</text><text x="200" y="475" class="code">: </text><text x="220" y="475" class="string">"click"</text><text x="290" y="475" class="code">,</text>
+  <text x="90" y="495" class="key">"timestamp"</text><text x="200" y="495" class="code">: </text><text x="220" y="495" class="number">1726502400</text>
+  <text x="70" y="515" class="code">}</text>
+
+  <text x="70" y="545" class="label">• action: click | favorite | block</text>
+  <text x="70" y="560" class="label">• request_id 保证可追溯</text>
+
+  <!-- 反馈响应 -->
+  <text x="470" y="355" class="title" font-size="16">4. 反馈响应</text>
+  <rect x="470" y="365" width="380" height="140" class="code-bg" rx="5"/>
+
+  <text x="490" y="390" class="code">HTTP 200 OK</text>
+  <text x="490" y="415" class="code">{</text>
+  <text x="510" y="435" class="key">"status"</text><text x="590" y="435" class="code">: </text><text x="610" y="435" class="string">"success"</text><text x="690" y="435" class="code">,</text>
+  <text x="510" y="455" class="key">"feedback_id"</text><text x="590" y="455" class="code">: </text><text x="610" y="455" class="string">"fb_001"</text><text x="690" y="455" class="code">,</text>
+  <text x="510" y="475" class="key">"updated"</text><text x="590" y="475" class="code">: </text><text x="610" y="475" class="string">true</text>
+  <text x="490" y="495" class="code">}</text>
+
+  <!-- 关键设计 -->
+  <rect x="50" y="575" width="800" height="60" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="5"/>
+  <text x="60" y="600" class="subtitle" font-weight="bold">关键设计原则：</text>
+  <text x="60" y="620" class="subtitle">• request_id 绑定推荐与反馈，支持效果归因 | • session_id 保证版本一致性 | • 结构化错误码便于监控与调试</text>
+</svg>

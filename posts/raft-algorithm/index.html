@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="从复制状态机出发系统讲解 Raft 共识算法，覆盖领导者选举、日志复制、安全性、网络分区、提交规则、成员变更、快照和 C++17 教学实现。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>Raft 算法：从选主到日志复制的共识协议</title>
+    <script src="/js/highlight.min.js?v=20260819-3"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>Raft 算法：从选主到日志复制的共识协议</h1>
+                <p class="post-date">2026-08-31</p>
+
+                <div class="content">
+                    <p>一个服务只有一台机器时，状态放在本机就够了；但机器会宕机、磁盘会损坏、网络会中断。为了提高可用性，我们通常让多台服务器保存同一份状态。新的困难随之出现：客户端发来一条写命令后，谁来决定执行顺序？部分服务器失联时还能不能继续？旧领导者恢复后，怎样避免它用过期数据覆盖新结果？</p>
+                    <p>Raft 是一种为<strong>可理解性</strong>设计的共识算法。它把问题拆成领导者选举、日志复制和安全性三部分：正常情况下所有写操作先经过领导者；领导者把操作按顺序写入日志并复制给多数服务器；只要仍有多数服务器互相通信，集群就能在不产生冲突决定的前提下继续工作。</p>
+
+                    <div class="note-box">
+                        <strong>先记住 Raft 的主线：</strong>用任期区分新旧领导者，用多数派决定谁有权推进系统，用日志索引和任期检查历史是否接得上，最后让所有状态机按相同顺序执行相同命令。
+                    </div>
+
+                    <h2>Raft 到底解决什么问题</h2>
+                    <h3>从复制状态机开始</h3>
+                    <p>确定性的状态机收到同一串命令，就会得到同一结果。例如一个键值服务从空状态开始，依次执行 <code>set x 1</code>、<code>set x 2</code>、<code>delete x</code>，最终状态一定相同。Raft 不直接复制整个内存，而是让服务器就“命令日志的顺序”达成一致，再由每台服务器依次应用日志。</p>
+
+                    <figure class="sort-figure">
+                        <figcaption>复制状态机的数据流</figcaption>
+                        <div class="sort-step"><span class="sort-label">客户端</span><span class="sort-array"><b class="sort-cell is-active">set x=7</b></span><span class="sort-note">把写请求发送给当前领导者</span></div>
+                        <div class="sort-step"><span class="sort-label">共识层</span><span class="sort-array"><b class="sort-cell is-picked">日志 8</b><b class="sort-cell">→</b><b class="sort-cell is-picked">多数派</b></span><span class="sort-note">Raft 决定命令位于哪个日志位置</span></div>
+                        <div class="sort-step"><span class="sort-label">状态机</span><span class="sort-array"><b class="sort-cell is-fixed">节点 A</b><b class="sort-cell is-fixed">节点 B</b><b class="sort-cell is-fixed">节点 C</b></span><span class="sort-note">各节点按相同顺序应用已提交命令</span></div>
+                    </figure>
+
+                    <h3>故障模型与不解决的事情</h3>
+                    <p>经典 Raft 通常假设服务器可能崩溃、重启，消息可能延迟、丢失、重复或乱序，但节点不会恶意伪造消息。它属于<strong>崩溃故障容错</strong>协议，不是拜占庭容错协议。</p>
+                    <ul>
+                        <li>服务器重启后，持久化的任期、投票和日志仍然存在；</li>
+                        <li>网络分区可能把集群切成多个互不通信的部分；</li>
+                        <li>时钟不需要完全同步，正确性不依赖精确时间；</li>
+                        <li>恶意节点、任意数据篡改和身份伪造需要 BFT、安全认证等额外机制；</li>
+                        <li>Raft 负责日志共识，业务状态机仍需保证命令执行是确定性的。</li>
+                    </ul>
+
+                    <h2>多数派为什么重要</h2>
+                    <p>Raft 的选举和提交都依赖多数派。含有 <code>N</code> 个节点的集群，多数派大小为 <code>floor(N / 2) + 1</code>。任意两个多数派一定至少共享一个节点，这个交集把不同时间做出的决定连接起来。</p>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>节点数</th><th>多数派</th><th>最多容忍同时故障</th><th>说明</th></tr></thead>
+                            <tbody>
+                                <tr><td>1</td><td>1</td><td>0</td><td>没有冗余</td></tr>
+                                <tr><td>3</td><td>2</td><td>1</td><td>最小的常见生产配置</td></tr>
+                                <tr><td>5</td><td>3</td><td>2</td><td>容错更高，复制成本也更高</td></tr>
+                                <tr><td>7</td><td>4</td><td>3</td><td>写请求需要等待更多副本</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>节点数从 3 增加到 4，多数派从 2 增加到 3，却仍然只能容忍 1 个故障，所以 Raft 集群常使用奇数个投票节点。偶数配置不是错误，只是通常不能带来对应的容错收益。</p>
+
+                    <h2>角色、任期与心跳</h2>
+                    <p>每个服务器在任一时刻处于三种角色之一：</p>
+                    <ul>
+                        <li><strong>Follower：</strong>跟随者，正常情况下只响应领导者和候选人的请求；</li>
+                        <li><strong>Candidate：</strong>候选人，选举超时后发起新一轮选举；</li>
+                        <li><strong>Leader：</strong>领导者，接收客户端写请求并负责日志复制。</li>
+                    </ul>
+                    <p>时间被划分为连续递增的<strong>任期（term）</strong>。每个任期最多有一个领导者，也可能因为选票分裂而没有领导者。任期像逻辑时钟：节点看到更大的任期就知道自己的信息已经过期，立即更新任期并转为跟随者。</p>
+
+                    <figure class="sort-figure">
+                        <figcaption>角色转换</figcaption>
+                        <div class="sort-step"><span class="sort-label">正常状态</span><span class="sort-array"><b class="sort-cell is-fixed">Follower</b></span><span class="sort-note">持续收到合法心跳就保持跟随</span></div>
+                        <div class="sort-step"><span class="sort-label">选举超时</span><span class="sort-array"><b class="sort-cell is-fixed">Follower</b><b class="sort-cell">→</b><b class="sort-cell is-active">Candidate</b></span><span class="sort-note">任期加一、投自己一票、向其他节点拉票</span></div>
+                        <div class="sort-step"><span class="sort-label">赢得多数</span><span class="sort-array"><b class="sort-cell is-active">Candidate</b><b class="sort-cell">→</b><b class="sort-cell is-picked">Leader</b></span><span class="sort-note">立即发送空 AppendEntries 宣告领导权</span></div>
+                        <div class="sort-step"><span class="sort-label">更大任期</span><span class="sort-array"><b class="sort-cell is-picked">任意角色</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">Follower</b></span><span class="sort-note">旧领导者也必须退位</span></div>
+                    </figure>
+
+                    <h2>服务器保存哪些状态</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>状态</th><th>保存位置</th><th>含义</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>currentTerm</code></td><td>所有节点，持久化</td><td>已经见过的最大任期</td></tr>
+                                <tr><td><code>votedFor</code></td><td>所有节点，持久化</td><td>当前任期投给了谁，至多一个候选人</td></tr>
+                                <tr><td><code>log[]</code></td><td>所有节点，持久化</td><td>按索引排列的任期与状态机命令</td></tr>
+                                <tr><td><code>commitIndex</code></td><td>所有节点，易失</td><td>已知已经提交的最高日志索引</td></tr>
+                                <tr><td><code>lastApplied</code></td><td>所有节点，易失</td><td>已经应用到状态机的最高索引</td></tr>
+                                <tr><td><code>nextIndex[]</code></td><td>仅领导者，易失</td><td>下一次应发送给各跟随者的日志索引</td></tr>
+                                <tr><td><code>matchIndex[]</code></td><td>仅领导者，易失</td><td>确认各跟随者已复制的最高索引</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="note-box warning">
+                        <strong>持久化顺序是安全性的一部分：</strong>节点必须先把新的 <code>currentTerm</code>、<code>votedFor</code> 或日志写入稳定存储，再发送依赖这些状态的成功响应。否则重启后可能在同一任期重复投票，或承认一条实际上没有保存的日志。
+                    </div>
+
+                    <h2>领导者选举</h2>
+                    <h3>选举过程</h3>
+                    <ol>
+                        <li>跟随者在选举超时前没有收到合法心跳，就转为候选人；</li>
+                        <li>候选人把 <code>currentTerm</code> 加一，给自己投票并重置超时；</li>
+                        <li>它向其他节点发送 <code>RequestVote</code>；</li>
+                        <li>获得集群多数票后成为领导者，并立即发送心跳；</li>
+                        <li>若收到更高任期消息，立即退回跟随者；若本轮无人过半，超时后开始新任期。</li>
+                    </ol>
+
+                    <h3>为什么选举超时要随机</h3>
+                    <p>如果所有跟随者都使用完全相同的固定超时，它们可能同时成为候选人，各自只拿到自己的票，之后又同时重试，持续分票。随机选举超时让某个节点大概率先行动并在其他节点参选前获得选票。</p>
+                    <pre><code class="language-text">广播一次 RPC 的时间  ≪  选举超时  ≪  节点平均故障间隔
+
+示例只是量级说明：
+心跳间隔 50 ms，选举超时随机取 150~300 ms。
+真实参数必须依据网络尾延迟、磁盘抖动和部署环境测量。</code></pre>
+                    <p>时间参数影响的是活性与稳定性，不是安全性。超时太短会在网络抖动时频繁换主；太长则真正故障后的恢复较慢。</p>
+
+                    <h3>RequestVote 的关键字段</h3>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>字段</th><th>作用</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>term</code></td><td>候选人的任期</td></tr>
+                                <tr><td><code>candidateId</code></td><td>请求选票的候选人</td></tr>
+                                <tr><td><code>lastLogIndex</code></td><td>候选人最后一条日志的索引</td></tr>
+                                <tr><td><code>lastLogTerm</code></td><td>候选人最后一条日志的任期</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>接收者只有在请求任期不旧、当前任期尚未投给别人，并且候选人日志<strong>至少和自己一样新</strong>时才投票。日志新旧先比较最后日志的任期，任期相同再比较索引：</p>
+                    <pre><code class="language-cpp">bool upToDate =
+    candidateLastTerm &gt; myLastTerm ||
+    (candidateLastTerm == myLastTerm &amp;&amp;
+     candidateLastIndex &gt;= myLastIndex);</code></pre>
+                    <p>这里不能只比较日志条数。一个日志更短的候选人，最后日志任期可能更大，因此反而更新。</p>
+
+                    <h2>日志复制</h2>
+                    <h3>从客户端命令到提交</h3>
+                    <ol>
+                        <li>客户端把写命令发送给领导者；</li>
+                        <li>领导者把命令追加到本地日志，但此时还不能回复成功；</li>
+                        <li>领导者并行向跟随者发送 <code>AppendEntries</code>；</li>
+                        <li>日志复制到多数节点后，领导者推进 <code>commitIndex</code>；</li>
+                        <li>各节点按索引顺序把已提交但未应用的日志交给状态机；</li>
+                        <li>领导者向客户端返回结果，并通过后续心跳传播新的提交位置。</li>
+                    </ol>
+
+                    <figure class="sort-figure">
+                        <figcaption>5 节点集群提交日志 8</figcaption>
+                        <div class="sort-step"><span class="sort-label">追加</span><span class="sort-array"><b class="sort-cell is-active">A: 8</b><b class="sort-cell">B: 7</b><b class="sort-cell">C: 7</b><b class="sort-cell">D: 7</b><b class="sort-cell">E: 7</b></span><span class="sort-note">领导者 A 先写本地，尚未提交</span></div>
+                        <div class="sort-step"><span class="sort-label">复制</span><span class="sort-array"><b class="sort-cell is-picked">A: 8</b><b class="sort-cell is-picked">B: 8</b><b class="sort-cell is-picked">C: 8</b><b class="sort-cell">D: 7</b><b class="sort-cell">E: 7</b></span><span class="sort-note">A、B、C 已构成 3/5 多数派</span></div>
+                        <div class="sort-step"><span class="sort-label">提交</span><span class="sort-array"><b class="sort-cell is-fixed">commitIndex = 8</b></span><span class="sort-note">D、E 可以稍后追赶，不阻塞本次提交</span></div>
+                    </figure>
+
+                    <h3>AppendEntries 的一致性检查</h3>
+                    <p>领导者发送新日志时，还会携带新日志之前的位置：</p>
+                    <ul>
+                        <li><code>prevLogIndex</code>：新条目之前的日志索引；</li>
+                        <li><code>prevLogTerm</code>：该位置日志所属任期；</li>
+                        <li><code>entries[]</code>：需要追加的零条或多条日志，空数组就是心跳；</li>
+                        <li><code>leaderCommit</code>：领导者已经提交到哪里。</li>
+                    </ul>
+                    <p>跟随者只有在本地 <code>prevLogIndex</code> 处存在日志且任期等于 <code>prevLogTerm</code> 时才接受。若某个索引处已有日志却与领导者的新条目任期冲突，跟随者删除该条及其后的所有条目，再追加领导者日志。</p>
+
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>索引</th><th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th></tr></thead>
+                            <tbody>
+                                <tr><td>领导者任期</td><td>1</td><td>1</td><td>2</td><td>2</td><td>4</td><td>4</td></tr>
+                                <tr><td>跟随者任期</td><td>1</td><td>1</td><td>2</td><td>3</td><td>3</td><td>—</td></tr>
+                                <tr><td>处理</td><td>保留</td><td>保留</td><td>保留</td><td>冲突</td><td>删除</td><td>追加</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>索引 3 的任期一致，说明此前日志前缀一致；索引 4 首次冲突，因此跟随者从索引 4 开始截断，再复制领导者的任期 2、4、4 条目。</p>
+
+                    <h3>nextIndex 与 matchIndex</h3>
+                    <p>领导者为每个跟随者维护 <code>nextIndex</code>。复制失败时向前回退，直到找到双方一致的前缀；成功后更新 <code>matchIndex</code> 和下一发送位置。基础实现每次回退一个索引，正确但慢。工程实现通常让跟随者返回冲突任期及该任期第一条日志索引，使领导者一次跳过整段冲突任期。</p>
+
+                    <h2>最容易写错的提交规则</h2>
+                    <p>领导者不能仅因为“某条旧任期日志已经存在于多数节点”就直接用计数把它标记为已提交。Raft 的规则是：</p>
+                    <div class="note-box warning">
+                        <strong>领导者只通过多数派计数直接提交当前任期的日志。</strong>一旦当前任期的一条日志提交，根据日志匹配性质，它之前的所有日志也随之提交，包括旧任期日志。
+                    </div>
+                    <p>这是为了避免下面的危险序列：旧领导者把某条日志复制到多数节点前后发生换主；由于不同多数派在不同时间的成员组合不同，某个日志仍可能被一个日志更新的新领导者覆盖。当前任期日志一旦被多数派接受，选举限制保证未来领导者一定包含它，它以及之前前缀才真正安全。</p>
+
+                    <pre><code class="language-cpp">// 领导者推进提交索引时必须检查 log[n].term == currentTerm
+for (std::size_t n = lastLogIndex(); n &gt; commitIndex; --n) {
+    if (log[n].term != currentTerm) continue;
+    if (replicatedOnMajority(n)) {
+        commitIndex = n;
+        break;
+    }
+}</code></pre>
+
+                    <h2>四条核心安全性质</h2>
+                    <h3>选举安全性</h3>
+                    <p>同一任期最多产生一个领导者。每个节点在同一任期最多投一票，而两个候选人不可能各自获得两个互不相交的多数派。</p>
+
+                    <h3>日志匹配性质</h3>
+                    <p>如果两个日志在相同索引上的任期相同，那么这两个条目相同，并且它们之前的所有日志也相同。<code>prevLogIndex + prevLogTerm</code> 检查和冲突截断共同维持这条性质。</p>
+
+                    <h3>领导者完整性</h3>
+                    <p>一条日志如果在某任期提交，那么之后更高任期的所有领导者都包含它。原因是已提交日志位于一个多数派上，而新领导者也必须获得一个多数派；两者存在交集，加上 RequestVote 的日志新旧限制，缺少已提交日志的候选人无法当选。</p>
+
+                    <h3>状态机安全性</h3>
+                    <p>如果某个节点已经在日志索引 <code>i</code> 应用一条命令，那么其他节点不会在同一索引应用不同命令。领导者完整性保证已提交日志不会被未来领导者替换，各节点又严格按索引顺序应用日志。</p>
+
+                    <h2>网络分区时会发生什么</h2>
+                    <p>假设 5 个节点被分成 <code>{A, B}</code> 和 <code>{C, D, E}</code>。旧领导者 A 位于少数派：</p>
+                    <ol>
+                        <li>A 可能暂时仍认为自己是领导者，也可能接收客户端命令；</li>
+                        <li>但 A 只能联系 2 个节点，无法形成 3 个节点的多数派，所以新日志不能提交；</li>
+                        <li>C、D、E 超时后可在更高任期选出新领导者并继续提交；</li>
+                        <li>网络恢复后，A 收到更高任期消息立即退位；</li>
+                        <li>A 上未提交且冲突的尾部日志会被新领导者覆盖。</li>
+                    </ol>
+                    <p>因此 Raft 允许短时间内有多个节点自认为领导者，但只有拥有多数派且任期最新的领导者能推进提交。安全性要求的是不会出现两个冲突的已提交决定，而不是任何瞬间全世界都只能看到一个自称领导者的节点。</p>
+
+                    <h2>可编译的 C++17 教学核心</h2>
+                    <p>下面代码实现 RequestVote、AppendEntries 的核心状态转换，以及领导者推进提交位置的规则。它使用索引 0 的哨兵日志简化边界处理，重点展示协议不变量；生产实现还需要定时器、RPC、并发控制、稳定存储、快照和成员变更。</p>
+
+                    <pre><code class="language-cpp">#include &lt;algorithm&gt;
+#include &lt;cassert&gt;
+#include &lt;cstddef&gt;
+#include &lt;cstdint&gt;
+#include &lt;iostream&gt;
+#include &lt;optional&gt;
+#include &lt;string&gt;
+#include &lt;utility&gt;
+#include &lt;vector&gt;
+
+using Term = std::uint64_t;
+using LogIndex = std::size_t;
+
+struct LogEntry {
+    Term term{};
+    std::string command;
+};
+
+enum class Role { Follower, Candidate, Leader };
+
+struct RequestVoteArgs {
+    Term term{};
+    int candidateId{};
+    LogIndex lastLogIndex{};
+    Term lastLogTerm{};
+};
+
+struct RequestVoteReply {
+    Term term{};
+    bool voteGranted{};
+};
+
+struct AppendEntriesArgs {
+    Term term{};
+    int leaderId{};
+    LogIndex prevLogIndex{};
+    Term prevLogTerm{};
+    std::vector&lt;LogEntry&gt; entries;
+    LogIndex leaderCommit{};
+};
+
+struct AppendEntriesReply {
+    Term term{};
+    bool success{};
+};
+
+class RaftNode {
+public:
+    explicit RaftNode(int id) : id_(id) {
+        log_.push_back({0, "&lt;sentinel&gt;"});
+    }
+
+    RequestVoteReply onRequestVote(const RequestVoteArgs&amp; args) {
+        if (args.term &lt; currentTerm_) return {currentTerm_, false};
+        if (args.term &gt; currentTerm_) becomeFollower(args.term);
+
+        const bool upToDate =
+            args.lastLogTerm &gt; lastLogTerm() ||
+            (args.lastLogTerm == lastLogTerm() &amp;&amp;
+             args.lastLogIndex &gt;= lastLogIndex());
+        const bool canVote =
+            !votedFor_.has_value() || votedFor_ == args.candidateId;
+
+        if (canVote &amp;&amp; upToDate) {
+            votedFor_ = args.candidateId;
+            // 生产实现：先持久化 term 和 votedFor，再回复并重置选举定时器。
+            return {currentTerm_, true};
+        }
+        return {currentTerm_, false};
+    }
+
+    AppendEntriesReply onAppendEntries(const AppendEntriesArgs&amp; args) {
+        if (args.term &lt; currentTerm_) return {currentTerm_, false};
+
+        if (args.term &gt; currentTerm_) becomeFollower(args.term);
+        role_ = Role::Follower;
+        leaderId_ = args.leaderId;
+        // 收到当前任期的合法领导者消息后，应重置选举定时器。
+
+        if (args.prevLogIndex &gt;= log_.size()) {
+            return {currentTerm_, false};
+        }
+        if (log_[args.prevLogIndex].term != args.prevLogTerm) {
+            return {currentTerm_, false};
+        }
+
+        LogIndex index = args.prevLogIndex + 1;
+        std::size_t offset = 0;
+
+        while (offset &lt; args.entries.size() &amp;&amp; index &lt; log_.size()) {
+            if (log_[index].term != args.entries[offset].term) {
+                log_.resize(index);
+                break;
+            }
+            ++index;
+            ++offset;
+        }
+        log_.insert(log_.end(),
+                    args.entries.begin() + static_cast&lt;std::ptrdiff_t&gt;(offset),
+                    args.entries.end());
+        // 生产实现：先持久化新增日志，再返回成功。
+
+        if (args.leaderCommit &gt; commitIndex_) {
+            commitIndex_ = std::min(args.leaderCommit, lastLogIndex());
+        }
+        return {currentTerm_, true};
+    }
+
+    void advanceLeaderCommit(const std::vector&lt;LogIndex&gt;&amp; followerMatch,
+                             std::size_t clusterSize) {
+        assert(role_ == Role::Leader);
+        for (LogIndex n = lastLogIndex(); n &gt; commitIndex_; --n) {
+            if (log_[n].term != currentTerm_) continue;
+
+            std::size_t replicated = 1;  // 领导者自己
+            for (LogIndex match : followerMatch) {
+                if (match &gt;= n) ++replicated;
+            }
+            if (replicated * 2 &gt; clusterSize) {
+                commitIndex_ = n;
+                break;
+            }
+        }
+    }
+
+    void startLeaderForTest(Term term) {
+        currentTerm_ = term;
+        votedFor_ = id_;
+        role_ = Role::Leader;
+    }
+
+    void appendLocalForTest(Term term, std::string command) {
+        log_.push_back({term, std::move(command)});
+    }
+
+    Term currentTerm() const { return currentTerm_; }
+    LogIndex commitIndex() const { return commitIndex_; }
+    LogIndex lastLogIndex() const { return log_.size() - 1; }
+    Term termAt(LogIndex index) const { return log_.at(index).term; }
+
+private:
+    Term lastLogTerm() const { return log_.back().term; }
+
+    void becomeFollower(Term newTerm) {
+        if (newTerm &gt; currentTerm_) {
+            currentTerm_ = newTerm;
+            votedFor_.reset();
+        }
+        role_ = Role::Follower;
+        leaderId_.reset();
+    }
+
+    int id_{};
+    Term currentTerm_{};
+    std::optional&lt;int&gt; votedFor_;
+    std::vector&lt;LogEntry&gt; log_;
+    LogIndex commitIndex_{};
+    LogIndex lastApplied_{};
+    Role role_{Role::Follower};
+    std::optional&lt;int&gt; leaderId_;
+};
+
+int main() {
+    RaftNode follower(2);
+    follower.appendLocalForTest(2, "set x 1");
+
+    const auto vote = follower.onRequestVote({3, 7, 1, 2});
+    assert(vote.voteGranted &amp;&amp; follower.currentTerm() == 3);
+
+    const auto append = follower.onAppendEntries(
+        {3, 7, 1, 2, {{3, "set x 2"}}, 1});
+    assert(append.success);
+    assert(follower.lastLogIndex() == 2);
+    assert(follower.commitIndex() == 1);
+
+    // 更高任期领导者在索引 2 产生冲突，旧尾部必须被替换。
+    const auto replace = follower.onAppendEntries(
+        {4, 9, 1, 2, {{4, "set x 3"}}, 2});
+    assert(replace.success);
+    assert(follower.termAt(2) == 4);
+    assert(follower.commitIndex() == 2);
+
+    RaftNode leader(1);
+    leader.startLeaderForTest(5);
+    leader.appendLocalForTest(2, "old");
+    leader.appendLocalForTest(5, "current");
+    leader.advanceLeaderCommit({2, 2, 0, 0}, 5);
+    assert(leader.commitIndex() == 2);
+
+    std::cout &lt;&lt; "Raft core checks passed";
+}</code></pre>
+
+                    <h2>客户端语义仍需额外设计</h2>
+                    <h3>重试与重复执行</h3>
+                    <p>客户端把命令发给领导者后，可能在收到响应前断线。命令或许已经提交，客户端却不知道；若它直接重试，状态机可能执行两次扣款。常见方案是为每个客户端维护唯一标识和单调递增序列号，状态机缓存最近响应，让重复请求返回旧结果而不是再次执行。</p>
+
+                    <h3>线性一致读</h3>
+                    <p>跟随者本地读取可能返回旧数据，旧领导者也可能在分区中误以为自己仍掌权。线性一致读通常使用以下方式之一：</p>
+                    <ul>
+                        <li>把读也写入日志，简单但成本较高；</li>
+                        <li>领导者先通过多数派心跳确认自己仍是当前领导者，再读取已应用状态；</li>
+                        <li>使用经过严格实现的 ReadIndex 或租约读；租约读还需要额外的时钟假设。</li>
+                    </ul>
+                    <p>仅仅“从 Leader 读”并不足以自动保证线性一致，因为网络分区中的旧领导者可能暂时还没有看到更大任期。</p>
+
+                    <h2>日志压缩与快照</h2>
+                    <p>日志不能无限增长。节点可以在状态机应用到某个索引后生成快照，保存该索引、对应任期和业务状态，再丢弃更早日志。若跟随者落后到领导者已删除的日志之前，领导者通过 <code>InstallSnapshot</code> 发送快照，而不是继续用 AppendEntries 逐条追赶。</p>
+                    <ul>
+                        <li>快照必须与 <code>lastIncludedIndex</code>、<code>lastIncludedTerm</code> 一起保存；</li>
+                        <li>快照文件应原子替换，避免崩溃后只留下半个文件；</li>
+                        <li>安装快照和应用日志不能并发破坏状态机顺序；</li>
+                        <li>压缩阈值需要平衡磁盘空间、恢复时间和快照开销。</li>
+                    </ul>
+
+                    <h2>成员变更为什么不能直接替换名单</h2>
+                    <p>如果节点各自在不同时间从旧配置切换到新配置，旧配置多数派和新配置多数派可能互不相交，从而同时选出两个领导者。Raft 使用<strong>联合共识</strong>过渡：</p>
+                    <ol>
+                        <li>先提交同时包含旧配置和新配置的联合配置；</li>
+                        <li>联合阶段的决定必须分别获得旧配置多数和新配置多数；</li>
+                        <li>联合配置提交后，再提交只包含新配置的最终配置。</li>
+                    </ol>
+                    <p>工程中还常使用 learner / non-voting member 先同步新节点，追上后再赋予投票权，避免一个空日志新节点立即拖慢多数派。</p>
+
+                    <h2>常见误区</h2>
+                    <ol>
+                        <li><strong>“领导者写本地就算成功”：</strong>未复制到规定多数派的日志可能被未来领导者覆盖。</li>
+                        <li><strong>“日志最长的人一定最新”：</strong>Raft 先比较最后日志任期，再比较索引。</li>
+                        <li><strong>“心跳只是保活包”：</strong>空 AppendEntries 仍携带任期、前一日志位置和提交索引，并执行一致性检查。</li>
+                        <li><strong>“看到同任期领导者就清空 votedFor”：</strong>只有进入更高任期才重置投票；否则可能在同一任期投两票。</li>
+                        <li><strong>“多数副本都有就一定能提交”：</strong>领导者直接按多数计数推进时，还必须检查目标日志属于当前任期。</li>
+                        <li><strong>“Raft 保证所有请求只执行一次”：</strong>协议保证日志顺序，客户端去重需要会话编号等额外设计。</li>
+                        <li><strong>“从任意副本读取都一样”：</strong>跟随者可能落后；线性一致读需要专门协议。</li>
+                        <li><strong>“加节点就是改配置文件”：</strong>投票成员变化必须通过安全的配置变更协议。</li>
+                    </ol>
+
+                    <h2>实现与测试清单</h2>
+                    <div class="table-scroll">
+                        <table>
+                            <thead><tr><th>类别</th><th>至少验证的场景</th></tr></thead>
+                            <tbody>
+                                <tr><td>选举</td><td>单节点、多候选人分票、更高任期退位、旧日志候选人被拒</td></tr>
+                                <tr><td>复制</td><td>重复 RPC、乱序回复、日志过短、任期冲突、批量追加</td></tr>
+                                <tr><td>提交</td><td>多数派复制、旧任期限制、提交索引单调递增、按序应用</td></tr>
+                                <tr><td>持久化</td><td>投票前崩溃、写日志后崩溃、重启恢复、部分写入</td></tr>
+                                <tr><td>网络</td><td>丢包、重复、延迟、双向不对称、少数派旧领导者</td></tr>
+                                <tr><td>快照</td><td>落后节点安装、安装中崩溃、快照后继续追加</td></tr>
+                                <tr><td>成员变更</td><td>联合配置期间宕机、移除领导者、新节点追赶</td></tr>
+                                <tr><td>客户端</td><td>超时重试、重复序列号、领导者切换、线性读</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p>除了普通单元测试，Raft 很适合使用确定性模拟器：把网络投递、定时器和磁盘结果都变成可控制事件，再随机生成故障序列，持续检查“同一索引不能应用不同命令”“提交索引不能回退”等不变量。更严格的系统还会使用模型检查验证状态空间。</p>
+
+                    <h2>最后的记忆线索</h2>
+                    <ol>
+                        <li>所有命令先排进一份有序日志，再驱动复制状态机；</li>
+                        <li>任期识别新旧，节点看到更大任期就退回跟随者；</li>
+                        <li>候选人的日志必须足够新，才有资格获得选票；</li>
+                        <li>AppendEntries 用前一索引和任期验证日志前缀；</li>
+                        <li>当前任期日志复制到多数派后才能直接推进提交；</li>
+                        <li>多数派交集把已提交历史带入未来领导者；</li>
+                        <li>快照、成员变更、线性读和客户端去重都是完整实现不可忽略的部分。</li>
+                    </ol>
+                    <p>Raft 的“容易理解”不等于“容易正确实现”。它把证明拆成了可以分别理解的规则，但每条规则——任期持久化、投票限制、日志匹配、当前任期提交——都是安全性链条上的一环。真正掌握 Raft，不只是会画三种角色，而是能解释每个字段在阻止哪一种错误历史。</p>
+
+                    <p>延伸阅读：<a class="link link--bold" href="https://raft.github.io/raft.pdf" target="_blank" rel="noopener noreferrer">In Search of an Understandable Consensus Algorithm</a>。</p>
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>

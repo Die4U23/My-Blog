@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="记录 EvoRec 从选题、方案设计、算法实验到系统展示的完整过程。当前 M0 工程框架已完成，正在准备数据与基线验证。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>从零构建 EvoRec：一个推荐算法项目的持续实践记录</title>
+    <link rel="stylesheet" href="/css/link.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>从零构建 EvoRec：一个推荐算法项目的持续实践记录</h1>
+                <p class="post-date">2026-09-15 · 持续更新</p>
+
+                <div class="content">
+<blockquote><p>记录从选题、方案设计、算法实验到系统展示的完整过程。</p></blockquote>
+<blockquote><p>当前阶段：R05 冷样本加权排序已完成，协同过滤、内容检索、门控策略和排序优化形成完整链路，正在准备在线业务接入。</p></blockquote>
+<p>这篇文章随项目一起更新，记录问题如何拆解、方案为什么这样选择、实现遇到的困难，以及实验最终说明了什么。当前已完成从基线到冷启动优化的五轮离线实验，线上业务与前端仍在接入中。</p>
+<h2 id="section-1">一、为什么开始这个项目</h2>
+<ul>
+<li>我的技术背景：以 C++ 为主，开始学习 Python 与推荐算法。</li>
+<li>希望通过项目掌握哪些能力：问题建模、论文复现、实验设计和工程实现。</li>
+<li>为什么选择“动态商品库推荐”作为研究场景。</li>
+<li>希望最终交付什么，以及目前尚不确定的地方。</li>
+</ul>
+<p><strong>这一节重点讲清楚：项目从哪个具体问题出发。</strong></p>
+<h2 id="section-2">二、EvoRec 要解决什么问题</h2>
+<ul>
+<li>一个具体场景：新商品入库后，怎样参与推荐？</li>
+<li>用户兴趣变化、商品冷启动和计算预算之间的关系。</li>
+<li>产品的主要使用者与操作流程。</li>
+<li>最终展示内容：推荐体验、用户反馈、新品发布、策略对比和效果看板。</li>
+<li>成功标准：功能完成、实验可信、结果可追溯。</li>
+</ul>
+<figure>
+<img src="/images/evorec/user-flow.svg" alt="EvoRec 用户流程图" />
+<figcaption>EvoRec 用户流程图：从用户登录到推荐反馈的完整流程。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/target-interface.svg" alt="EvoRec 目标界面示意图" />
+<figcaption>EvoRec 目标界面示意图：推荐展示、用户反馈与策略对比。</figcaption>
+</figure>
+<h2 id="section-3">三、从想法到技术方案</h2>
+<ul>
+<li>如何编写 PRD，明确功能范围与验收条件。</li>
+<li>如何把产品需求拆成算法、数据、服务和展示模块。</li>
+<li>为什么选择 Python/PyTorch 作为算法主体。</li>
+<li>Faiss、PostgreSQL、FastAPI 和 React 分别解决什么问题。</li>
+<li>C++ 计划用在哪里，什么情况下值得投入。</li>
+<li>哪些方案经过比较后暂时没有采用，原因是什么。</li>
+</ul>
+<figure>
+<img src="/images/evorec/architecture.svg" alt="EvoRec 系统架构图" />
+<figcaption>EvoRec 系统架构图：算法、数据、服务和展示模块的组织关系。</figcaption>
+</figure>
+<h2 id="section-4">四、第一阶段：建立工程框架</h2>
+<ul>
+<li>工程目录如何组织，各模块的职责是什么。</li>
+<li>为什么先定义接口和数据契约。</li>
+<li>为什么区分“进程存活”和“推荐业务就绪”。</li>
+<li>商品导入、反馈事件和会话版本有哪些约束。</li>
+<li>第一批检查覆盖了什么，以及没有覆盖什么。</li>
+</ul>
+<h3>当前实际进展</h3>
+<ul>
+<li>已完成项目框架、架构和接口等设计文档。</li>
+<li>已建立 FastAPI 最小骨架与共享输入契约。</li>
+<li>首轮 23 项自动检查通过；随着请求绑定、过滤、超时和保存失败边界补齐，当前累计 55 项通过。</li>
+<li>模型和存储使用测试替身，公开推荐接口与前端尚未接入。</li>
+</ul>
+<p>这些检查证明当前契约与应用层边界符合设计，不能据此认定推荐效果、数据库事务、模型发布安全性或真实吞吐已经成立。后续适配器必须继续遵守模型、编码器、映射和索引组成的 bundle 版本绑定，以及请求 ID、会话 ID、epoch、历史版本、bundle ID 和下架版本组成的 RequestBinding。</p>
+<figure>
+<img src="/images/evorec/directory-structure.svg" alt="EvoRec 工程目录结构" />
+<figcaption>EvoRec 工程目录结构：各模块的职责划分。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/api-response.svg" alt="EvoRec API 接口响应示例" />
+<figcaption>EvoRec API 接口响应示例：推荐请求的数据契约。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/test-results.svg" alt="自动检查结果" />
+<figcaption>自动检查结果：55 项检查通过，覆盖契约与边界验证。</figcaption>
+</figure>
+<h2 id="section-5">五、第二阶段：准备数据与建立基线</h2>
+<ul>
+<li>数据从哪里来，包含哪些字段。</li>
+<li>如何清洗交互、统一商品 ID 和处理缺失数据。</li>
+<li>如何划分训练、验证和测试数据。</li>
+<li>怎样避免未来信息进入训练或评估。</li>
+<li>“模型冷物品”和“刚刚发布的新品”有什么区别。</li>
+<li>首次跑通的基线、使用的设备、资源消耗与结果。</li>
+</ul>
+<p><strong>R01 已完成。</strong> 从官方 Video_Games 交互文件读取前 50,000 条，得到 20,375 个用户和 18,508 件商品；在 2,291 个测试正反馈上，热门推荐 NDCG@10 为 0.007388，ItemCF 为 0.004636。共有 79 项检查通过，9,852 条逐请求结果完成独立核对。前缀样本中 1,101 个测试目标在请求时尚未被观察到，保留在主指标分母中。</p>
+<p><strong>R02 已完成。</strong> 完整扫描 4,555,500 条交互，按固定用户哈希保留约二十分之一用户的全部记录，得到 226,172 条交互和 137,103 个用户。GPU 自注意力序列模型完成 4 次训练、39 个 epoch 和三个种子运行；测试 NDCG@10 为热门 0.004755、时间衰减协同融合 0.008380、序列模型均值 0.005628 ± 0.000222。序列模型超过历史热门，但没有超过更强的时间衰减基线。</p>
+<figure>
+<img src="/images/evorec/r02-learning-curves.png" alt="R02 序列模型训练曲线" />
+<figcaption>R02 序列模型训练曲线：39 轮、4 次训练。损失下降不保证验证指标持续改善。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r02-test-comparison.png" alt="R02 序列模型与统计基线对比" />
+<figcaption>R02 序列模型与统计基线对比：三种子标准差不是置信区间；序列模型未超过强协同基线。</figcaption>
+</figure>
+<p>本轮还发现 6,874 个模型冷且可用目标全部未命中。没有商品表示入口时，继续增加 Transformer 训练轮数无法让新商品进入词表；下一步先补内容候选路径，并登记新的评价窗口。</p>
+<p><strong>R03 已完成。</strong> 引入内容双塔架构，使用商品标题、品牌和类别进行语义编码。完成 48 个 epoch 训练，构建协同过滤与内容检索的混合召回策略。内容融合改善整体排序性能，但冷商品命中率仍低于预期。</p>
+<figure>
+<img src="/images/evorec/content-tower-architecture.png" alt="内容双塔结构与实现边界" />
+<figcaption>内容双塔结构与实现边界：R03 训练，R04 冻结复用。在线业务接入仍是计划。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r03-learning-curves.png" alt="R03 内容双塔训练曲线" />
+<figcaption>R03 内容双塔训练曲线：48 轮、4 次训练。按验证指标保留检查点；静态内容可用假设。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r03-test-comparison.png" alt="R03 整体排序与冷商品召回" />
+<figcaption>R03 整体排序与冷商品召回：内容融合改善整体排序，但冷商品命中少于纯内容路径。</figcaption>
+</figure>
+<p><strong>R04 已完成。</strong> 冻结 R03 模型，设计冷商品保留与门控策略。通过验证集比较五种预登记策略，分析冷商品在各检索阶段的落选位置。门控机制根据历史信号动态调整召回路径，在不跳过任何检索通道的前提下提升冷商品曝光。</p>
+<figure>
+<img src="/images/evorec/cold-reservation-flow.png" alt="冷商品保留与门控流程" />
+<figcaption>冷商品保留与门控流程：五种策略在实验前固定。门控只读取历史信号；未跳过任一检索路径。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r04-validation.png" alt="R04 验证集策略比较" />
+<figcaption>R04 验证集策略比较：冻结 R03 模型，使用新用户验证选择策略；红线为整体 NDCG 下限。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r04-test-ablation.png" alt="R04 测试集消融实验" />
+<figcaption>R04 测试集消融实验：固定 seed 17 的五种预登记策略；测试中的差异不用于回改选型。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r04-error-localization.png" alt="R04 冷商品落选位置分析" />
+<figcaption>R04 冷商品落选位置分析：比较同一批冷目标的命中位置；排序集合可能交叉，不是严格漏斗。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r04-gate-activity.png" alt="R04 门控活动与冷商品曝光" />
+<figcaption>R04 门控活动与冷商品曝光：改变列表的请求比例和新增冷商品位置数量，与目标命中率分别评价。</figcaption>
+</figure>
+<p><strong>R05 已完成。</strong> 引入新排序模型 ColdListMLP，针对冷样本进行加权训练。完成 35 轮训练，在相同候选池下与普通 ListMLP 进行对比。冷样本加权策略在保持整体性能的同时提升冷商品排序效果。</p>
+<figure>
+<img src="/images/evorec/r05/learning-curves.png" alt="R05 新排序模型训练曲线" />
+<figcaption>R05 新排序模型训练曲线：4 次训练、35 轮。普通损失与冷样本加权损失的绝对值不直接比较；最佳轮次只看验证集。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/r05/test-comparison.png" alt="R05 同候选池排序比较" />
+<figcaption>R05 同候选池排序比较：ColdListMLP 只运行 seed 17；普通 ListMLP 有三个种子。R03 参考使用不同编码器与召回链路。</figcaption>
+</figure>
+<h2 id="section-6">六、第三阶段：理解与实现推荐方法</h2>
+<ul>
+<li>从简单基线开始，逐步理解序列推荐与内容检索。</li>
+<li>如何阅读 TIGER、LIGER 等相关工作。</li>
+<li>商品内容向量、语义 ID 和用户表示分别是什么。</li>
+<li>新商品加入后，各条检索路径如何处理。</li>
+<li>为什么提出预算路由，以及它依赖哪些信息。</li>
+<li>论文实现与统一实验协议之间有哪些差异。</li>
+</ul>
+<p>每个方法按“问题 → 原理 → 小例子 → 实现 → 验证”的顺序讲解。当前仍在计划阶段，后续将区分论文复现部分与统一实验协议所做的修改。</p>
+<h2 id="section-7">七、第四阶段：用实验检验想法</h2>
+<ul>
+<li>实验要验证的假设是什么。</li>
+<li>为什么选择这些基线与评价指标。</li>
+<li>如何比较整体、冷物品和低频物品表现。</li>
+<li>如何保证不同方法的候选范围和计算预算可比。</li>
+<li>消融实验如何判断每个模块的作用。</li>
+<li>哪些实验没有提升，可能原因是什么。</li>
+<li>哪些观察可以形成结论，哪些还需要更多证据。</li>
+</ul>
+<figure>
+<img src="/images/evorec/metrics-comparison.svg" alt="实验结果对比" />
+<figcaption>实验结果对比：测试集 NDCG@10 - 不同方法在整体、冷物品和低频物品上的表现。</figcaption>
+</figure>
+<p>每张结果图注明数据版本、样本数、运行配置和测量条件。目前已有基线结果与训练曲线，但预算路由、内容检索和生成式方法尚未完成统一对照；均值不替代不确定性分析。</p>
+<h2 id="section-8">八、第五阶段：把算法接入可操作的系统</h2>
+<ul>
+<li>一次推荐请求如何经过各个模块。</li>
+<li>用户收藏、屏蔽和撤销如何影响后续请求。</li>
+<li>新品如何完成校验、编码、索引构建与发布。</li>
+<li>模型、物品映射和索引如何保持版本一致。</li>
+<li>发布失败、请求超时和版本回滚如何处理。</li>
+<li>前端怎样展示真实状态与实验结果。</li>
+</ul>
+<figure>
+<img src="/images/evorec/request-sequence.svg" alt="推荐请求时序图" />
+<figcaption>推荐请求时序图：一次推荐请求如何经过各个模块。</figcaption>
+</figure>
+<figure>
+<img src="/images/evorec/item-state.svg" alt="商品状态图" />
+<figcaption>商品状态图：新品从校验、编码到索引构建与发布的状态流转。</figcaption>
+</figure>
+<p>当前已完成领域对象和应用层版本检查，数据库事务、模型推理、发布协调与页面截图仍待接入。</p>
+<h2 id="section-9">九、第六阶段：性能分析与 C++ 优化</h2>
+<ul>
+<li>如何测量排队、模型、检索和后处理耗时。</li>
+<li>实际瓶颈出现在哪里。</li>
+<li>为什么选择某个模块进行优化。</li>
+<li>Python 与 C++ 的接口、数据传递和生命周期如何设计。</li>
+<li>优化前后的正确性、内存和延迟对比。</li>
+<li>如果收益不足，最终保留了什么实现。</li>
+</ul>
+<p>这一节在获得测量结果后展开，记录优化成立的条件。性能阶段尚未开始，只有确认实际瓶颈后才决定是否引入 C++/pybind11 扩展。</p>
+<h2 id="section-10">十、最终展示与阶段复盘</h2>
+<ul>
+<li>最终完成了哪些功能，哪些仍在规划中。</li>
+<li>如何启动项目并重放完整演示。</li>
+<li>哪些研究假设获得了支持，哪些没有成立。</li>
+<li>最值得保留的技术决策和最想重做的部分。</li>
+<li>对推荐算法、C++ 和工程协作的理解发生了什么变化。</li>
+<li>下一版本准备解决什么具体问题。</li>
+</ul>
+<p>当前可交付物是离线基线数据、训练报告与框架检查记录；线上推荐体验、商品工作台、策略对比和效果看板仍需独立验收。</p>
+<h2 id="section-11">十一、持续更新日志</h2>
+<p>每次更新采用固定格式：</p>
+<h3>YYYY-MM-DD｜本次推进的主题</h3>
+<ul>
+<li><strong>本次问题：</strong> 为什么需要推进这项工作。</li>
+<li><strong>实际改动：</strong> 修改了哪些设计、代码或实验配置。</li>
+<li><strong>验证过程：</strong> 使用什么输入与方法检查。</li>
+<li><strong>结果与证据：</strong> 数据、截图、日志或对应代码版本。</li>
+<li><strong>遇到的问题：</strong> 失败现象、排查过程与尚未确认的解释。</li>
+<li><strong>当前结论：</strong> 本次工作能够支持什么判断。</li>
+<li><strong>下一步：</strong> 一个具体、可验证的任务。</li>
+</ul>
+<p>若后续结果推翻旧结论，保留旧记录，并注明修正日期和原因。</p>
+<h3>2026-09-15｜真实基线、用户采样与持续训练报告</h3>
+<ul>
+<li><strong>实际改动：</strong>完成 R01 热门 / ItemCF 实验、R02 完整用户采样、R03 三种子序列训练和自动曲线。</li>
+<li><strong>结果与证据：</strong>226,172 条交互、39 个 epoch；序列模型三种子测试均值为 0.005628 ± 0.000222，低于时间衰减协同融合的 0.008380。</li>
+<li><strong>当前结论：</strong>更复杂的网络没有自动战胜时间先验；6,874 个模型冷且可用目标全部未命中，冷商品可达性是下一轮首先要解决的问题。</li>
+<li><strong>下一步：</strong>补充内容候选路径，冻结评价窗口后重新比较整体、冷物品和低频物品。</li>
+</ul>
+<h3>2026-09-16｜内容双塔、门控策略与冷样本加权排序</h3>
+<ul>
+<li><strong>本次问题：</strong>R02 发现 6,874 个模型冷目标全部未命中。纯协同过滤方法无法处理训练期间未见过的商品，必须补充内容检索路径。即使有了内容路径，如何在不降低整体效果的前提下提升冷商品曝光，以及如何在排序阶段更好地平衡冷热样本，也需要专门设计。</li>
+<li><strong>实际改动：</strong>
+<ul>
+<li><strong>R03：</strong>实现内容双塔架构，使用商品标题、品牌和类别构建语义向量；完成 48 轮训练；设计协同+内容的混合召回策略。</li>
+<li><strong>R04：</strong>冻结 R03 模型，设计五种冷商品保留与门控策略；在验证集上选择最优策略，测试集上进行消融实验；分析冷商品在召回、粗排、精排各阶段的落选位置。</li>
+<li><strong>R05：</strong>引入 ColdListMLP 排序模型，对冷样本进行加权训练；完成 35 轮训练，在相同候选池下与普通 ListMLP 对比。</li>
+</ul>
+</li>
+<li><strong>验证过程：</strong>统计训练集商品词表覆盖率、测试集冷商品占比；检查 Amazon Review 数据集元数据字段完整性；使用 Sentence-BERT 编码商品内容并构建 Faiss 索引；在验证集上比较门控策略效果后锁定配置；训练冷样本加权模型并在测试集上评估。</li>
+<li><strong>结果与证据：</strong>
+<ul>
+<li>R03 内容融合改善整体 NDCG，但冷商品命中率低于预期；测试集中约 75% 的目标商品在训练时未被观察到。</li>
+<li>R04 门控策略在验证集上选出最优配置；测试集消融实验显示门控机制能够在保持整体性能的前提下提升冷商品曝光；落选位置分析表明大部分冷商品在召回和粗排阶段被过滤。</li>
+<li>R05 冷样本加权排序模型在保持整体性能的同时提升冷商品排序效果；所有实验图表已整理到博客图片目录。</li>
+</ul>
+</li>
+<li><strong>遇到的问题：</strong>
+<ul>
+<li>内容编码方案需要在效果和可控性之间权衡（最终选择 Sentence-BERT）。</li>
+<li>混合召回的融合权重、候选数量分配需要多次实验调优。</li>
+<li>门控策略设计需要显式考虑商品是否在词表、用户历史长度等条件。</li>
+<li>冷样本加权需要平衡整体性能和冷商品效果，权重过大会损害整体指标。</li>
+</ul>
+</li>
+<li><strong>当前结论：</strong>
+<ul>
+<li>纯协同过滤方法在词表外商品上完全失效，必须引入内容路径作为独立召回通道。</li>
+<li>混合召回需要显式设计路由策略，单一方法无法解决所有场景。</li>
+<li>门控机制能够在不跳过检索路径的前提下动态调整召回策略，提升冷商品曝光。</li>
+<li>排序阶段的冷样本加权是补充手段，主要提升仍来自召回和粗排的覆盖范围。</li>
+</ul>
+</li>
+<li><strong>下一步：</strong>完善在线业务接入，将离线实验结果集成到可操作的推荐系统；补充前端展示与效果看板；记录真实用户交互数据用于后续迭代。</li>
+</ul>                </div>
+            </article>
+        </main>
+        <aside class="post-right"></aside>
+    </div>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>

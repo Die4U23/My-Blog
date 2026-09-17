@@ -2,10 +2,12 @@
 <html>
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/js/theme.js?v=20260819-3"></script>
     <title>Daydreamer's Blog</title>
     <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="stylesheet" href="css/common.css">
-    <link rel="stylesheet" href="css/index.css">
+    <link rel="stylesheet" href="css/common.css?v=20260824-2">
+    <link rel="stylesheet" href="css/index.css?v=20260819-3">
 </head>
 
 
@@ -14,7 +16,7 @@
     <div class="navbar">
 	<div class="left-group">
 		<a href="/">首页</a>
-		<a href="/about.html">关于</a>
+		<a href="/about/">关于</a>
 	</div>
 	<div class="right-group">
 		<a href="https://github.com/Die4U23" target="_blank">GitHub</a>
@@ -35,15 +37,27 @@
         <div class="posts-area">
 	    <h2>最新文章</h2>
 	    <ul class="post-list">
-	<li> <h3><a href="posts/2026/08/2026-08-14-STL.html">STL</a></h3><span class="date">2026-08-14</span><p>手搓cpp STL笔记</p></li>
-	<li> <h3><a href="posts/2026/07/2026-07-16-在bitvector上模运算分析.html">在bitvector上模运算分析</a></h3><span class="date">2026-07-16</span><p>学习环上的位运算</p></li>
-	<li> <h3><a href="posts/2026/07/2026-07-15-力扣938题.html">力扣938题</a></h3><span class="date">2026-07-15</span><p>优化代码使之更符合编译器</p></li>
-	<li> <h3><a href="posts/2026/07/2026-07-05-Karrsalgorithm算法学习.html">Karr's algorithm算法学习</a></h3><span class="date">2026-07-05</span><p>学习Karr's algorithm算法的笔记</p></li>
-	<li> <h3><a href="posts/2026/07/2026-07-02-每日一题lc.html">每日一题</a></h3><span class="date">2026-07-02</span><p>leetcode题目整理</p></li>
+    <li> <h3><a href="/posts/evorec-from-scratch/">从零构建 EvoRec：一个推荐算法项目的持续实践记录</a></h3><span class="date">2026-09-14</span><p>持续记录动态商品库推荐项目的设计、算法实验与工程实现，当前已完成 R02 协议与 R03 首轮训练</p></li>
+	<li> <h3><a href="/posts/raft-kv-project-practice/">Raft-KV 项目实践：从三节点存储到故障验证与性能优化</a></h3><span class="date">2026-09-14</span><p>串联请求链路、持久化与恢复改造、三节点故障验证，以及有效和未获收益的两次优化实验</p></li>
+	<li> <h3><a href="/posts/state-space-bfs-tsp/">从状态 BFS 到 TSP：三道网格最短路题串讲</a></h3><span class="date">2026-09-02</span><p>从位置与位掩码 BFS，递进到关键点压缩和 TSP 型子集动态规划</p></li>
+	<li> <h3><a href="/posts/cpp-language-object-model/">C++ 语言基础、对象模型与 RAII：从初始化到资源管理</a></h3><span class="date">2026-09-01</span><p>串联语言语义、指针引用、多态、对象生命周期与现代 C++ 资源管理</p></li>
+	<li> <h3><a href="/posts/vector-bool-pitfalls/">为什么 vector&lt;bool&gt; 不是普通 vector：用 vector&lt;uint8_t&gt; 替代</a></h3><span class="date">2026-09-01</span><p>讲清位压缩代理、泛型和并发陷阱，并给出 uint8_t 迁移方案</p></li>
+	<li> <h3><a href="/posts/raft-algorithm/">Raft 算法：从选主到日志复制的共识协议</a></h3><span class="date">2026-08-31</span><p>从多数派、任期和日志匹配出发，讲清选主、复制、安全性与工程细节</p></li>
+	<li> <h3><a href="/posts/manacher-algorithm/">Manacher 算法：在线性时间内寻找最长回文子串</a></h3><span class="date">2026-08-30</span><p>从中心扩展到镜像复用，讲清回文半径、最右边界与 C++ 实现</p></li>
+	<li> <h3><a href="/posts/kmp-algorithm/">KMP 算法：从前缀函数到线性字符串匹配</a></h3><span class="date">2026-08-30</span><p>从暴力失配到前缀函数，讲清回退链、重叠匹配与 C++ 实现</p></li>
+	<li> <h3><a href="/posts/find-the-duplicate-number/">287. 寻找重复数：数组为什么能转化成链表环</a></h3><span class="date">2026-08-19</span><p>从函数图建模到 Floyd 快慢指针，讲清为什么环入口就是重复数</p></li>
+	<li> <h3><a href="/posts/sorting-basics/">排序简单整理</a></h3><span class="date">2026-08-19</span><p>常见排序算法的图解、复杂度、C++ 实现与选择方法</p></li>
+	<li> <h3><a href="/posts/bitwise-toolbox/">从「只出现一次的数字」到位运算工具箱</a></h3><span class="date">2026-08-18</span><p>从异或抵消出发，系统整理 lowbit、状态压缩与拆位统计</p></li>
+	<li> <h3><a href="/posts/cpp-knowledge-notes/">CPP知识记</a></h3><span class="date">2026-08-16</span><p>对象、生命周期、存储期与未定义行为笔记</p></li>
+	<li> <h3><a href="/posts/stl-notes/">STL</a></h3><span class="date">2026-08-14</span><p>手搓cpp STL笔记</p></li>
+	<li> <h3><a href="/posts/bitvector-modular-analysis/">在bitvector上模运算分析</a></h3><span class="date">2026-07-16</span><p>学习环上的位运算</p></li>
+	<li> <h3><a href="/posts/range-sum-of-bst/">938. 二叉搜索树的范围和</a></h3><span class="date">2026-07-15</span><p>题目链接、题意与分类</p></li>
+	<li> <h3><a href="/posts/karr-algorithm/">Karr's algorithm算法学习</a></h3><span class="date">2026-07-05</span><p>学习Karr's algorithm算法的笔记</p></li>
+	<li> <h3><a href="/posts/leetcode-problem-list/">LeetCode 分类题单</a></h3><span class="date">2026-07-02</span><p>78 道题的链接、题意与分类</p></li>
             </ul>
         </div>
     </div>
-<script src="/js/footer.js"></script>
+<script src="/js/footer.js?v=20260824-2"></script>
 </body>
 </html>
 

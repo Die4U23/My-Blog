@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700">
+  <defs>
+    <style>
+      .title { font: bold 20px sans-serif; fill: #2c3e50; }
+      .subtitle { font: 12px sans-serif; fill: #7f8c8d; }
+      .state { fill: #ecf0f1; stroke: #34495e; stroke-width: 2; }
+      .active { fill: #2ecc71; stroke: #27ae60; stroke-width: 3; }
+      .pending { fill: #f39c12; stroke: #e67e22; stroke-width: 3; }
+      .inactive { fill: #95a5a6; stroke: #7f8c8d; stroke-width: 3; }
+      .error { fill: #e74c3c; stroke: #c0392b; stroke-width: 3; }
+      .text { font: 14px sans-serif; fill: #2c3e50; }
+      .state-text { font: 13px sans-serif; fill: white; }
+      .arrow { stroke: #34495e; stroke-width: 2; fill: none; marker-end: url(#arrowhead); }
+      .label { font: 11px sans-serif; fill: #2c3e50; }
+    </style>
+    <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <polygon points="0 0, 10 3, 0 6" fill="#34495e" />
+    </marker>
+  </defs>
+
+  <text x="450" y="35" text-anchor="middle" class="title">商品状态转换图</text>
+  <text x="450" y="55" text-anchor="middle" class="subtitle">从发布到下架的完整生命周期</text>
+
+  <!-- 待审核状态 -->
+  <rect x="50" y="100" width="140" height="80" class="pending" rx="5"/>
+  <text x="120" y="135" text-anchor="middle" class="state-text" font-weight="bold">待审核</text>
+  <text x="120" y="155" text-anchor="middle" class="state-text">PENDING</text>
+  <text x="120" y="175" text-anchor="middle" class="label" fill="white">校验通过</text>
+
+  <!-- 编码中状态 -->
+  <path d="M 190 140 L 290 140" class="arrow"/>
+  <text x="240" y="130" class="label">通过审核</text>
+  <rect x="290" y="100" width="140" height="80" class="pending" rx="5"/>
+  <text x="360" y="135" text-anchor="middle" class="state-text" font-weight="bold">编码中</text>
+  <text x="360" y="155" text-anchor="middle" class="state-text">ENCODING</text>
+  <text x="360" y="175" text-anchor="middle" class="label" fill="white">生成向量</text>
+
+  <!-- 索引构建状态 -->
+  <path d="M 430 140 L 530 140" class="arrow"/>
+  <text x="480" y="130" class="label">编码完成</text>
+  <rect x="530" y="100" width="140" height="80" class="pending" rx="5"/>
+  <text x="600" y="135" text-anchor="middle" class="state-text" font-weight="bold">索引构建</text>
+  <text x="600" y="155" text-anchor="middle" class="state-text">INDEXING</text>
+  <text x="600" y="175" text-anchor="middle" class="label" fill="white">Faiss 更新</text>
+
+  <!-- 可推荐状态 -->
+  <path d="M 600 180 L 600 270" class="arrow"/>
+  <text x="620" y="225" class="label">发布成功</text>
+  <rect x="530" y="270" width="140" height="80" class="active" rx="5"/>
+  <text x="600" y="305" text-anchor="middle" class="state-text" font-weight="bold">可推荐</text>
+  <text x="600" y="325" text-anchor="middle" class="state-text">ACTIVE</text>
+  <text x="600" y="345" text-anchor="middle" class="label" fill="white">用户可见</text>
+
+  <!-- 冷启动标记 -->
+  <rect x="710" y="270" width="140" height="80" fill="#fff9e6" stroke="#f39c12" stroke-width="2" rx="5"/>
+  <text x="780" y="305" text-anchor="middle" class="text" font-weight="bold">冷启动期</text>
+  <text x="780" y="325" text-anchor="middle" class="label">前 N 次曝光</text>
+  <text x="780" y="345" text-anchor="middle" class="label">门控策略生效</text>
+  <path d="M 670 310 L 710 310" class="arrow" stroke-dasharray="5,5"/>
+
+  <!-- 正常服务状态 -->
+  <path d="M 600 350 L 600 440" class="arrow"/>
+  <text x="620" y="395" class="label">积累反馈</text>
+  <rect x="530" y="440" width="140" height="80" class="active" rx="5"/>
+  <text x="600" y="475" text-anchor="middle" class="state-text" font-weight="bold">正常服务</text>
+  <text x="600" y="495" text-anchor="middle" class="state-text">NORMAL</text>
+  <text x="600" y="515" text-anchor="middle" class="label" fill="white">协同+内容</text>
+
+  <!-- 已下架状态 -->
+  <path d="M 530 480 L 290 480" class="arrow"/>
+  <text x="410" y="470" class="label">管理员下架</text>
+  <rect x="290" y="440" width="140" height="80" class="inactive" rx="5"/>
+  <text x="360" y="475" text-anchor="middle" class="state-text" font-weight="bold">已下架</text>
+  <text x="360" y="495" text-anchor="middle" class="state-text">INACTIVE</text>
+  <text x="360" y="515" text-anchor="middle" class="label" fill="white">不再推荐</text>
+
+  <!-- 归档状态 -->
+  <path d="M 290 480 L 140 480" class="arrow"/>
+  <text x="215" y="470" class="label">清理数据</text>
+  <rect x="50" y="440" width="140" height="80" class="inactive" rx="5"/>
+  <text x="120" y="475" text-anchor="middle" class="state-text" font-weight="bold">已归档</text>
+  <text x="120" y="495" text-anchor="middle" class="state-text">ARCHIVED</text>
+  <text x="120" y="515" text-anchor="middle" class="label" fill="white">仅存日志</text>
+
+  <!-- 失败状态 -->
+  <rect x="50" y="270" width="140" height="80" class="error" rx="5"/>
+  <text x="120" y="305" text-anchor="middle" class="state-text" font-weight="bold">发布失败</text>
+  <text x="120" y="325" text-anchor="middle" class="state-text">FAILED</text>
+  <text x="120" y="345" text-anchor="middle" class="label" fill="white">需要重试</text>
+
+  <!-- 失败路径 -->
+  <path d="M 360 180 L 360 250 L 190 310" class="arrow" stroke="#e74c3c" stroke-dasharray="5,5"/>
+  <text x="280" y="220" class="label" fill="#e74c3c">编码失败</text>
+
+  <path d="M 530 140 L 190 310" class="arrow" stroke="#e74c3c" stroke-dasharray="5,5"/>
+  <text x="360" y="200" class="label" fill="#e74c3c">索引失败</text>
+
+  <!-- 重试路径 -->
+  <path d="M 120 270 L 120 220 L 290 140" class="arrow" stroke="#f39c12" stroke-dasharray="5,5"/>
+  <text x="205" y="200" class="label" fill="#f39c12">管理员重试</text>
+
+  <!-- 关键字段 -->
+  <rect x="50" y="570" width="800" height="110" fill="#e8f8f5" stroke="#27ae60" stroke-width="2" rx="5"/>
+  <text x="70" y="600" class="text" font-weight="bold">关键状态字段：</text>
+  <text x="70" y="625" class="label">• item_id: 商品唯一标识 | status: PENDING / ENCODING / INDEXING / ACTIVE / INACTIVE / FAILED</text>
+  <text x="70" y="645" class="label">• bundle_version: 所属版本号 | is_cold: 是否在冷启动期 | cold_exposure_count: 累计曝光次数</text>
+  <text x="70" y="665" class="label">• created_at: 创建时间 | activated_at: 首次可推荐时间 | deactivated_at: 下架时间</text>
+</svg>
