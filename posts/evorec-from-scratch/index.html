@@ -33,7 +33,7 @@
                 <h1>从零构建 EvoRec：一个推荐算法项目的持续实践记录</h1>
                 <p class="post-date">2026-09-15 · 持续更新</p>
 
-                <div class=”content”>
+                <div class="content">
 <blockquote><p>记录从选题、方案设计、算法实验到系统展示的完整过程。</p></blockquote>
 <blockquote><p>当前阶段：R05 冷样本加权排序已完成，协同过滤、内容检索、门控策略和排序优化形成完整链路，正在准备在线业务接入。</p></blockquote>
 
@@ -41,7 +41,7 @@
 <p>这个项目源于我从 C++ 后端开发向推荐算法领域转型的学习需求。相比单纯阅读论文或跑通开源代码，我希望通过构建一个完整的推荐系统来理解算法背后的工程实现、实验设计和问题权衡。</p>
 
 <h3>为什么选择推荐系统</h3>
-<p>推荐系统是一个既有理论深度又有工程复杂度的领域。它涉及机器学习、信息检索、系统设计等多个方面，同时也有明确的业务价值和评估标准。选择”动态商品库推荐”这个场景，是因为它包含了推荐系统中最核心的挑战：</p>
+<p>推荐系统是一个既有理论深度又有工程复杂度的领域。它涉及机器学习、信息检索、系统设计等多个方面，同时也有明确的业务价值和评估标准。选择“动态商品库推荐”这个场景，是因为它包含了推荐系统中最核心的挑战：</p>
 <ul>
 <li><strong>冷启动问题：</strong>新商品没有历史交互数据，如何快速让它们参与推荐？</li>
 <li><strong>实时性要求：</strong>商品库不断更新，系统需要快速响应新品入库。</li>
@@ -137,11 +137,11 @@
 <li><strong>契约先行：</strong>先定义接口和数据格式，模块之间通过契约通信。</li>
 <li><strong>可测试性：</strong>核心逻辑独立于外部依赖，可以用测试替身验证。</li>
 <li><strong>版本一致性：</strong>模型、编码器和索引作为一个 bundle 统一管理。</li>
-<li><strong>清晰的状态转换：</strong>区分”服务启动”和”推荐就绪”，明确商品的生命周期。</li>
+<li><strong>清晰的状态转换：</strong>区分“服务启动”和“推荐就绪”，明确商品的生命周期。</li>
 </ul>
 
 <figure>
-<img src=”/images/evorec/directory-structure.svg” alt=”EvoRec 工程目录结构” />
+<img src="/images/evorec/directory-structure.svg" alt="EvoRec 工程目录结构" />
 <figcaption>EvoRec 工程目录结构：各模块的职责划分。</figcaption>
 </figure>
 
@@ -164,12 +164,12 @@
 </ul>
 
 <figure>
-<img src=”/images/evorec/api-response.svg” alt=”EvoRec API 接口响应示例” />
+<img src="/images/evorec/api-response.svg" alt="EvoRec API 接口响应示例" />
 <figcaption>EvoRec API 接口响应示例：推荐请求的数据契约。</figcaption>
 </figure>
 
 <figure>
-<img src=”/images/evorec/test-results.svg” alt=”自动检查结果” />
+<img src="/images/evorec/test-results.svg" alt="自动检查结果" />
 <figcaption>自动检查结果：55 项检查通过，覆盖契约与边界验证。</figcaption>
 </figure>
 
