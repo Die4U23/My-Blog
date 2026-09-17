@@ -33,26 +33,57 @@
                 <h1>从零构建 EvoRec：一个推荐算法项目的持续实践记录</h1>
                 <p class="post-date">2026-09-15 · 持续更新</p>
 
-                <div class="content">
+                <div class=”content”>
 <blockquote><p>记录从选题、方案设计、算法实验到系统展示的完整过程。</p></blockquote>
 <blockquote><p>当前阶段：R05 冷样本加权排序已完成，协同过滤、内容检索、门控策略和排序优化形成完整链路，正在准备在线业务接入。</p></blockquote>
-<p>这篇文章随项目一起更新，记录问题如何拆解、方案为什么这样选择、实现遇到的困难，以及实验最终说明了什么。当前已完成从基线到冷启动优化的五轮离线实验，线上业务与前端仍在接入中。</p>
-<h2 id="section-1">一、为什么开始这个项目</h2>
+
+<h2 id=”section-1”>一、项目背景与目标</h2>
+<p>这个项目源于我从 C++ 后端开发向推荐算法领域转型的学习需求。相比单纯阅读论文或跑通开源代码，我希望通过构建一个完整的推荐系统来理解算法背后的工程实现、实验设计和问题权衡。</p>
+
+<h3>为什么选择推荐系统</h3>
+<p>推荐系统是一个既有理论深度又有工程复杂度的领域。它涉及机器学习、信息检索、系统设计等多个方面，同时也有明确的业务价值和评估标准。选择”动态商品库推荐”这个场景，是因为它包含了推荐系统中最核心的挑战：</p>
 <ul>
-<li>我的技术背景：以 C++ 为主，开始学习 Python 与推荐算法。</li>
-<li>希望通过项目掌握哪些能力：问题建模、论文复现、实验设计和工程实现。</li>
-<li>为什么选择“动态商品库推荐”作为研究场景。</li>
-<li>希望最终交付什么，以及目前尚不确定的地方。</li>
+<li><strong>冷启动问题：</strong>新商品没有历史交互数据，如何快速让它们参与推荐？</li>
+<li><strong>实时性要求：</strong>商品库不断更新，系统需要快速响应新品入库。</li>
+<li><strong>多路召回融合：</strong>需要平衡协同过滤、内容检索等多种策略。</li>
+<li><strong>效果可验证：</strong>有清晰的离线评估指标和在线业务指标。</li>
 </ul>
-<p><strong>这一节重点讲清楚：项目从哪个具体问题出发。</strong></p>
-<h2 id="section-2">二、EvoRec 要解决什么问题</h2>
+
+<h3>项目目标</h3>
+<p>通过这个项目，我希望实现以下几个目标：</p>
 <ul>
-<li>一个具体场景：新商品入库后，怎样参与推荐？</li>
-<li>用户兴趣变化、商品冷启动和计算预算之间的关系。</li>
-<li>产品的主要使用者与操作流程。</li>
-<li>最终展示内容：推荐体验、用户反馈、新品发布、策略对比和效果看板。</li>
-<li>成功标准：功能完成、实验可信、结果可追溯。</li>
+<li><strong>技术能力：</strong>掌握 Python/PyTorch 推荐算法实现，理解序列推荐、双塔模型等经典方法。</li>
+<li><strong>工程能力：</strong>构建完整的推荐服务，包括数据处理、模型训练、在线服务和前端展示。</li>
+<li><strong>实验方法：</strong>学会设计实验、选择基线、分析结果、定位问题。</li>
+<li><strong>可交付成果：</strong>一个可演示的推荐系统，包括算法模块、API 服务和前端界面。</li>
 </ul>
+
+<p>当前项目已完成五轮离线实验（R01-R05），从简单基线到冷启动优化形成了完整的技术链路。在线业务接入和前端展示仍在开发中。</p>
+<h2 id="section-2">二、核心问题与解决思路</h2>
+
+<h3>问题场景</h3>
+<p>考虑一个典型的电商推荐场景：每天都有新商品上架，这些新商品没有任何历史交互数据。如果使用纯协同过滤方法，这些商品永远不会被推荐给用户，因为它们不在模型的"词表"中。但对商家来说，新品的曝光至关重要；对用户来说，新品可能正是他们感兴趣的。</p>
+
+<p>这就是推荐系统中的"冷启动"问题。EvoRec 项目专注于解决这个问题，同时保持整体推荐质量。</p>
+
+<h3>技术挑战</h3>
+<ul>
+<li><strong>冷商品可达性：</strong>没有交互历史的商品如何进入候选集？</li>
+<li><strong>多路召回融合：</strong>如何平衡协同过滤（基于用户行为）和内容检索（基于商品特征）？</li>
+<li><strong>动态策略调整：</strong>针对不同用户（新用户 vs 活跃用户），应该采用什么样的召回策略？</li>
+<li><strong>排序优化：</strong>如何在排序阶段提升冷商品的曝光，而不损害整体效果？</li>
+</ul>
+
+<h3>系统目标</h3>
+<p>EvoRec 的最终目标是构建一个完整的可演示系统，包括：</p>
+<ul>
+<li><strong>推荐服务：</strong>支持实时推荐请求，处理用户反馈（收藏、屏蔽等）。</li>
+<li><strong>商品管理：</strong>支持新品入库、编码、索引构建和发布。</li>
+<li><strong>策略对比：</strong>可视化展示不同策略的效果差异。</li>
+<li><strong>效果看板：</strong>实时监控推荐质量和冷商品曝光率。</li>
+</ul>
+
+<p>成功标准不仅是功能完成，更重要的是实验可信、结果可追溯。每个设计决策都需要有数据支撑。</p>
 <figure>
 <img src="/images/evorec/user-flow.svg" alt="EvoRec 用户流程图" />
 <figcaption>EvoRec 用户流程图：从用户登录到推荐反馈的完整流程。</figcaption>
@@ -61,47 +92,88 @@
 <img src="/images/evorec/target-interface.svg" alt="EvoRec 目标界面示意图" />
 <figcaption>EvoRec 目标界面示意图：推荐展示、用户反馈与策略对比。</figcaption>
 </figure>
-<h2 id="section-3">三、从想法到技术方案</h2>
+<h2 id="section-3">三、技术选型与架构设计</h2>
+
+<h3>技术栈选择</h3>
+<p>在明确了问题和目标后，我需要选择合适的技术栈。考虑到学习曲线、生态成熟度和社区支持，最终选择了以下技术组合：</p>
+
 <ul>
-<li>如何编写 PRD，明确功能范围与验收条件。</li>
-<li>如何把产品需求拆成算法、数据、服务和展示模块。</li>
-<li>为什么选择 Python/PyTorch 作为算法主体。</li>
-<li>Faiss、PostgreSQL、FastAPI 和 React 分别解决什么问题。</li>
-<li>C++ 计划用在哪里，什么情况下值得投入。</li>
-<li>哪些方案经过比较后暂时没有采用，原因是什么。</li>
+<li><strong>算法框架：Python + PyTorch</strong> — 推荐算法领域的主流选择，有丰富的预训练模型和工具库。</li>
+<li><strong>向量检索：Faiss</strong> — Facebook 开源的高性能相似度搜索库，支持多种索引类型。</li>
+<li><strong>数据存储：PostgreSQL</strong> — 可靠的关系数据库，支持事务和复杂查询。</li>
+<li><strong>API 服务：FastAPI</strong> — 现代 Python Web 框架，自动生成文档，异步支持好。</li>
+<li><strong>前端展示：React</strong> — 组件化开发，生态完善，易于构建交互式界面。</li>
 </ul>
+
+<h3>架构设计原则</h3>
+<p>在设计系统架构时，我遵循以下原则：</p>
+
+<ul>
+<li><strong>模块解耦：</strong>算法、数据、服务和展示模块独立开发和测试。</li>
+<li><strong>契约优先：</strong>先定义接口和数据格式，再实现具体逻辑。</li>
+<li><strong>版本管理：</strong>模型、编码器、索引作为一个 bundle 统一版本。</li>
+<li><strong>可测试性：</strong>关键路径有自动化检查，使用测试替身隔离依赖。</li>
+</ul>
+
 <figure>
 <img src="/images/evorec/architecture.svg" alt="EvoRec 系统架构图" />
 <figcaption>EvoRec 系统架构图：算法、数据、服务和展示模块的组织关系。</figcaption>
 </figure>
-<h2 id="section-4">四、第一阶段：建立工程框架</h2>
+
+<h3>关于 C++ 的考虑</h3>
+<p>作为 C++ 背景的开发者，我最初考虑在性能关键路径使用 C++。但经过权衡后决定：</p>
 <ul>
-<li>工程目录如何组织，各模块的职责是什么。</li>
-<li>为什么先定义接口和数据契约。</li>
-<li>为什么区分“进程存活”和“推荐业务就绪”。</li>
-<li>商品导入、反馈事件和会话版本有哪些约束。</li>
-<li>第一批检查覆盖了什么，以及没有覆盖什么。</li>
+<li><strong>先用 Python 验证：</strong>在明确瓶颈之前，不引入额外复杂度。</li>
+<li><strong>保留优化空间：</strong>如果后续测量发现性能问题，可以用 pybind11 封装 C++ 扩展。</li>
+<li><strong>利用现有工具：</strong>Faiss 本身就是 C++ 实现，通过 Python 绑定使用即可。</li>
 </ul>
-<h3>当前实际进展</h3>
+
+<p>这个决策让我能够快速迭代算法实验，同时保留了后期优化的可能性。</p>
+<h2 id=”section-4”>四、工程框架搭建</h2>
+
+<h3>设计原则</h3>
+<p>在开始编码之前，我花了相当多时间思考工程组织。一个好的框架应该：</p>
 <ul>
-<li>已完成项目框架、架构和接口等设计文档。</li>
-<li>已建立 FastAPI 最小骨架与共享输入契约。</li>
-<li>首轮 23 项自动检查通过；随着请求绑定、过滤、超时和保存失败边界补齐，当前累计 55 项通过。</li>
-<li>模型和存储使用测试替身，公开推荐接口与前端尚未接入。</li>
+<li><strong>契约先行：</strong>先定义接口和数据格式，模块之间通过契约通信。</li>
+<li><strong>可测试性：</strong>核心逻辑独立于外部依赖，可以用测试替身验证。</li>
+<li><strong>版本一致性：</strong>模型、编码器和索引作为一个 bundle 统一管理。</li>
+<li><strong>清晰的状态转换：</strong>区分”服务启动”和”推荐就绪”，明确商品的生命周期。</li>
 </ul>
-<p>这些检查证明当前契约与应用层边界符合设计，不能据此认定推荐效果、数据库事务、模型发布安全性或真实吞吐已经成立。后续适配器必须继续遵守模型、编码器、映射和索引组成的 bundle 版本绑定，以及请求 ID、会话 ID、epoch、历史版本、bundle ID 和下架版本组成的 RequestBinding。</p>
+
 <figure>
-<img src="/images/evorec/directory-structure.svg" alt="EvoRec 工程目录结构" />
+<img src=”/images/evorec/directory-structure.svg” alt=”EvoRec 工程目录结构” />
 <figcaption>EvoRec 工程目录结构：各模块的职责划分。</figcaption>
 </figure>
+
+<h3>核心模块</h3>
+<ul>
+<li><strong>domain/</strong> — 领域对象和业务逻辑，不依赖具体实现。</li>
+<li><strong>adapters/</strong> — 外部依赖的适配器（数据库、模型、索引）。</li>
+<li><strong>application/</strong> — 应用层服务，协调领域对象和适配器。</li>
+<li><strong>api/</strong> — FastAPI 路由和请求处理。</li>
+<li><strong>experiments/</strong> — 离线实验脚本和评估代码。</li>
+</ul>
+
+<h3>当前实际进展</h3>
+<p>截至目前，工程框架部分已经完成：</p>
+<ul>
+<li>建立了 FastAPI 服务骨架，定义了推荐接口的输入输出契约。</li>
+<li>实现了 55 项自动检查，覆盖请求绑定、参数验证、超时处理等边界情况。</li>
+<li>使用测试替身隔离了模型和存储依赖，确保应用层逻辑可独立验证。</li>
+<li>定义了商品状态机，明确了从入库到上线的完整流程。</li>
+</ul>
+
 <figure>
-<img src="/images/evorec/api-response.svg" alt="EvoRec API 接口响应示例" />
+<img src=”/images/evorec/api-response.svg” alt=”EvoRec API 接口响应示例” />
 <figcaption>EvoRec API 接口响应示例：推荐请求的数据契约。</figcaption>
 </figure>
+
 <figure>
-<img src="/images/evorec/test-results.svg" alt="自动检查结果" />
+<img src=”/images/evorec/test-results.svg” alt=”自动检查结果” />
 <figcaption>自动检查结果：55 项检查通过，覆盖契约与边界验证。</figcaption>
 </figure>
+
+<p><strong>重要说明：</strong>这些检查证明了当前的契约和应用层边界符合设计，但不能据此认定推荐效果、数据库事务或真实吞吐已经成立。真实的推荐质量需要在离线实验中验证。</p>
 <h2 id="section-5">五、第二阶段：准备数据与建立基线</h2>
 <ul>
 <li>数据从哪里来，包含哪些字段。</li>
