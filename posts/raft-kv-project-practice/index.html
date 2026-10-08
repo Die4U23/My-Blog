@@ -32,7 +32,7 @@
         <main class="post-content">
             <article class="post-article">
                 <h1>Raft-KV 项目实践：从三节点存储到故障验证与性能优化</h1>
-                <p class="post-date">2026-09-22</p>
+                <p class="post-date">2026-09-22 · 日志更新至 2026-10-06</p>
 
                 <div class="content">
 <div class="note-box"><strong>从原理到工程：</strong>如果还不熟悉任期、日志匹配和多数派提交，可以先读 <a class="link" href="/posts/raft-algorithm/">Raft 算法：从选主到日志复制的共识协议</a>。这篇沿着一次真实写请求，记录这些规则怎样落到 C++ 服务里，以及如何用故障与性能实验检验改动。</div>
@@ -40,7 +40,7 @@
 <div class="note-box">
 <p>本文介绍一个 C++ 分布式 KV 学习项目的实现范围、工程改造、测试结果与后续计划，并持续记录版本更新。项目在早期参考代码和教程的基础上发展而来，已有实现与后续改造分别说明，所有实测结论都限定到对应版本、环境和故障范围。</p>
 </div>
-<p>正文归档整理日期：2026-09-14；持续更新日志补录至 2026-09-22。正文归档版本：<a class="link" href="https://github.com/Die4U23/Raft-KV/tree/051ca62934301a22df21c03e7ba37299b161ff0b" rel="noopener noreferrer" target="_blank"><code>051ca62934301a22df21c03e7ba37299b161ff0b</code></a>。截至 2026-09-22，仓库 <code>main</code> HEAD 为 <a class="link" href="https://github.com/Die4U23/Raft-KV/tree/cb1b3f8ff8215a249d685fea013177a237eeb304" rel="noopener noreferrer" target="_blank"><code>cb1b3f8</code></a>（已合并 PR #1–#10）。实验的执行版本各不相同，下文另列；文章归档提交不能替代测试时的源码和二进制身份。</p>
+<p>正文归档整理日期：2026-09-14；持续更新日志补录至 2026-10-06。正文归档版本：<a class="link" href="https://github.com/Die4U23/Raft-KV/tree/051ca62934301a22df21c03e7ba37299b161ff0b" rel="noopener noreferrer" target="_blank"><code>051ca62934301a22df21c03e7ba37299b161ff0b</code></a>。截至 2026-10-06，仓库 <code>main</code> HEAD 为 <a class="link" href="https://github.com/Die4U23/Raft-KV/tree/8fbb0732070340ae4b53d05ffcbe5996e67f9192" rel="noopener noreferrer" target="_blank"><code>8fbb073</code></a>（已合并 PR #1–#60）。带日期的故障与性能实验仍对应各自的执行版本；架构、写入语义和可靠性改造按该 HEAD 写入正文。实验的执行版本各不相同，下文另列；文章归档提交不能替代测试时的源码和二进制身份。</p>
 <h2 id="motivation">一、为什么做这个项目</h2>
 <p>我做这个项目，希望把 C++ 网络服务、Raft 共识、持久化与故障恢复放进同一条请求链路里理解。单独阅读某个模块时，很容易知道接口如何调用，却说不清一个客户端收到成功之前，系统究竟完成了哪些工作。一旦把多个节点连起来，连接中断、磁盘写入失败、Leader 切换和请求超时就会共同影响结果。</p>
 <p>KV 存储适合承载这类练习。它的业务接口相对简单：保存一个键值、读取一个值、删除一个键。业务逻辑足够小，就可以把精力放到更难的工程问题上：怎样保留 TCP 分片输入，怎样让副本按相同顺序执行命令，怎样恢复应用进度，以及怎样避免在高负载下无限积压请求。</p>
@@ -106,32 +106,32 @@
 </tr>
 <tr>
 <td><code>INFO</code> 与阶段耗时</td>
-<td>已实现；角色、任期、提交/应用位置、队列和耗时计数</td>
-<td>阶段差分、CPU 和报告身份核验</td>
-<td>没有 Prometheus 导出，阶段计数器不提供请求延迟直方图</td>
+<td>已实现；角色、任期、提交/应用位置、队列和耗时计数。2026-09-29 起可用 <code>--metrics_port</code> 提供 <code>GET /metrics</code> 与 <code>GET /health</code></td>
+<td>阶段差分、CPU 和报告身份核验；冒烟会请求每个节点的 <code>/health</code></td>
+<td>Prometheus 文本与 <code>INFO</code> 字段相同，阶段耗时仍是累计微秒，没有直方图。<code>/health</code> 为 200 只说明进程在跑且存储未失败</td>
 </tr>
 <tr>
 <td>ReadIndex 强一致读</td>
-<td>已部分实现；<code>--linearizable_reads</code> 默认 false</td>
-<td>可移植单测与辅助脚本；未做隔离旧 Leader 的 Linux 证据归档</td>
-<td>默认仍是本地读；读轮次与 peer <code>rpc_id</code> 关联仍有残留缺陷，见更新日志</td>
+<td>已实现且默认关闭；2026-09-22 起探针只认本轮新发出的 <code>rpc_id</code>。2026-09-28 起 <code>--lease_reads</code> 可在租约有效时跳过探针，同样默认关闭</td>
+<td>进程内生产 <code>RaftNode</code> 回归；Linux CI 覆盖 Follower <code>MOVED</code>、Leader 写后读，以及隔离旧 Leader 不得成功返回过期 GET</td>
+<td>默认 <code>GET</code> 仍是本地读。租约读要求本任期已满最长选举超时，且多数派联系仍新鲜</td>
 </tr>
 <tr>
 <td>请求去重</td>
-<td>计划中</td>
-<td>尚未完成对应实现和验收</td>
-<td>超时或回复丢失后的重试可能重复执行</td>
+<td>2026-09-28 起 <code>IDEMP</code> 已实现；普通 <code>SET</code> / <code>DEL</code> 仍不去重</td>
+<td>仓库日志写明同一请求号返回第一次的回复，更小的请求号拒绝且不改数据，记录随快照安装。本文未单独复跑</td>
+<td>每个 client id 只保留最近一次请求号和回复，记录不过期；换更大的号之后，更早的号不能再取回当时的回复</td>
 </tr>
 <tr>
-<td>快照、日志回收、动态成员变更</td>
-<td>计划中</td>
-<td>尚未完成对应实现和验收</td>
-<td>日志持续增长和落后副本恢复能力仍需完善</td>
+<td>快照与日志前缀回收</td>
+<td>2026-09-28 起已实现 <code>InstallSnapshot</code>；<code>--snapshot_threshold</code> 默认 1024，0 表示关闭</td>
+<td>进程内三节点：半段安装后重启会整份重发；阈值 4 写入 20 条后，已应用后缀短于阈值，首尾条目仍在。打开日志时核对快照之后每一条</td>
+<td>动态成员变更仍未做。半段快照只在内存里，重启即丢，由 Leader 从头重发</td>
 </tr>
 </tbody>
 </table></div>
 <p>实现入口见<a class="link" href="https://github.com/Die4U23/Raft-KV/tree/051ca62/src" rel="noopener noreferrer" target="_blank">归档源码</a>，验证依据见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/LOCAL_REVIEW_STATUS.md" rel="noopener noreferrer" target="_blank">本地改造记录</a>及第六节逐项报告。</p>
-<p>尤其需要说明：<strong>默认配置下 <code>GET</code> 仍直接读取当前节点的状态机。</strong> 即使设置 <code>leader_only_reads=true</code>，也只是检查本机当前记录的角色。开启 <code>--linearizable_reads=true</code> 后会走 ReadIndex 路径，但截至 2026-09-22 生产代码中读轮次与 peer <code>rpc_id</code> 的关联仍未真正关闭审查缺陷，不能按“已可靠完成线性一致读”验收。网络隔离中的旧 Leader 可能还不知道多数派已经选出了新 Leader，因而可能返回旧值。线程安全、写入多数派提交和只允许 Leader 读，分别解决不同问题。</p>
+<p>尤其需要说明：<strong>默认配置下 <code>GET</code> 仍直接读取当前节点的状态机。</strong> 即使设置 <code>leader_only_reads=true</code>，也只是检查本机当前记录的角色。开启 <code>--linearizable_reads=true</code> 后走 ReadIndex。2026-09-22 当天的架构检查曾指出读轮次与 peer <code>rpc_id</code> 对不上；同日更晚的提交改为只认本轮新发出的探针，2026-09-23 又补上选举时钟、CheckQuorum 和 Linux 三节点检查。隔离旧 Leader 在失去多数派后应卸任或让线性一致 GET 失败，而不是返回旧值。线程安全、写入多数派提交和只允许 Leader 读，分别解决不同问题。默认关闭的原因和验收边界见更新日志。</p>
 <h2 id="architecture">三、系统架构：一次请求经过哪些模块</h2>
 <p>写请求的主路径是：客户端 → Muduo 接入层 → 命令处理 → Raft → 状态机 → RocksDB。默认读请求从命令处理进入本地状态机，不经过 Raft 的读屏障；可选的 ReadIndex 路径见能力表与更新日志。</p>
 <figure aria-label="Raft-KV 系统架构与线程职责" class="sort-figure">
@@ -144,7 +144,7 @@
 <div class="sort-step"><span class="sort-label">已提交批次</span><span class="sort-array"><b class="sort-cell is-fixed">Raft</b><b class="sort-cell">→</b><b class="sort-cell is-picked">串行应用线程</b></span><span class="sort-note">默认 async_apply=true；按日志顺序执行 KVStateMachine</span></div>
 <div class="sort-step"><span class="sort-label">业务落盘</span><span class="sort-array"><b class="sort-cell is-picked">KV + lastApplied</b><b class="sort-cell">→</b><b class="sort-cell is-picked">KV 库</b></span><span class="sort-note">同一个 WriteBatch，同步保存修改与应用位置</span></div>
 <div class="sort-step"><span class="sort-label">完成通知</span><span class="sort-array"><b class="sort-cell is-picked">应用线程</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">事件循环</b></span><span class="sort-note">成功时更新进度、释放提案配额、回复客户端；异常另行处理</span></div>
-<div class="sort-step"><span class="sort-label">读取路径</span><span class="sort-array"><b class="sort-cell is-active">GET</b><b class="sort-cell">→</b><b class="sort-cell is-picked">本地状态机</b></span><span class="sort-note">事件循环直接读取 KV；当前没有 Raft 读屏障</span></div>
+<div class="sort-step"><span class="sort-label">读取路径</span><span class="sort-array"><b class="sort-cell is-active">GET</b><b class="sort-cell">→</b><b class="sort-cell is-picked">本地状态机</b></span><span class="sort-note">默认直接读 KV；打开线性一致读后才走 ReadIndex 或租约</span></div>
 </figure>
 <p>各模块的职责如下：</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
@@ -165,22 +165,24 @@
 </tr>
 <tr>
 <td>Raft</td>
-<td>管理任期、投票、日志匹配、复制进度和多数派提交，不直接解释业务键值</td>
+<td>管理任期、预投票、CheckQuorum、日志匹配、复制进度、多数派提交和快照安装，不直接解释业务键值</td>
 </tr>
 <tr>
 <td>状态机</td>
-<td>按日志顺序把已提交命令转换为确定的 KV 修改和回复</td>
+<td>按日志顺序把已提交命令转换为确定的 KV 修改和回复；<code>IDEMP</code> 还在同一批里记下该客户端最近一次请求号和回复</td>
 </tr>
 <tr>
 <td>RocksDB</td>
-<td>分别保存 Raft 日志/硬状态，以及业务数据/应用位置</td>
+<td>分别保存 Raft 日志/硬状态，以及业务数据/应用位置；已应用前缀达到阈值后可换成 KV 快照</td>
 </tr>
 </tbody>
 </table></div>
 <p>这些分工可以对照 <a class="link" href="https://github.com/chenshuo/muduo" rel="noopener noreferrer" target="_blank">Muduo 官方仓库</a>、<a class="link" href="https://protobuf.dev/overview/" rel="noopener noreferrer" target="_blank">Protobuf 概览</a>及<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/src/server/main.cpp" rel="noopener noreferrer" target="_blank">项目服务入口</a>阅读。</p>
 <p>这里的关键是线程归属。事件循环线程负责网络回调、批量调度、Raft 状态变化以及应用完成通知；默认启用的工作线程只负责已提交批次的 KV 应用。工作线程不会独立推进 Raft 提交位置，也不会直接操作客户端连接。</p>
 <p>同一个 RaftNode 同时最多有一个应用批次在途。“在途”包含工作线程已经做完、但事件循环尚未处理完成通知的时间。这样可以保持批次顺序，避免后面的应用越过前面的应用。</p>
-<p><strong>异步应用没有把所有磁盘工作移出事件循环。</strong> Raft 日志与硬状态读写、准备应用批次时读取日志，以及客户端本地 <code>GET</code> 仍在事件循环线程执行。它们仍可能影响心跳和网络处理。<code>async_apply=false</code> 则把 KV 应用也放回事件循环，作为同步执行的对照路径。机制见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/concurrency.md" rel="noopener noreferrer" target="_blank">并发处理说明</a>；该早期文档中的“未运行”文字属于历史状态，当前验收情况以第六节带日期的报告为准。</p>
+<p><strong>异步应用没有把所有磁盘工作移出事件循环。</strong> Raft 日志与硬状态读写、准备应用批次时读取日志，以及默认的本地 <code>GET</code> 仍在事件循环线程执行。它们仍可能影响心跳和网络处理。<code>async_apply=false</code> 则把 KV 应用也放回事件循环。2026-09-30 在同一台 2 CPU 机器上交替跑过两种模式，12 个单元里有一次异步轮因 CheckQuorum 卸任，两种模式的吞吐区间重叠，不能把异步应用写成稳定加速。早期并发文档里的“未运行”是历史状态；第六节的数字仍属于 9 月 13 日以前的归档实验。</p>
+<p>选举从 2026-09-23 起多了一步。超时后节点先成为 pre-candidate，发出 <code>RequestVote.prevote</code>。接收方不改自己的任期，也不写入 <code>votedFor</code>。当前 Leader，以及选举截止时间还没到、并且认识 Leader 的 Follower，拒绝这张预投票。凑齐多数派之后才执行原来的 <code>BecomeCandidate()</code>，任期加一。预投票没凑齐就回到 pre-candidate，任期不变。单节点集群仍在同一次超时里成为 Leader。</p>
+<p>同一天补上 CheckQuorum。Leader 在最短选举超时（150 ms）之后，如果这段时间里没有多数派的 AppendEntries 应答，就在当前任期卸任，并失败未完成的读。这个 150 ms 从任期 no-op 落盘、第一条 AppendEntries 进入发送缓冲之后起算，不把这次落盘时间算进“没有应答”。复制帧没有进入发送缓冲时，不占用该 peer 的在途 RPC，下一个 Tick 会再试。</p>
 <h2 id="write-success">四、一次写入，什么时候才能返回成功</h2>
 <p>以一个发送到 Leader 的 <code>SET user:1 alice</code> 为例，成功路径如下。下图按先后顺序展示关键步骤；正常情况下 Leader 向两个 Follower 发起复制。</p>
 <figure aria-label="SET 请求的成功返回流程" class="sort-figure">
@@ -231,14 +233,16 @@
 <h3 id="detail-2">客户端超时为什么不代表失败或撤销</h3>
 <p>客户端可能在日志写入前断开，也可能在日志已经提交、业务已经应用后，因回复丢失而超时。服务端不会因为调用方不再等待，就回滚已经进入 Raft 的命令。</p>
 <p>这不是只有理论上的可能性：<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/benchmarks/reconnect-validation.md" rel="noopener noreferrer" target="_blank">重连优化后的分区报告</a>中，<code>no-quorum-2</code> 在故障窗口内没有得到成功确认，被记为结果未知，恢复通信后却被应用。正确记录应当同时保留这两个事实，不能把它改记为“故障期间写入成功”或“超时必定失败”。</p>
-<p>项目尚无请求去重。调用方重试时，可能产生另一条日志；即使重复 <code>SET</code> 相同值最终看起来一样，重复 <code>DEL</code> 的返回值也可能由 1 变成 0。因此，重试语义需要单独设计。</p>
+<p>普通 <code>SET</code> 和 <code>DEL</code> 仍然不去重。调用方重试时会产生另一条日志；重复 <code>SET</code> 相同值最终看起来一样，重复 <code>DEL</code> 的返回值却可能由 1 变成 0。</p>
+<p>2026-09-28 起可以用 <code>IDEMP &lt;client-id&gt; &lt;request-id&gt; SET|DEL ...</code>。状态机为每个 client id 保存最近一次请求号和回复，与用户写入放在同一次 KV 批里，并随快照安装到其他副本。相同请求号再次提交时返回第一次的回复，不改数据。更小的请求号返回 <code>-ERR stale request</code>。更大的请求号会执行。因此超时后用同一个号重试，不会把 <code>DEL</code> 的回复从 1 变成 0。<code>request-id</code> 从 1 起，十进制且不能有前导 0；<code>client-id</code> 为 1 到 128 字节。每个 client id 只留最近一次记录，记录不过期。客户端换一个更大的号之后，更早的号不能再取回当时的回复。</p>
+<p>提案被受理之后，如果这条日志在 1000 ms 内还没有提交，回调 <code>-ERR proposal timeout; outcome unknown</code>，并把该请求移出待完成表。日志不删除。多数派稍后确认时仍会提交并应用，而且不会再回调一次。已经提交、只差应用完成的写不走这个期限。失去多数派时仍由 CheckQuorum 卸任，回调仍是 leadership lost。所以“超时”和“结果未知”都不是撤销。</p>
 <h2 id="reliability">五、围绕可靠性做了哪些改造</h2>
 <p>下面按“基线已有 → 问题 → 本次改动 → 验证 → 剩余边界”介绍，避免把使用了某个组件直接写成个人新增能力。</p>
 <h3 id="detail-3">5.1 协议与请求处理</h3>
 <p><strong>基线已有：</strong> Muduo 客户端接入、RESP 命令解析、基本命令分发以及连接级命名空间。</p>
 <p><strong>问题：</strong> TCP 提供字节流，一次接收回调不一定包含一条完整命令。基线从 Muduo 缓冲中取走全部当前数据后解析，未完整命令可能丢失；一次到达多条命令时，还要防止后续本地 <code>GET</code> 或 <code>SELECT</code> 越过正在等待提交的写请求。</p>
 <p><strong>本次改动：</strong> 为连接保留未消费输入，解析器明确区分 <code>Complete</code>、<code>NeedMore</code>、<code>Invalid</code>。只有完整命令才消费对应字节；半条命令继续等待后续输入；非法长度、参数和结束符进入错误处理。补充整数长度、参数数量、命令大小与命名空间展开后的限制。每轮最多解析 128 条命令，然后交回事件循环。</p>
-<p>例如同一连接连续发送 <code>SET k v</code>、<code>GET k</code>、<code>SELECT other</code>，服务端会等前面的写请求完成后继续处理后续命令。当前每连接最多有一个等待结果的写请求，跨连接写入仍可合批。<code>SELECT</code> 的状态只属于该连接，两次单独运行客户端不会共享它。</p>
+<p>例如同一连接连续发送 <code>SET k v</code>、<code>GET k</code>、<code>SELECT other</code>，服务端会等前面的写请求完成后继续处理后续命令。2026-09-21 起每个连接有一条 FIFO 命令队列：读可以立刻执行，写提交后由完成回调驱动下一条；09-22 起非法命令也进入同一条队列，避免错误回复越过尚未完成的写。队列上限是 1000 条或 4 MiB，按线帧与参数中较大者记一次字节。多连接之间仍并发，跨连接写入仍可合批。<code>SELECT</code> 的状态只属于该连接。</p>
 <p><strong>验证：</strong> 本地协议目标覆盖分片拼接、连续命令、输入上限和错误边界；早期记录包含 274 项协议检查及 10,000 条命令连续解析。真实 Linux 冒烟进一步检查分片、二进制内容、跨轮流水线与命名空间。入口见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/src/common/resp_parser.h" rel="noopener noreferrer" target="_blank">解析器</a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/src/common/command_buffer.h" rel="noopener noreferrer" target="_blank">命令缓冲</a>和<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/tests/README.md" rel="noopener noreferrer" target="_blank">测试说明</a>。RESP 长度和回复格式可对照 <a class="link" href="https://redis.io/docs/latest/develop/reference/protocol-spec/" rel="noopener noreferrer" target="_blank">Redis 协议规范</a>。</p>
 <p><strong>剩余边界：</strong> 本项目只实现所需命令和回复子集。<code>-ERR MOVED &lt;leader_id&gt;</code> 是项目自定义错误，不是 Redis Cluster 的完整重定向协议；同连接处理顺序也不能替代全局强一致读。</p>
 <h3 id="detail-4">5.2 持久化与恢复</h3>
@@ -248,7 +252,7 @@
 <p>假设日志 41、42 已经提交：若只保存业务数据而没有保存应用位置，重启可能重复应用；若只先保存位置，恢复又可能跳过未写入的数据。同批保存让恢复时的 KV 内容与应用标记来自同一次原子更新。RocksDB 的 <code>WriteBatch</code> 和 <code>sync</code> 分别对应批量原子更新及同步写入要求，具体说明见 <a class="link" href="https://github.com/facebook/rocksdb/wiki/Basic-Operations" rel="noopener noreferrer" target="_blank">RocksDB Basic Operations</a>。</p>
 <p>此外，本次改造还修正了共识路径中的若干边界：重复投票不重复计数，RPC 回复按请求身份匹配，日志前缀不匹配时不误删日志，不允许冲突覆盖已经提交但尚未应用的条目。这些属于对已有 Raft 实现的正确性修复，详细场景见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/LOCAL_REVIEW_STATUS.md" rel="noopener noreferrer" target="_blank">本地核心验证记录</a>。</p>
 <p><strong>验证：</strong> 存储替身覆盖同步写入选项、批内语义、写入失败、应用位置不误推进及重启补应用；真实 Linux 测试检查进程 <code>SIGKILL</code> 后从原目录恢复，以及已确认数据的保留。</p>
-<p><strong>剩余边界：</strong> Raft 日志库与 KV 库是两个独立数据库，不能把上述同批写入理解为跨库事务。恢复需要同一个节点配套的 <code>db_path</code> 和 <code>raft_log_path</code>；不能随意混用不同节点、不同时间点的目录。旧版非空 KV 库若缺少应用标记，当前会拒绝启动，应该保留旧数据并使用新的配套目录验证。当前也不支持混合版本滚动升级。同步写入的代码约定与进程崩溃测试，均不能替代整机掉电和真实磁盘故障验证。</p>
+<p><strong>剩余边界：</strong> Raft 日志库与 KV 库是两个独立数据库，不能把上述同批写入理解为跨库事务。恢复需要同一个节点配套的 <code>db_path</code> 和 <code>raft_log_path</code>；不能随意混用不同节点、不同时间点的目录。旧版非空 KV 库若缺少应用标记，当前会拒绝启动，应该保留旧数据并使用新的配套目录验证。当前也不支持混合版本滚动升级。同步写入的代码约定与进程崩溃测试，均不能替代整机掉电和真实磁盘故障验证。快照解决的是日志变长，不把两个库合成一次掉电原子更新。</p>
 <h3 id="detail-5">5.3 异步应用与过载保护</h3>
 <p><strong>基线已有：</strong> 在事件循环中执行已提交命令的路径，以及保存写请求回调的结构。</p>
 <p><strong>问题：</strong> KV 同步应用会占用事件循环；另一方面，把工作移到线程里，如果没有顺序约束、容量限制和生命周期设计，又会引入乱序、无限积压或回调访问已销毁对象的问题。</p>
@@ -303,6 +307,19 @@
 <p>这张表描述应用层的准入与积压控制。RocksDB 缓存、对象、系统 socket 缓冲和日志仍占用资源，所以这些数字不等于 RSS 上限；所有超限也并非统一返回 <code>BUSY</code>。</p>
 <p><strong>验证：</strong> 可移植核心测试控制“提交、工作线程执行、完成通知处理”的先后，检查只有一个应用批次在途、顺序推进及配额释放；线程执行器测试实际创建标准库线程。Linux 过载实验再检查拒绝、恢复和资源变化，具体结果见下一节。<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/src/raft/serial_apply_executor.cc" rel="noopener noreferrer" target="_blank">串行执行器</a>和<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/src/server/main.cpp" rel="noopener noreferrer" target="_blank">服务端配额实现</a>提供代码依据。</p>
 <p><strong>剩余边界：</strong> 当前测试证明的是指定阈值和短时间负载下的行为，没有覆盖所有慢客户端、长期资源增长或极限容量条件。异步应用的性能效果也必须实测，不能仅凭线程数量增加就认定吞吐提升。</p>
+<h3 id="detail-40">5.4 快照与日志前缀回收</h3>
+<p><strong>问题：</strong> 只靠追完整日志，长期运行和落后副本的恢复成本会一直涨。</p>
+<p><strong>本次改动：</strong> <code>--snapshot_threshold</code> 默认 1024，0 表示关闭。达到阈值后，已应用前缀换成 KV 快照，截断后留在日志里的已应用条数小于这个阈值。其后的新条目会再积累，到下一次阈值再截。落后副本通过 <code>InstallSnapshot</code> 接收快照。分块传输的已接收半段只在内存里，副本重启即丢；Leader 发现 offset 对不上时把偏移清回 0，再发整份快照。装完之后，新的日志条目仍复制到这个副本。</p>
+<p>尾记录标出日志终点。打开时把快照之后的每一条读出来，索引要连续，任期不能回退。中间某条损坏或缺失，进程在打开时失败，而不是等到以后读到那一条。没有尾记录的旧库仍整库扫描一次，并补上尾记录。空库跳过 <code>0/0</code> 日志尾写入。拒绝复制时可以跳到冲突任期。</p>
+<p><strong>验证：</strong> 进程内三节点用阈值 4 写入 20 条，Leader 和两个 Follower 都满足上限，并且第一条和最后一条都还在。<code>InterruptedInstallRestartsAndReplicates</code> 覆盖半段之后重启、快照装完、随后的 <code>SET</code> 在落后副本上可读。<code>scripts/demo.py</code> 在同一台机器上起三个进程：写入后三个节点都能读到，Follower 上的 <code>SET</code> 返回 <code>MOVED</code>，杀掉 Leader 后新 Leader 仍能读旧数据并继续写，旧进程用原数据目录重启后再一致。</p>
+<p><strong>剩余边界：</strong> 这是同一台机器上的三个进程，不是多机容灾。动态成员变更仍未做。半段快照不落盘。</p>
+<h3 id="detail-41">5.5 可选的线性一致读</h3>
+<p><strong>问题：</strong> 默认 <code>GET</code> 读的是本机状态机。网络隔离中的旧 Leader 可能还不知道多数派已经选出了新 Leader，因而返回旧值。</p>
+<p><strong>本次改动：</strong> <code>--linearizable_reads</code> 默认关闭。打开后，Leader 在本任期 no-op 提交后，把当时的 <code>commit_index</code> 当作读屏障，向 peer 发空 AppendEntries。只有这一轮冻结之后新发出的 <code>rpc_id</code> 计入多数派；请求之前已经在途的复制、心跳及其重试不能确认这次读。多数派确认且 <code>lastApplied</code> 追上读索引之后，再读本地 KV。探针年龄达到最短选举超时（150 ms）就拒绝 ACK。确认之后、读状态机之前再看一次是否仍是 Leader，已经卸任则返回 <code>MOVED</code>。Follower 在开关打开时直接 <code>MOVED</code>，不再静默本地读。</p>
+<p><code>--lease_reads</code> 也默认关闭，而且只改变已经打开线性一致读时的 Leader GET。本任期已满最长选举超时（300 ms），并且多数派在 150 ms 内应答过，就用当前 <code>commit_index</code> 本地确认，不再发探针。<code>last_applied</code> 还没追上时仍然等待应用。新任期的前 300 ms 不使用租约，避免和上一任 Leader 的选举窗口重叠。联系变旧时退回 ReadIndex。</p>
+<p>刚听过心跳的 Follower 不能再给其他候选投票：选举时钟还没到期、并且已知当前 Leader 时，对其他节点的 <code>RequestVote</code> 既不抬任期也不给票。否则同一节点可以先给探针 ACK，再在更高任期投票，旧 Leader 仍可能确认一次过期读。</p>
+<p><strong>验证：</strong> 进程内回归覆盖旧 ACK 不能确认新读、隔离节点多次超时不抬任期、租约新鲜时不发探针、未应用的提交不会提前完成读。Linux CI 在真实三节点上检查 Follower 的 <code>MOVED</code>、Leader 写后读，以及隔离旧 Leader 的 GET 必须在 1 秒内收到读屏障超时、<code>MOVED</code> 或卸任错误。套接字超时不算通过。</p>
+<p><strong>剩余边界：</strong> 默认配置仍是本地读。Linux CI 通过不等于 9 月 13 日那种带源码指纹和原始证据包的性能归档，也不填写相对本地读的吞吐比例。</p>
 <h2 id="validation">六、如何验证：让结论有原始证据</h2>
 <p>本项目把验证分成三个层次。它们相互补充，但不能相互替代。</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
@@ -412,7 +429,19 @@
 <p>该轮三个节点的稳态 RSS 增长约为 0.777、0.385、0.777 MiB，FD 增长均为 0。这里的增长使用正式阶段末 10 份与前 10 份采样的中位数差；采样峰值可能遗漏瞬时峰值。该负载还主动间隔发送，属于资源观察，不能拿包含预热的请求总数除以 60 秒生成正式吞吐。定义与阈值见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/benchmarks/overload-validation.md" rel="noopener noreferrer" target="_blank">过载原始报告</a>。</p>
 <h3 id="detail-7">测试结论的边界</h3>
 <p>三进程同机能够验证真实网络和存储依赖参与的特定行为，但三个进程共享宿主机、电源、磁盘和调度资源，不能称为三机容灾实测。<code>SIGKILL</code> 终止进程，没有模拟整机断电或设备损坏；60 秒观察也不能证明长期无泄漏。</p>
-<p>当前分区验证覆盖短时、对称的 TCP 断连/拒绝连接场景，尚未覆盖静默丢包、非对称分区等完整网络故障空间。测试里的本地读通常在等待恢复和应用收敛后执行，不能由此证明并发历史的线性一致性。</p>
+<p>正文归档时的分区验证覆盖短时、对称的 TCP 断连和拒绝连接。2026-10-02 起，<code>tests/raft_proxy.py</code> 在保持或按规则重建 TCP 的前提下又覆盖了这些路径：</p>
+<ul>
+<li>双向静默丢字节，以及只丢掉 Follower 发往 Leader 的方向。恢复转发前先关掉已经丢过字节的连接，避免把后续字节接到缺前缀的流上。旧 Leader 不能确认探测写入，多数派仍能写入，恢复后三个节点收敛。</li>
+<li>40 ms 的按序延迟，短于 150 ms 选举下限。写入仍提交到三个节点，任期和 Leader 不变。</li>
+<li>400 ms 的停顿，只加在旧 Leader 与另外两节点之间，长过 300 ms 选举上限。旧 Leader 不能确认探测写入，另外两节点选出新 Leader 并完成写入。停顿取消后，按住的字节仍按原顺序送出。</li>
+<li>同一次读里已经完整的相邻 Raft 帧对调后再转发。写入仍提交，连接不关。进程内测试把一条较旧的 AppendEntries 在更新的后缀之后重新投递，较新的键仍在。</li>
+<li>只丢掉 Leader 发往一个 Follower 的字节，或只丢掉一个 Follower 的回复。可达的一侧形成多数派；被丢掉的那一侧在恢复前读不到这个键。</li>
+<li>Leader 与两个 Follower 的方向都丢掉，再丢掉两个 Follower 之间的一个方向。投票要请求和回复都送到，这一对完成不了投票，三个节点的提交和应用位置都不前进。</li>
+<li>丢掉 Leader 发往两个 Follower 的全部字节，Follower 的回复和它们之间的链路继续转发。两个 Follower 选出新 Leader。新 Leader 仍能把条目送到旧 Leader，所以不把旧 Leader 的提交位置冻结整段观察时间。</li>
+</ul>
+<p>这些仍不是完整网络故障空间。测试里的本地读通常在等待恢复和应用收敛后执行，不能由此证明并发历史的线性一致性。</p>
+<p>从 2026-09-23 起，GitHub Actions 会安装依赖、构建真实 Muduo/RocksDB 服务，跑三节点冒烟和线性一致读。09-29 起同一次构建还跑分区、写入重启和过载。写入重启把 <code>outcome unknown</code> 都记为结果未知，包括提案超时。过载在 Leader 卸任时跟随新 Leader，重试同一个 key/value，leadership lost 和 <code>MOVED</code> 不算写入成功。可移植 CI 仍然不构建真实服务。运行镜像不在 Actions 里构建。09-08 至 09-13 的性能对照没有为这些 CI 重做。</p>
+<p><code>--metrics_port</code> 默认不监听。设成与客户端端口、Raft 端口都不同的值后，<code>GET /metrics</code> 返回与 <code>INFO</code> 相同字段的 Prometheus 文本，阶段耗时仍是累计微秒，没有直方图。<code>GET /health</code> 在进程仍在跑且存储没有失败时返回 200，正文带角色、任期和 Leader；存储失败或已停止时返回 503。Follower 也可以是 200，这不表示当前有多数派。冒烟会在选出 Leader 之后、以及旧 Leader 重启并追上之后，对每个节点发这个请求，并要求恰好一个角色是 leader。</p>
 <p>归档中的源码清单、文件哈希与二进制哈希记录提高了可追溯性，但包内未必包含二进制和数据库本体，也没有每次 GET 的独立请求/回复转录。核验可以重算已有数据、检查脚本与报告对应关系，不能补出当时没有记录的证据，更不等于第三方独立运行或完整正确性证明。</p>
 <p>2026 年 9 月 14 日整理本文时，重新运行了八项只读归档核验：自动构建、空目录构建、分区、持续写入重启、过载、重连退避、正常负载诊断和客户端读取对照，均为 PASS。这一步核对已有材料，没有重新执行 Linux 集群或产生新的性能实验。</p>
 <h2 id="reconnect">七、一次有效的优化：抑制反复断线后的重连开销</h2>
@@ -728,7 +757,7 @@
 <p>此外，<code>write_completed</code> 到服务端成功回调为止，不含回复到达客户端的时间；<code>replication_data_ack</code> 包含缓冲与重试，不是纯网络 RTT，也不是多数派提交耗时。定义见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/concurrency.md" rel="noopener noreferrer" target="_blank">并发指标说明</a>，数值见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/benchmarks/profile-validation.md" rel="noopener noreferrer" target="_blank">阶段差分报告</a>。</p>
 <p>现有数据能够支持的判断是：本轮同机资源余量较小，客户端值得纳入诊断，阶段计数可以帮助缩小调查范围。它还不足以定位唯一瓶颈、推出独立服务端容量，或预测三台物理机及更大集群的性能。完整 JSON、日志与核验材料通过文末仓库索引提供。</p>
 <h2 id="roadmap">十、接下来准备提高什么</h2>
-<p>以下均为后续计划。现有构建脚本和基础 KV 能力可以作为起点，但不能把尚未完成的功能写进已实现清单。</p>
+<p>下表按 2026-10-06 的 <code>main</code> 重写当时的计划。已经落地的项仍写明没做什么；没有对应提交的项继续留在计划里。</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
 <thead>
 <tr>
@@ -742,8 +771,8 @@
 <tr>
 <td>1</td>
 <td><strong>关闭 ReadIndex 残留缺陷并补齐 Linux 验收</strong></td>
-<td>已有默认关闭的实现与部分 P1/P2 修补，但读轮次关联与测试覆盖仍不足</td>
-<td>修正 round / rpc 身份匹配；让回归链接生产 <code>RaftNode</code>；隔离旧 Leader 不得返回过期强一致读，并归档证据</td>
+<td>2026-09-22 至 09-23 已落地：探针绑定本轮 <code>rpc_id</code>，回归链接生产 <code>RaftNode</code>，Linux CI 检查隔离旧 Leader</td>
+<td>默认仍关闭。09-13 那种带源码指纹的证据包没有为这条路径重做；租约读是后来的可选项，见更新日志</td>
 </tr>
 <tr>
 <td>2</td>
@@ -754,35 +783,89 @@
 <tr>
 <td>3</td>
 <td><strong>完整 Linux CI 与演示入口</strong></td>
-<td>已有可移植 CI（不构建真实 Muduo/RocksDB 服务）；干净系统复现与三节点故障 CI 尚未完成</td>
-<td>从干净 Linux 环境安装依赖、构建真实服务并跑故障脚本；归档失败日志与版本身份，并提供可重复的三节点演示入口</td>
+<td>2026-09-23 起 CI 构建真实服务并跑冒烟和线性一致读；2026-09-29 起加上分区、写入重启和过载。2026-10-06 增加 <code>scripts/demo.py</code></td>
+<td>运行镜像不在 GitHub Actions 里跑。演示是同一台机器上的三个进程，不是多机容灾。干净操作系统上的依赖安装复现仍待单独归档</td>
 </tr>
 <tr>
 <td>4</td>
 <td><strong>请求去重</strong></td>
-<td>写入生效后回复丢失，客户端向新 Leader 重试可能再次执行</td>
-<td>设计客户端标识、请求序号、随共识持久化的结果与清理规则；验证跨 Leader 重试不会重复产生业务效果</td>
+<td>2026-09-28 起 <code>IDEMP</code> 把最近一次请求号和回复与用户写入放进同一次 KV 批，并随快照复制</td>
+<td>普通 <code>SET</code> / <code>DEL</code> 仍会重复执行。记录不过期，也没有按租约清理；客户端必须自己保持递增的请求号</td>
 </tr>
 <tr>
 <td>5</td>
 <td><strong>快照与日志回收</strong></td>
-<td>长期运行日志增长，落后副本仅靠追日志恢复成本较高</td>
-<td>联合保存状态、应用位置和必要元数据；验证快照安装中断、重启恢复、日志回收后的继续复制</td>
+<td>2026-09-28 起已应用前缀可换成 KV 快照，并用 <code>InstallSnapshot</code> 传给落后副本；2026-10-06 打开日志时核对快照之后的每一条</td>
+<td>动态成员变更仍未做。半段传输重启后整份重发。真实磁盘损坏和整机掉电仍没有专项证据</td>
 </tr>
 </tbody>
 </table></div>
-<p>ReadIndex 代码路径已经落地，但默认关闭，且读轮次关联与生产测试覆盖仍有已知残留；下一步应先关闭这些缺陷并补齐隔离旧 Leader 的 Linux 证据，而不是把它写成已完成能力。算法背景可参考 <a class="link" href="https://raft.github.io/raft.pdf" rel="noopener noreferrer" target="_blank">Raft 论文第 8 节</a>；对外读写语义的描述方式可对照 <a class="link" href="https://etcd.io/docs/v3.6/learning/api_guarantees/" rel="noopener noreferrer" target="_blank">etcd API 一致性保证</a>。</p>
-<p>动态成员变更、其他网络故障、真实存储故障和长期运行验证也仍在待办中，但不混入正文已归档的五项已完成成果。后续每完成一项，再附上实现、测试与剩余边界更新本文。</p>
+<p>ReadIndex 默认仍然关闭。2026-09-22 检查出的轮次关联问题已经在后续提交里关掉，Linux CI 会跑隔离旧 Leader 的 GET；这不等于 09-13 那种逐项指纹归档，也不能把默认本地读说成线性一致读。算法背景可参考 <a class="link" href="https://raft.github.io/raft.pdf" rel="noopener noreferrer" target="_blank">Raft 论文第 8 节</a>；对外读写语义的描述方式可对照 <a class="link" href="https://etcd.io/docs/v3.6/learning/api_guarantees/" rel="noopener noreferrer" target="_blank">etcd API 一致性保证</a>。</p>
+<p>还没做的是动态成员变更、版本化策略配置演示、真实存储故障和长期运行验证。分区脚本在 2026-10-02 补过静默丢字节、延迟、乱序和单向丢弃，仍不是完整网络故障空间。这些不混入正文已归档的五项成果，完成情况以更新日志为准。</p>
 <h2 id="changelog">十一、持续更新日志</h2>
 <p>以下按验收或归档日期倒序维护；同日记录按本次整理顺序排列。每次更新保留“问题或目标、改动、验证、结果、取舍、证据”六项。代码发布早于实测归档时，分别注明，避免把工具发布当成实验完成。</p>
-<p>截至 <strong>2026-09-22</strong>，仓库 HEAD 为 <code>cb1b3f8</code>（<code>main</code>，已合并 PR #1–#10）。09-13 之后的条目此前未写入本文；下文按提交与代码核对补录，不以合并说明或未归档压测数字作为收益证明。没有实测对比时不填写性能提升比例。仓库侧完整条目见 <a class="link" href="https://github.com/Die4U23/Raft-KV/blob/main/CHANGELOG.md" rel="noopener noreferrer" target="_blank">CHANGELOG.md</a>。</p>
+<p>截至 <strong>2026-10-06</strong>，仓库 HEAD 为 <a class="link" href="https://github.com/Die4U23/Raft-KV/commit/8fbb0732070340ae4b53d05ffcbe5996e67f9192" rel="noopener noreferrer" target="_blank"><code>8fbb073</code></a>（<code>main</code>，已合并 PR #1–#60）。09-22 的 <code>cb1b3f8</code> 之后有 77 个提交；下文按仓库 <a class="link" href="https://github.com/Die4U23/Raft-KV/blob/8fbb0732070340ae4b53d05ffcbe5996e67f9192/CHANGELOG.md" rel="noopener noreferrer" target="_blank">CHANGELOG.md</a> 与这些提交核对后补录。本文没有重新跑测试。不以合并说明代替实测，没有对照时不填写性能提升比例。</p>
+<h3 id="detail-34">2026-10-06｜打开日志时核对快照之后的每一条，并给出三节点演示</h3>
+<ul>
+<li><strong>问题或目标</strong>：快照截断之后，日志中间损坏不应拖到以后读到那一条才发现；已应用但仍留在日志里的条数需要有上限；需要一条命令在本机走通三个进程。</li>
+<li><strong>本次改动</strong>：打开日志时读出快照之后的每一条，索引要连续，任期不能回退，否则进程在打开时失败。没有尾记录的旧库仍整库扫描一次并补上尾记录。<code>--snapshot_threshold</code> 默认 1024，达到后把已应用前缀换成 KV 快照，截断后留下的已应用条数小于该阈值。新增 <code>scripts/demo.py</code>：选出 Leader、写入、三个节点读到、Follower 上的 <code>SET</code> 返回 <code>MOVED</code>、杀掉 Leader 后新 Leader 仍能读旧数据并继续写、旧进程用原数据目录重启后再一致。<code>--hold</code> 在结束前留下进程和端口。英文 README 作为默认 <code>README.md</code>，中文说明改为 <code>README_CN.md</code>。</li>
+<li><strong>验证环境与方法</strong>：三节点进程内测试用阈值 4 写入 20 条，Leader 和两个 Follower 都满足上限，并且第一条和最后一条都还在。演示是同一台机器上的三个进程，使用已有 Linux 服务。</li>
+<li><strong>实测结果</strong>：无新的吞吐对照，不填写性能数字。</li>
+<li><strong>取舍与未完成事项</strong>：演示不是多机容灾，也不替代分区和崩溃脚本。阈值只限制已应用后缀，其后的新条目会再积累到下一次截断。</li>
+<li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/3d59adb1d" rel="noopener noreferrer" target="_blank">打开校验 <code>3d59adb</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/507ba4af2" rel="noopener noreferrer" target="_blank">阈值测试 <code>507ba4a</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/131fe1f1a" rel="noopener noreferrer" target="_blank">演示 <code>131fe1f</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/37e378176" rel="noopener noreferrer" target="_blank">英文 README <code>37e3781</code></a>、当时 HEAD <a class="link" href="https://github.com/Die4U23/Raft-KV/commit/8fbb0732070340ae4b53d05ffcbe5996e67f9192" rel="noopener noreferrer" target="_blank"><code>8fbb073</code></a>。</li>
+</ul>
+<h3 id="detail-35">2026-10-02｜分区脚本补上静默丢字节、延迟、乱序和单向丢弃</h3>
+<ul>
+<li><strong>问题或目标</strong>：正文归档时的分区只覆盖短时、对称的 TCP 断连和拒绝连接。</li>
+<li><strong>本次改动</strong>：<code>tests/raft_proxy.py</code> 增加 <code>silence()</code>、<code>delay()</code> 和 <code>reorder()</code>。静默丢字节保持 TCP，恢复前先关掉已经丢过字节的连接，避免把后续字节接到缺前缀的流上。短延迟 40 ms，低于 150 ms 选举下限，字节仍按原顺序转发。长停顿 400 ms 只加在旧 Leader 与另外两节点之间，长过 300 ms 选举上限，多数派之间的链路不按住。<code>reorder()</code> 只对调同一次读里已经完整的相邻 Raft 帧。另覆盖 Leader 到一个 Follower 的出站丢弃、一个 Follower 回复的单向丢弃、Follower 之间一个方向，以及 Leader 发往两个 Follower 的出站全部丢掉。TCP 在这些丢弃场景里不主动关闭。</li>
+<li><strong>验证环境与方法</strong>：Linux 分区测试与转发器单元测试。进程内测试把一条较旧的 AppendEntries 在更新的后缀之后重新投递。</li>
+<li><strong>实测结果</strong>：双向静默丢弃和只丢掉发往 Leader 的回复时，旧 Leader 不能确认探测写入，多数派仍能写入，恢复后收敛。40 ms 延迟和帧交换下写入仍提交到三个节点，任期和 Leader 不变。400 ms 停顿后旧 Leader 不能确认探测写入，另外两节点选出新 Leader 并完成写入，停顿取消后按住的字节仍按原顺序送出。只丢掉 Leader 到一个 Follower 的方向时，被丢掉的那一侧在恢复前读不到该键。Follower 之间再丢掉一个方向、并且 Leader 与两个 Follower 的方向都丢掉时，三个节点的提交和应用位置都不前进。Leader 出站全部丢掉时，两个 Follower 选出新 Leader；新 Leader 仍能把条目送到旧 Leader，所以不把旧 Leader 的提交位置冻结整段观察时间。</li>
+<li><strong>取舍与未完成事项</strong>：这些是脚本编排的字节路径，不是任意网络故障空间。乱序不放进短延迟那一组；长停顿那一组也不交换前后块。</li>
+<li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/0baf18409" rel="noopener noreferrer" target="_blank">静默丢弃 <code>0baf184</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/ca70f6fdb" rel="noopener noreferrer" target="_blank">短延迟 <code>ca70f6f</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/45e63de82" rel="noopener noreferrer" target="_blank">长停顿 <code>45e63de</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/37be0cd60" rel="noopener noreferrer" target="_blank">帧交换 <code>37be0cd</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/e8fd1d6cd" rel="noopener noreferrer" target="_blank">Follower 方向与 Leader 出站全丢 <code>e8fd1d6</code></a>。无新的 09-13 式性能证据包。</li>
+</ul>
+<h3 id="detail-36">2026-09-30｜健康检查、运行镜像、快照半段重启，以及同步/异步同机对照</h3>
+<ul>
+<li><strong>问题或目标</strong>：进程是否还活着需要一个不依赖客户端端口的检查；快照传到一半重启后的行为需要测试钉住；同步应用和异步应用需要在同一台机器上对照，而不是拿不同日期的吞吐相减。</li>
+<li><strong>本次改动</strong>：<code>--metrics_port</code> 上的 <code>GET /health</code> 在进程仍在跑且存储没有失败时返回 200，正文带角色、任期和 Leader；存储失败或已经停止时返回 503。Follower 也可以是 200，这不表示当前有多数派。<code>docker/runtime.Dockerfile</code> 用 Ubuntu 26.04 编出服务，<code>docker/compose.yaml</code> 起三个容器，各自挂独立的 <code>/data</code> 卷。冒烟在选出 Leader 之后、以及旧 Leader 重启并追上之后，对每个节点发 <code>GET /health</code>，三个响应都要是 200，并且恰好一个角色是 leader。<code>snapshot_tests</code> 增加半段之后重启、快照装完、随后的 <code>SET</code> 在落后副本上可读。<code>tests/async_apply_compare.py</code> 一次只起一组三节点，先跑完 <code>pipeline=1</code> 的三次重复，再跑 <code>pipeline=16</code>，每一轮交替哪一种 <code>--async_apply</code> 先启动，落盘仍是 <code>sync=true</code>。</li>
+<li><strong>验证环境与方法</strong>：健康检查进入冒烟；分区、写入重启和过载脚本不打开这个端口。同步/异步对照于 2026-09-30 在 2 CPU、ext4（<code>/dev/sda2</code>）上跑完 12 个单元。半段重启是进程内测试：副本发现 Leader 的 offset 对不上内存半段时回 <code>success=false</code>，Leader 把偏移清回 0 再发整份快照。</li>
+<li><strong>实测结果</strong>：12 个单元里 11 个零错误；<code>pipeline=1</code>、<code>async_apply=true</code> 的一次重复里 Leader 因 CheckQuorum 卸任，6176 次 <code>MOVED</code>。两种模式的吞吐区间重叠，这次结果不是稳定收益，不填写提升比例。原始数字在 <a class="link" href="https://github.com/Die4U23/Raft-KV/blob/8fbb0732070340ae4b53d05ffcbe5996e67f9192/docs/benchmarks/async-apply-compare-2026-09-30.json" rel="noopener noreferrer" target="_blank"><code>async-apply-compare-2026-09-30.json</code></a>。</li>
+<li><strong>取舍与未完成事项</strong>：三个容器在同一台机器的一个 Docker 网络里。运行镜像不在 GitHub Actions 里构建。半段快照不落盘，重启即丢。</li>
+<li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/8be357b1c" rel="noopener noreferrer" target="_blank">健康检查与运行镜像 <code>8be357b</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/61941902f" rel="noopener noreferrer" target="_blank">冒烟检查 <code>/health</code> <code>6194190</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/fabd52005" rel="noopener noreferrer" target="_blank">半段重启 <code>fabd520</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/2e20c660a" rel="noopener noreferrer" target="_blank">同步/异步对照 <code>2e20c66</code></a>。</li>
+</ul>
+<h3 id="detail-37">2026-09-29｜提案超时、指标端口、故障测试进入 Linux CI</h3>
+<ul>
+<li><strong>问题或目标</strong>：已受理但迟迟不提交的写不能一直挂着；<code>INFO</code> 需要能被抓取；分区、写入重启和过载要进 CI，而不是只留在手工脚本。过载 soak 在心跳抖动导致卸任时不应把测试判死。</li>
+<li><strong>本次改动</strong>：提案被受理之后，如果这条日志在 1000 ms 内还没有提交，回调 <code>-ERR proposal timeout; outcome unknown</code>，并把该请求移出待完成表。日志不删除，多数派稍后确认时仍会提交并应用，而且不会再回调一次。已经提交、只差应用完成的写不走这个期限。失去多数派时仍由 CheckQuorum 在 150 ms 后卸任。<code>--metrics_port</code> 默认 0；设成与客户端端口、Raft 端口都不同的值后，<code>GET /metrics</code> 返回 Prometheus 文本 0.0.4，字段与 <code>INFO</code> 相同，没有直方图，也没有当前连接的 <code>namespace</code>。CheckQuorum 的 150 ms 从任期 no-op 写入并把第一条 AppendEntries 放进发送缓冲之后起算，不再把这次落盘时间算进“没有多数派应答”。复制帧没有进入连接发送缓冲时，不占用该 peer 的在途 RPC。<code>linux-cluster.yml</code> 在冒烟和线性一致读之后跑 <code>cluster_partition.py</code>、<code>cluster_write_restart.py</code> 和 <code>cluster_overload.py</code>。过载 soak 遇到 leadership lost、<code>MOVED</code> 或断连时重新发现当前 Leader，并重试同一个 key/value，不算客户端错误。</li>
+<li><strong>验证环境与方法</strong>：提案超时有进程内测试：期限前不失败、到期后 Leader 还在且条目随后能应用、已提交但应用滞后的写不会被提前失败。故障脚本用同一次构建的服务；写入重启把 <code>outcome unknown</code> 都记为结果未知，包括 proposal timeout。过载在隔离 Leader 时接受 CheckQuorum 卸任后的 leadership lost / <code>MOVED</code>，这些回复不算写入成功。</li>
+<li><strong>实测结果</strong>：仓库说明本机用当时的服务跑过这三份脚本。09-08 至 09-13 的性能对照没有重做，不把 CI 通过写成吞吐变化。</li>
+<li><strong>取舍与未完成事项</strong>：1000 ms 后告知结果未知，不是撤销已经可能提交的日志。指标端口与客户端端口分开，分区脚本不打开它。</li>
+<li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/2329c7117" rel="noopener noreferrer" target="_blank">提案超时 <code>2329c71</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/e22bb48d5" rel="noopener noreferrer" target="_blank">故障测试进 CI <code>e22bb48</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/8d177300c" rel="noopener noreferrer" target="_blank">CheckQuorum 宽限 <code>8d17730</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/d783489d2" rel="noopener noreferrer" target="_blank">Prometheus 文本 <code>d783489</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/2682f40bd" rel="noopener noreferrer" target="_blank">未发出的 Append 不占在途 <code>2682f40</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/932e78c8c" rel="noopener noreferrer" target="_blank">过载跟随 Leader <code>932e78c</code></a>。</li>
+</ul>
+<h3 id="detail-38">2026-09-28｜快照、日志尾、IDEMP 与租约读</h3>
+<ul>
+<li><strong>问题或目标</strong>：长期运行不能只靠追完整日志；超时重试不能让同一条 <code>DEL</code> 执行两次；线性一致 GET 在租约有效时不必每读都发探针。</li>
+<li><strong>本次改动</strong>：已应用前缀可换成 KV 快照，并通过 <code>InstallSnapshot</code> 传给落后副本。尾记录标出日志终点；拒绝复制时跳到冲突任期。空库跳过 <code>0/0</code> 日志尾写入。新写命令是 <code>IDEMP &lt;client-id&gt; &lt;request-id&gt; SET|DEL ...</code>。<code>request-id</code> 从 1 起，十进制且不能有前导 0；<code>client-id</code> 为 1 到 128 字节。状态机为每个 client id 保存最近一次请求号和回复，与用户写入放在同一次 KV 批里，并随快照安装到其他副本。相同请求号再次提交时返回第一次的回复；更小的请求号返回 <code>-ERR stale request</code>；更大的请求号会执行。<code>--lease_reads</code> 默认关闭，只改变 <code>--linearizable_reads</code> 的 Leader GET：本任期已满最长选举超时（300 ms），并且多数派在最短选举超时（150 ms）内应答过，就用当前 <code>commit_index</code> 本地确认。<code>last_applied</code> 还没追上时仍然等待应用。新任期的前 300 ms 不使用租约。Follower 仍然返回 <code>MOVED</code>。同日还删过已被后续状态取代的设计文档，并整理 <code>.gitignore</code>；这些不改变请求语义。</li>
+<li><strong>验证环境与方法</strong>：进程内测试覆盖租约的四个边界：新任期发探针、租约新鲜时不发探针、联系变旧时退回探针、未应用的提交不会提前完成读。IDEMP 的重复请求号、更小请求号和随快照安装，按仓库日志里的语义记录，本文没有单独的测试名称可引。半段快照的重启回归记在 2026-09-30。</li>
+<li><strong>实测结果</strong>：无独立吞吐对照，不填写性能提升比例。<code>read_index_lease</code> 只计本地确认的次数。</li>
+<li><strong>取舍与未完成事项</strong>：普通 <code>SET</code> / <code>DEL</code> 仍然不去重。每个 client id 的记录不会过期；客户端换一个更大的请求号之后，更早的号不能再取回当时的回复。租约读避免和上一任 Leader 的选举窗口重叠，联系变旧时退回 ReadIndex。</li>
+<li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/43a0ae22c" rel="noopener noreferrer" target="_blank">快照 <code>43a0ae2</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/5b58ca54f" rel="noopener noreferrer" target="_blank">日志尾 <code>5b58ca5</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/8a2c6b4d3" rel="noopener noreferrer" target="_blank">IDEMP <code>8a2c6b4</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/2f2d40c81" rel="noopener noreferrer" target="_blank">租约读 <code>2f2d40c</code></a>。</li>
+</ul>
+<h3 id="detail-39">2026-09-23｜关掉 ReadIndex 残留，并加上 Pre-Vote 与 CheckQuorum</h3>
+<ul>
+<li><strong>问题或目标</strong>：09-22 架构检查留下的 F1、F6 不能再按“已修补”结案；延迟 ACK 不能在多数派已经另选 Leader 之后仍确认旧读；没有多数派同意时不要先抬任期。</li>
+<li><strong>本次改动</strong>：读请求先进入未发送队列，一轮冻结后再发送的新 AppendEntries 才记入 <code>probe_rpc_ids</code>。请求之前已在途的复制、心跳及其重试不能确认该读。探针轮次只在最短选举超时（150 ms）内接受 ACK，过期 ACK 到达时立刻失败该轮。Follower 在选举时钟尚未到期、且已知当前 Leader 时，对其他节点的 <code>RequestVote</code> 既不抬任期也不给票。选举超时改成 <code>steady_clock</code> 上的绝对截止时间，ReadIndex 与选举使用同一把钟。补上 CheckQuorum：Leader 在最短选举超时之后如果没有多数派的 AppendEntries 应答，就在当前任期卸任，并失败未完成的读。预投票达到多数派之后才走原来的 <code>BecomeCandidate()</code>。CTest 改为链接生产 <code>RaftNode</code> 或生产 <code>ClassifyCommand</code>；每连接调度抽到 <code>session_queue.h</code>，由 <code>connection_order_tests</code> 直接驱动。新增 <code>linux-cluster.yml</code>：构建真实 Muduo/RocksDB 服务，跑三节点冒烟和 <code>tests/cluster_linearizable.py</code>。线性一致 GET 在多数派确认之后、读状态机之前再看一次 <code>IsLeader()</code>，已经卸任则 <code>MOVED</code>。</li>
+<li><strong>验证环境与方法</strong>：进程内回归覆盖隔离节点多次超时不抬任期、恢复后原 Leader 任期不变且写入仍能在三副本提交、错过一轮任期的节点在 Leader 消失后能选出新 Leader，以及少数派自确认不能完成 ReadIndex。Linux CI 要求隔离旧 Leader 的 GET 在 1 秒内收到 <code>read index timeout</code>、<code>MOVED</code> 或卸任错误，套接字超时不再算通过。可移植 CI 仍不构建真实服务。</li>
+<li><strong>实测结果</strong>：不把 CI 通过写成相对本地读的性能收益。09-13 的分区、崩溃重启和过载证据包没有为这次修补重做。</li>
+<li><strong>取舍与未完成事项</strong>：<code>--linearizable_reads</code> 默认仍是 false。CheckQuorum 先于 Pre-Vote 合入，两条都在 09-23 的 <code>main</code> 上。单节点集群在同一次超时里成为 Leader，CheckQuorum 只计自己。<code>replication_ack_tests.cpp</code> 仍是 FakeRaftNode，不加入 CTest。</li>
+<li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/75bee54d7" rel="noopener noreferrer" target="_blank">探针绑定 <code>75bee54</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/f83ca7a23" rel="noopener noreferrer" target="_blank">生产调度器与 Linux CI <code>f83ca7a</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/272657d4c" rel="noopener noreferrer" target="_blank">拒绝过期 ACK <code>272657d</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/f717a8c31" rel="noopener noreferrer" target="_blank">拒绝干扰投票 <code>f717a8c</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/bf71129aa" rel="noopener noreferrer" target="_blank">选举时钟对齐 <code>bf71129</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/4e0fa4ac2" rel="noopener noreferrer" target="_blank">Pre-Vote <code>4e0fa4a</code></a>。当时还没有快照和租约读。</li>
+</ul>
 <h3 id="detail-29">2026-09-22｜架构检查与 P1/P2 修补：生产路径仍有残留</h3>
 <ul>
 <li><strong>问题或目标</strong>：核对 ReadIndex 与每连接队列改造是否达到 README 所称的线性一致读与正确排队；修补审查中的 P1/P2。</li>
 <li><strong>本次改动</strong>：对提交 <code>831a91c</code> 做架构检查并写入审查报告。PR #9（<code>60ddf84</code>）修补 F1–F4：AppendEntries 响应用 <code>rpc_id</code> 关联读轮次；<code>--linearizable_reads=true</code> 时 Follower GET 返回 <code>MOVED</code>；每连接队列上限 1000 条 / 4 MiB；未知命令与参数错误走统一完成路径。PR #10（<code>673fbb6</code>）修补 F5、F7：非法命令以 <code>ERROR</code> 类型入队按 RESP 顺序回复；边缘用例测试用 <code>std::max&lt;int64_t&gt;</code> 消除 MinGW 推导失败。</li>
 <li><strong>验证环境与方法</strong>：本轮按生产代码与提交说明核对；提交说明称单测与冒烟通过。未重新执行历史 Linux 分区 / 崩溃重启 / 过载归档，也没有针对修补后的 ReadIndex 做隔离旧 Leader 的真实集群核验。</li>
 <li><strong>实测结果</strong>：无新的已核验 Linux 证据包。代码核对后 <strong>F1 仍未真正关闭</strong>：读轮次 <code>round_id</code> 来自 <code>_next_round_id</code>，匹配条件是 <code>round.round_id == flight.id</code>，而 <code>flight.id</code> 是每个 peer 各自递增的 <code>_rpc_sequence</code>；三节点一次广播通常只有一个 Follower 可能对上 round，且新读仍可能挂到已发出的 round 上。“只用请求之前产生的旧 ACK 就通过读屏障”不能视为已关闭。<strong>F6 仍未关闭</strong>：<code>readindex_tests</code> 自实现 <code>ReadIndexManager</code> 不链接生产 <code>RaftNode</code>；<code>connection_order_tests</code> 主要打印说明，CTest 仍计为通过。CI 只跑 <code>RAFTKV_BUILD_SERVER=OFF</code> 可移植目标与 <code>*_tests.py</code>。</li>
-<li><strong>取舍与未完成事项</strong>：默认 <code>--linearizable_reads=false</code>，未开开关时 GET 仍是本地读。README 已把 ReadIndex 标为完成；仓库内 <code>read-consistency.md</code> 与 <code>review-status.md</code> 仍写“线性一致读未实现”，文档与代码不一致。</li>
+<li><strong>取舍与未完成事项</strong>：默认 <code>--linearizable_reads=false</code>，未开开关时 GET 仍是本地读。README 已把 ReadIndex 标为完成；仓库内 <code>read-consistency.md</code> 与 <code>review-status.md</code> 仍写“线性一致读未实现”，文档与代码不一致。本条保留检查当时的结论。F1 的 round / rpc 直接比较由同日更晚的 <code>75bee54</code> 关闭，F6 的生产回归和 Linux 三节点 CI 记在 2026-09-23 条目。</li>
 <li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/831a91cf259d77a48267e9b1c66e4ae6dc6e3da9" rel="noopener noreferrer" target="_blank">检查基线 <code>831a91c</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/60ddf84a3edcde05b18376cab18c1771e53b2564" rel="noopener noreferrer" target="_blank">P1 修补 <code>60ddf84</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/673fbb66da9e5a431b556652e1e7fad87252d9fd" rel="noopener noreferrer" target="_blank">P2 修补 <code>673fbb6</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/main/docs/architecture-review-2026-09-22.md" rel="noopener noreferrer" target="_blank">架构检查报告</a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/tree/cb1b3f8ff8215a249d685fea013177a237eeb304" rel="noopener noreferrer" target="_blank">当时 HEAD <code>cb1b3f8</code></a>。本轮无新的分区 / 崩溃 / 过载原始证据包。</li>
 </ul>
 <h3 id="detail-30">2026-09-21 / 09-22｜ReadIndex 线性一致读：默认关闭，未做 Linux 证据归档</h3>
@@ -791,7 +874,7 @@
 <li><strong>本次改动</strong>：新增 <code>--linearizable_reads</code>（默认 false）。Leader 在本任期 no-op 提交后记录当时 <code>commit_index</code> 作为读屏障，向 peer 发空 AppendEntries，多数派确认且 <code>lastApplied &gt;= read_index</code> 后再读本地 KV；超时 1000 ms，队列深度上限 10000；卸任时拒绝未完成读；INFO 增加 <code>read_index_*</code> 计数。Server 层 GET 走 <code>RequestReadIndex</code> 回调，连接用 <code>weak_ptr</code>，并与每连接命令队列串行衔接。实现中曾修过心跳 ack 只计入最后一个 round 的错误（<code>1c71092</code>），后被 09-22 架构检查再次指出关联标识不足。</li>
 <li><strong>验证环境与方法</strong>：可移植单测与若干 Python 辅助脚本被报告通过；<code>readindex_tests</code> 不覆盖生产 <code>RaftNode</code>。仓库内 <code>benchmark-results/benchmark-summary.json</code> 给出混合 / 读多 / 纯读吞吐，是不同读写比例下的吞吐，不是 ReadIndex 相对本地读的对照，也没有 09-13 那种源码/二进制指纹与核验脚本。</li>
 <li><strong>实测结果</strong>：不填写性能提升比例。隔离旧 Leader 不得返回过期强一致读这一验收场景，没有对应的已核验 Linux 证据包。</li>
-<li><strong>取舍与未完成事项</strong>：未改写路径的同步落盘、多数派提交或去重语义；没有快照、Pre-Vote/CheckQuorum。默认关闭开关，避免把未完成验收的路径当成默认语义。</li>
+<li><strong>取舍与未完成事项</strong>：未改写路径的同步落盘、多数派提交或去重语义；当时没有快照、Pre-Vote/CheckQuorum。默认关闭开关，避免把未完成验收的路径当成默认语义。快照、IDEMP 和租约读见 2026-09-28 条目，Pre-Vote 与 CheckQuorum 见 2026-09-23 条目。</li>
 <li><strong>关联提交、报告与原始证据</strong>：<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/1c710922c5027a7baefc4c139fa35747981840ef" rel="noopener noreferrer" target="_blank">心跳 round 修补 <code>1c71092</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/commit/cb1b3f8ff8215a249d685fea013177a237eeb304" rel="noopener noreferrer" target="_blank">合并后 HEAD <code>cb1b3f8</code></a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/main/CHANGELOG.md" rel="noopener noreferrer" target="_blank">仓库更新日志</a>。无已核验的 ReadIndex Linux 证据包。</li>
 </ul>
 <h3 id="detail-31">2026-09-21｜每连接命令队列：保证同连接读写顺序</h3>
@@ -893,8 +976,8 @@
 <td>核对实际修改范围</td>
 </tr>
 <tr>
-<td><a class="link" href="https://github.com/Die4U23/Raft-KV/blob/main/CHANGELOG.md" rel="noopener noreferrer" target="_blank">持续更新的 CHANGELOG</a></td>
-<td>查看本文归档之后的更新</td>
+<td><a class="link" href="https://github.com/Die4U23/Raft-KV/blob/8fbb0732070340ae4b53d05ffcbe5996e67f9192/CHANGELOG.md" rel="noopener noreferrer" target="_blank">截至 8fbb073 的 CHANGELOG</a></td>
+<td>对照正文 5.4、5.5 和更新日志里的日期条目</td>
 </tr>
 <tr>
 <td><a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/CHANGELOG.md" rel="noopener noreferrer" target="_blank">归档 CHANGELOG</a></td>
@@ -904,7 +987,7 @@
 </table></div>
 <p>最初参考的教程与部分代码来源仍待找回，目前没有可确认的原教程链接可列出。Muduo、RocksDB、Protobuf 等组件的官方入口是技术参考与致谢，不替代项目早期代码出处。</p>
 <h3 id="detail-26">关键实现入口</h3>
-<p>以下源码链接固定到本文归档版本。</p>
+<p>下表源码链接固定到正文早期改造的归档版本 <code>051ca62</code>。快照、IDEMP、ReadIndex、Pre-Vote 和 <code>/health</code> 在 <a class="link" href="https://github.com/Die4U23/Raft-KV/tree/8fbb0732070340ae4b53d05ffcbe5996e67f9192/src" rel="noopener noreferrer" target="_blank"><code>8fbb073</code> 的 <code>src/</code></a> 上，文件名大多仍是这些入口。</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
 <thead>
 <tr>
