@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="从混合检索、CTR 校准到容器负载验证，记录 SearchPilot 的设计取舍、负结果和评估边界。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>SearchPilot 项目介绍：把搜索、排序与实验证据连起来</title>
+    <script src="/js/highlight.min.js?v=20260819-3"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260915-1">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>SearchPilot 项目介绍：把搜索、排序与实验证据连起来</h1>
+                <p class="post-date">2026-10-27</p>
+
+                <div class="content">
+
+<div class="note-box"><strong>本文要解决的问题：</strong>搜索结果是怎样从数据变成可比较的实验，再变成可以调用的服务？我以 SearchPilot 为例，沿着数据、检索、排序和验证这条链路，记录实现与尚未解决的问题。</div>
+<p>阅读路线：<a class="link" href="#motivation">项目动机</a> → <a class="link" href="#architecture">请求链路</a> → <a class="link" href="#ranking">排序取舍</a> → <a class="link" href="#evidence">实验与负载证据</a> → <a class="link" href="#next">限制和后续</a>。</p>
+<p>文章整理于 2026-10-27，基于项目归档版本 <a class="link" href="https://github.com/Die4U23/searchPilot/tree/fae045d3539d40e702724949d47e44e551843e77" target="_blank" rel="noopener noreferrer"><code>fae045d</code></a>。不同实验有各自的执行日期和环境，仓库版本只用于固定本文引用。</p>
+<h2 id="motivation">一、为什么做 SearchPilot</h2>
+<p>搜索与广告实验需要把召回、排序、点击率预估和实验指标接成完整链路，涉及几个具体问题：关键词匹配和语义相似给出的候选如何合并？排序模型的输入来自哪里？一次实验的数字能否和另一次比较？服务没有加载索引时，调用方又该收到什么？</p>
+<p>SearchPilot 是一个用于回答这些问题的实验平台。它以新闻数据为基础，把检索、回退推荐、广告评分、反馈和实验登记接到 API。重点不是声称自己实现了生产搜索引擎，而是让一个候选如何产生、怎样打分、结果从哪份数据和模型来，都有可以追溯的入口。</p>
+<h2 id="architecture">二、从数据到一次搜索请求</h2>
+<p>项目使用 MIND Small：先清洗物品和曝光数据并按时间切分，再生成搜索查询和相关性标注。数据版本与模型版本根据输入内容生成，实验记录保留来源。原始数据和模型产物不随仓库提交，因此复现需要按文档重新准备数据，而不能只凭一份代码就假定产物相同。</p>
+<figure class="sort-figure" aria-label="SearchPilot 数据和请求链路"><figcaption>离线准备与在线调用</figcaption><ol>
+<li>新闻数据与时间切分 → BM25 索引、向量索引、排序与 CTR 模型。</li>
+<li>查询进入 API → 关键词或向量召回 → RRF 融合或 LTR 排序 → 返回候选与版本信息。</li>
+<li>反馈、推荐和实验登记提供其他观察入口；只读 Agent 使用窄工具读取证据。</li>
+</ol></figure>
+<p>BM25 擅长词面匹配，向量检索则提供另一种语义相似性视角。RRF 按各路名次融合，不要求两种分数天然处于同一尺度；LTR 则利用特征学习排序。广告路径提供 CTR 预测、验证集温度缩放和基于合成出价的 eCPM，后者是实验演示，不等同于真实广告竞价收益。</p>
+<p>服务对缺失产物采用明确失败：索引或推荐模型不可用时，相应接口返回 <code>503 NOT_READY</code>，就绪检查也返回 503。容器可在监听前预热向量模型；它减少首个请求承担初始化的机会，但会增加启动等待。反馈在没有数据库时保存在内存，实验登记读取本地注册表；配置 PostgreSQL 后才走数据库路径。实现和启动方式见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/fae045d3539d40e702724949d47e44e551843e77/README.md" target="_blank" rel="noopener noreferrer">固定版本 README</a>。</p>
+<h2 id="ranking">三、排序不该只展示最好看的数字</h2>
+<p>项目保留了一个有代表性的负结果。2026-10-09 的测试集有 15 条查询，其中一条没有相关文档，不计入 nDCG、MRR 和 Recall。相同评测下，RRF 混合检索的 nDCG@10 为 0.7214，LTR 为 0.4596；其他两项指标也更低。这并不能证明学习排序本身无效，但足以说明当前特征、训练数据和候选集合还没有带来收益。</p>
+<p>分析发现，学到的 BM25 名次特征权重方向值得警惕：名次数字越大，在该模型里反而可能抬高分数，甚至影响未进入 BM25 前列的文档。与其只继续增加模型复杂度，更有价值的是检查特征语义、样本和召回覆盖，再保留失败案例。详情见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/fae045d3539d40e702724949d47e44e551843e77/docs/data/ltr-report.md" target="_blank" rel="noopener noreferrer">LTR 对照报告</a>。</p>
+<p>这里的查询规模很小，而且标注来自模型标注者，不是大规模人工标注的线上流量。双标一致性可以帮助发现分歧，不能把模型之间的一致当成真实用户相关性。指标适合指导下一轮诊断，不足以支持普遍的算法优势或线上效果结论。</p>
+<h2 id="evidence">四、把效果实验和负载实验分开</h2>
+<p>2026-10-25 的容器实验将负载查询扩展到 1,300 条，分别以并发 4、16、32 运行 15、15、60 分钟，正式请求分别为 9,358、12,538、53,309 次，均成功；5,200 个查询与模式组合的结果指纹跨档一致。这个扩展集合用于覆盖负载与结果稳定性，不是 1,300 条有相关性标注的效果测试。</p>
+<p>并发 32 的一小时观察中，最后 20 分钟 RSS 增长 1.535 MiB，线性拟合斜率为每分钟 0.0936 MiB，满足该实验预先设定的两个门槛；但全小时 RSS 仍增长 55.984 MiB。末段门槛通过不能推导无限期运行无泄漏，也不能把这次有背景争用的吞吐量当作容量 SLA。环境、时间窗口和原始记录见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/fae045d3539d40e702724949d47e44e551843e77/docs/data/container-expanded-soak-2026-10-25.md" target="_blank" rel="noopener noreferrer">扩大查询容器报告</a>。</p>
+<p>Agent 的评测也要按协议区分：旧版两阶段外部模型夹具于 2026-10-14 完成 50 题，结构化通过 46/50；新增多步决策路径的离线评测默认不发送外部请求，结果是 <code>UNRUN</code>。旧成绩不能移植为新多步能力的成绩。只读工具、引用校验和预算上限降低了实验的失控范围，但模拟响应通过仍不证明真实模型表现。</p>
+<h2 id="next">五、限制与下一步</h2>
+<p>下一步应优先扩大并人工复核相关性标注，检查 LTR 的名次特征、候选覆盖和分类型失败，再使用固定数据切分比较。资源方面需要延长观察并分析全小时增长，复现实验时保留模型、镜像和负载身份；不能仅从一个窗口推断内存生命周期。Agent 的新多步能力仍需独立的真实模型评测，继续把请求失败、未运行和成功保留在分母中。</p>
+<p>这个项目最有价值的部分，是让一次“不如基线”的排序实验和一次有限窗口内通过的资源检查，都能被准确解释。可复查的链路使系统的当前能力与实验边界更加清晰。</p>
+
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>

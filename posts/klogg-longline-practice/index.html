@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="介绍 klogg-longline 项目的大文件与超长行可靠性改造：有界读取、跨块字面搜索、异步预览、Windows 验证结果及未完成的 AC11 首窗心跳验收。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>klogg-longline 项目介绍：面向大文件与超长行的可靠性改造</title>
+    <script src="/js/highlight.min.js?v=20260819-3"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260915-1">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>klogg-longline 项目介绍：面向大文件与超长行的可靠性改造</h1>
+                <p class="post-date">2026-10-27</p>
+
+                <div class="content">
+<p>阅读路线：<a class="link" href="#motivation">为什么一行会拖垮整条链路</a> → <a class="link" href="#design">有界搜索与预览</a> → <a class="link" href="#lifecycle">取消和文件变化</a> → <a class="link" href="#validation">验证结果与未完成项</a>。</p>
+<div class="note-box"><p>这是在现有日志查看器上的可靠性改造，不是从零编写一个查看器。本文围绕“单行可能比内存预算大很多”这个边界，说明怎样让读、搜、显示分别受控，以及功能测试通过之后仍有哪些真实 Windows 验收没有完成。</p></div>
+<p>文章整理日期：2026-10-27。源码与报告均固定在合并提交 <a class="link" href="https://github.com/Die4U23/klogg-longline/tree/5400b0320ab4ee12e4d49448f157367397e925ed" target="_blank" rel="noopener noreferrer"><code>5400b0320ab4ee12e4d49448f157367397e925ed</code></a>，后文的链接都指向这个版本。验证报告另有 2026-10-17 历史数据和 2026-10-26 当前复核；历史成功数字不覆盖较新的失败记录。</p>
+
+<h2 id="motivation">一、为什么超长行会破坏按行处理</h2>
+<p>日志查看器常以“行”为单位建立索引、读取文本、切分搜索任务。对普通日志，这个抽象很方便：每行短小，行数很多时可以分批处理。可是一旦输入中有一行几十 MiB、几 GiB，按行分批就失去约束能力——批次里即使只有一行，也可能要求一次读取整行、分配同等规模的缓冲区，并把长字符串交给文本布局或正则引擎。</p>
+<p>因此，“搜索分成多个行批次”不等于“内存有界”；只在绘制时截断文字，也太晚了，因为后台可能早已读入完整行。超长行还会让索引偏移、末尾换行假设和 UTF-8 字符边界同时变得敏感。比如把行索引块内相对跨度塞进 32 位整数，文件绝对偏移虽然很大、但块内跨度较小时可能没问题；真正超过 4 GiB 的块内跨度则会溢出。两类数字需要分别建模。</p>
+<p>进入实现前，项目在固定上游源码上保留了独立同类反例：压缩索引的大跨度退出、空范围和移动后追加偏移异常、64 MiB 无换行行被整行读入，以及 16 MiB 长行换行时内存暴涨并分配失败。它们说明问题可复现于当前基线，但不声称重现了上游历史 issue 用户的原始机器与环境。</p>
+<h3 id="provenance">项目来源与改造归属</h3>
+<p>项目基于 <a class="link" href="https://github.com/variar/klogg/tree/25c7de6d8f6da2ce6a00882e5af70b4f331af4c5" target="_blank" rel="noopener noreferrer">variar/klogg 固定上游源码快照</a>，保留上游 GPL-3.0-or-later 许可和版权信息，没有导入上游 Git 历史。klogg 原有查看器、索引、界面与依赖来自上游项目及其维护者；本项目在此基础上完成可追溯的可靠性改造与验证工具，不将整个 klogg 项目归为本项目原创。已合并的代码、生命周期修复、构建和证据整理范围可在<a class="link" href="https://github.com/Die4U23/klogg-longline/commit/5400b0320ab4ee12e4d49448f157367397e925ed" target="_blank" rel="noopener noreferrer">固定提交</a>及<a class="link" href="https://github.com/Die4U23/klogg-longline/blob/5400b0320ab4ee12e4d49448f157367397e925ed/UPSTREAM.json" target="_blank" rel="noopener noreferrer">上游源码来源清单</a>中复核。</p>
+
+<h2 id="design">二、把行变成可控的字节窗口</h2>
+<p>索引仍记录行边界，但文件位置使用 64 位字节偏移；压缩索引只有在块内相对跨度需要时才扩展为 64 位存储。读取同时区分实体文件字节与索引中可能存在的合成末尾换行，避免把“行结束标记”当成文件真实内容。对普通行，搜索器先根据索引规划每批最大字节范围，再取得 RAII 预算租约后读取；缓冲区在队列、匹配和合并阶段仍被引用时，预算也不会提前释放。项目设置 128 MiB 活跃搜索数据通路预算，但索引、累计命中、正则引擎内部内存和分配器保留空间另计，所以这不是进程 RSS 上限。</p>
+<p>超长行走独立的流式 UTF-8 字面搜索路径：固定大小的块逐段读取，匹配器跨块保留模式状态。这样一个命中串即使横跨块边界，也能返回所在行和首次命中字节位置；不必先构造整条行字符串。当前支持的是非空、区分大小写、无预过滤的 UTF-8 字面模式，模式最大 1 MiB；超长行正则、布尔或反向匹配、含换行模式及不支持编码会明确拒绝，不通过截断输入来伪装完整搜索。密集命中保留每行首个字节位置，最多 65,536 行；继续遇到额外命中时以 <code>partial</code> 终止，避免把部分结果缓存成完整结果。</p>
+<p>显示采用独立的异步预览窗口。每行最多读取 16 KiB 原始字节，每一帧最多处理 128 KiB 原始输入及 256 行；界面标明窗口字节范围、总行长度和是否截断，用户可查看前后窗口，也可以从搜索命中跳到对应字节位置。它清楚地表示“当前看到的是这一段”，并没有暗示整行已经载入。整行复制、Quick Find 和旧式整行导出在超长行上明确不可用；窗口内局部文本仍可选择复制。</p>
+<p>这里刻意把搜索和预览分开：预览预算小，交互优先；搜索需要完整扫描，按块推进并接受更多时间。相同的“行”对象在两种操作里不再意味着同等大小的临时字符串。普通行继续使用既有匹配引擎，以免为长行设计改变正常输入的既有结果集合。</p>
+
+<h2 id="lifecycle">三、取消、切换与文件变化</h2>
+<p>有界读取还需要可终止和可判别的生命周期。搜索任务带有代次；开始新搜索、清空结果或切换文件后，旧代次迟到的进度和结果不能覆盖新会话。取消检查穿插在有界读块之间，而不是等整行处理完才响应。结果终态分别为完整、取消、部分、失败和源文件已变化，取消或失败不能写入完整结果缓存。</p>
+<p>文件读取会话记录文件身份、大小、修改时间和数据代次，并在开始、块边界和结束时核对。替换、截断或重载导致源状态不符时，任务明确结束为源文件变化。这个保护依赖普通文件元数据，不提供文件锁或恶意恢复时间戳下的事务快照保证。预览任务也检查文件状态、取消标志和窗口版本；窗口滚动或文件切换产生的新请求会隔离过期帧。关闭窗口时等待后台工作回收，防止排队回调访问已销毁视图。</p>
+<p>这些边界是接口的一部分：完整结果意味着完成了受支持模式的扫描；取消就是取消；不支持的操作明确报错。它们不能保证所有系统调用都能即时中断，也不把“最终释放”说成已证明不存在任何资源泄漏。</p>
+
+<h2 id="validation">四、验证了什么，还没有通过什么</h2>
+<p>当前 Windows 复核报告记录 9 项 CTest 目标通过、49 项 Python 工具测试通过。对固定 5 GiB 无换行样例，完整字面搜索耗时 61.648 秒，命中行、数量与独立 oracle 一致，首次命中字节偏移为 <code>5,368,708,973</code>；活跃搜索缓冲峰值约 3 MiB。取消复验回报约 107.8 毫秒。大跨度索引、空文件及边界检查也有独立记录。普通日志固定样例基线和候选各跑五轮，结果集合均通过 oracle，总耗时中位变化约 +0.42%，落在项目 10% 回归门槛内；这表示该样例没有观察到超限回退，不表示显著提速或跨机器性能保证。</p>
+<p><strong>原生 Windows 首次建窗仍未达标。</strong>AC11 固定 GUI 心跳目标为不超过 500 ms。2026-10-26 的 Windows QPA 5 GiB 真实视图首次建窗最大心跳间隔是 862.0026 ms，超过目标；随后的诊断运行最大间隔 575.6139 ms，也仍失败。报告尚未证明停顿的具体根因，并说明 AC11 全部子项尚未重新验收。一次 offscreen 检查、旧版约 270 ms 的历史数据、绿色 CI 或其他功能通过，都不能抵消当前真实窗口的失败。Issue #9 仍跟踪首次建窗停顿，不能宣称完整 Windows 交付验收通过。</p>
+<p>目前没有 Linux 或 macOS 原生验收，也没有完整应用 ASan/竞态检测；不支持的长行匹配模式与编码仍在范围外。5 GiB 与性能数据只对应固定文件和当前环境。可复核报告分别保留了当前失败、诊断、基线和历史结果，不能将它们混成一次“全绿”。</p>
+<h3 id="evidence">固定版本的源码和报告</h3>
+<div aria-label="资料链接" class="table-scroll" role="region" tabindex="0"><table>
+<thead><tr><th scope="col">资料</th><th scope="col">用途</th></tr></thead>
+<tbody>
+<tr><td><a class="link" href="https://github.com/Die4U23/klogg-longline/blob/5400b0320ab4ee12e4d49448f157367397e925ed/docs/validation-report-2026-10-26.md" target="_blank" rel="noopener noreferrer">2026-10-26 Windows 本地验收补充报告</a></td><td>当前搜索、性能、GUI 心跳失败和未覆盖边界</td></tr>
+<tr><td><a class="link" href="https://github.com/Die4U23/klogg-longline/blob/5400b0320ab4ee12e4d49448f157367397e925ed/docs/validation-report.md" target="_blank" rel="noopener noreferrer">2026-10-17 Windows 本地验收报告</a></td><td>固定样例、实现契约、历史测试及其时点</td></tr>
+<tr><td><a class="link" href="https://github.com/Die4U23/klogg-longline/blob/5400b0320ab4ee12e4d49448f157367397e925ed/upstream/klogg/src/logdata/include/abstractlogdata.h" target="_blank" rel="noopener noreferrer">预览接口与行数据约束</a></td><td>每行预览字节上限及数据接口</td></tr>
+<tr><td><a class="link" href="https://github.com/Die4U23/klogg-longline/blob/5400b0320ab4ee12e4d49448f157367397e925ed/upstream/klogg/src/ui/src/abstractlogview.cpp" target="_blank" rel="noopener noreferrer">异步预览与视图行为</a></td><td>预览窗口、跳转、取消及旧帧隔离</td></tr>
+<tr><td><a class="link" href="https://github.com/Die4U23/klogg-longline/issues/9" target="_blank" rel="noopener noreferrer">问题 #9</a></td><td>仍开放的 Windows 首次建窗停顿调查</td></tr>
+</tbody>
+</table></div>
+<p>项目当前覆盖了宽跨度索引修复、普通搜索的字节预算、受限范围内的长行完整字面搜索、异步局部预览，以及取消、文件切换和源文件变化处理。Windows 固定样例的功能路径已有验证记录；原生首次建窗心跳仍超过验收目标，AC11 尚未完成。项目状态以固定提交中的报告和开放问题为准。</p>
+
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>

@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="沿着一次写请求串联 C++、Muduo、Raft 与 RocksDB，记录持久化与恢复改造、三节点故障验证、重连退避收益和客户端 ABBA 对照，并说明实测边界。">
+    <meta name="description" content="沿着一次写请求理解 C++、Muduo、Raft 与 RocksDB，结合故障证据、重连优化和性能对照；更新至 2026-10-27，区分当前 ReadIndex、快照与幂等实现和历史测试边界。">
     <script src="/js/theme.js?v=20260819-3"></script>
-    <title>Raft-KV 项目实践：从三节点存储到故障验证与性能优化</title>
+    <title>Raft-KV 项目介绍：一致性存储、故障恢复与有界并发</title>
     <script src="/js/highlight.min.js?v=20260819-3"></script>
     <link rel="stylesheet" href="/css/link.css?v=20260915-1">
     <link rel="stylesheet" href="/css/code.css?v=20260819-3">
@@ -31,23 +31,29 @@
 
         <main class="post-content">
             <article class="post-article">
-                <h1>Raft-KV 项目实践：从三节点存储到故障验证与性能优化</h1>
-                <p class="post-date">2026-09-14</p>
+                <h1>Raft-KV 项目介绍：一致性存储、故障恢复与有界并发</h1>
+                <p class="post-date">2026-10-27 · 持续更新</p>
 
                 <div class="content">
 <div class="note-box"><strong>从原理到工程：</strong>如果还不熟悉任期、日志匹配和多数派提交，可以先读 <a class="link" href="/posts/raft-algorithm/">Raft 算法：从选主到日志复制的共识协议</a>。这篇沿着一次真实写请求，记录这些规则怎样落到 C++ 服务里，以及如何用故障与性能实验检验改动。</div>
 <p>阅读路线：<a class="link" href="#architecture">请求经过哪些模块</a> → <a class="link" href="#write-success">写入何时返回成功</a> → <a class="link" href="#validation">故障下怎样验证</a> → <a class="link" href="#reconnect">有效的重连优化</a> / <a class="link" href="#client-abba">未观察到收益的客户端优化</a>。</p>
 <div class="note-box">
-<p>本文介绍一个 C++ 分布式 KV 学习项目的实现范围、工程改造、测试结果与后续计划，并持续记录版本更新。项目在早期参考代码和教程的基础上发展而来，已有实现与后续改造分别说明，所有实测结论都限定到对应版本、环境和故障范围。</p>
+<p>本文从早期的 RESP 写请求出发，讲解持久化、Raft、多副本故障与性能取舍。项目已继续发展：截至 2026-10-27，当前代码支持可选 ReadIndex 线性一致读、租约读、快照与安装恢复、IDEMP 重试身份，以及有界并发；这些实现与已有证据不是同一层面的结论。</p>
+<p>本文主体的细节、数字和“尚未实现”条目对应固定的历史文章归档 <a class="link" href="https://github.com/Die4U23/Raft-KV/tree/051ca62934301a22df21c03e7ba37299b161ff0b" rel="noopener noreferrer" target="_blank"><code>051ca62934301a22df21c03e7ba37299b161ff0b</code></a>。后文保留它作为工程改造过程记录；最新能力和验证请先读本段后的更新摘要与第十节，性能数字也只适用于各自归档实验。</p>
 </div>
-<p>文章整理日期：2026-09-14。正文归档版本：<a class="link" href="https://github.com/Die4U23/Raft-KV/tree/051ca62934301a22df21c03e7ba37299b161ff0b" rel="noopener noreferrer" target="_blank"><code>051ca62934301a22df21c03e7ba37299b161ff0b</code></a>。实验的执行版本各不相同，下文另列；文章归档提交不能替代测试时的源码和二进制身份。</p>
-<h2 id="motivation">一、为什么做这个项目</h2>
-<p>我做这个项目，希望把 C++ 网络服务、Raft 共识、持久化与故障恢复放进同一条请求链路里理解。单独阅读某个模块时，很容易知道接口如何调用，却说不清一个客户端收到成功之前，系统究竟完成了哪些工作。一旦把多个节点连起来，连接中断、磁盘写入失败、Leader 切换和请求超时就会共同影响结果。</p>
-<p>KV 存储适合承载这类练习。它的业务接口相对简单：保存一个键值、读取一个值、删除一个键。业务逻辑足够小，就可以把精力放到更难的工程问题上：怎样保留 TCP 分片输入，怎样让副本按相同顺序执行命令，怎样恢复应用进度，以及怎样避免在高负载下无限积压请求。</p>
-<p>这与 C++ 后端、搜索广告推荐基础架构中的网络接入、配置与元数据存储、服务可靠性和性能诊断有直接关联。比如策略配置需要明确版本，服务重启后需要恢复状态，调用方重试时需要知道上一次操作是否生效。本文项目提供的是这些系统问题的实践基础；版本化策略配置演示仍是后续计划，推荐模型、召回和排序算法也不在当前实现范围内。</p>
+<p><strong>当前代码与验证锚点：</strong>项目状态和测试注册表已同步到 <a class="link" href="https://github.com/Die4U23/Raft-KV/tree/65bbd9d88a812d7932840a8787923b044836ff31" rel="noopener noreferrer" target="_blank"><code>65bbd9d</code></a>，该文档提交所对应的源码与测试基于已在 Linux 验证的 <a class="link" href="https://github.com/Die4U23/Raft-KV/tree/30d29ef174e304fc81ea28ceae50596e6175f858" rel="noopener noreferrer" target="_blank"><code>30d29ef</code></a>。具体验证范围与未覆盖事项列于<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/docs/review-status.md" rel="noopener noreferrer" target="_blank">当前项目状态</a>和<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/README_CN.md" rel="noopener noreferrer" target="_blank">验证记录</a>。</p>
+<h2 id="current-status">项目当前状态（2026-10-27）</h2>
+<p>Raft-KV 是 C++17 固定成员、三节点默认配置的单 Raft 组 KV 服务，使用 Muduo、Protobuf 与 RocksDB，提供 RESP 命令接入、命名空间、Pre-Vote/CheckQuorum、多数派写入、串行异步应用、有界队列与过载保护。写入成功回调发生在日志多数派提交和状态机应用完成之后；KV 与 <code>lastApplied</code> 同批落盘。</p>
+<p>当前代码另有可选 ReadIndex 线性一致读、可选租约读、自动快照、分块快照安装与恢复，以及 <code>IDEMP</code> 最近请求去重。它们均非默认所有读写模式：默认 GET 是本地读，可能读到旧值；<code>leader_only_reads</code> 只检查角色，不等于线性一致读。服务不支持动态成员变更或多分片。</p>
+<p><strong>当前本地验证：</strong>提交 <code>30d29ef</code> 在 Debian Docker 环境用真实 Muduo、Protobuf、RocksDB 完整构建并完成 20/20 CTest、80/80 Python 辅助测试、三节点故障/恢复冒烟，以及 ReadIndex 集成脚本 4 passed / 0 failed / 0 skipped；其后的 <code>65bbd9d</code> 是 README 与状态文档同步提交。四场景集成不覆盖持续少数派分区；Linux CI 的分区、写入重启与过载属于单独工作流，不把本地结果扩展为全部 CI 或生产验收。性能数字仍来自各自历史条件，不在当前源码上复测。</p>
+<p>现有证据不覆盖整机掉电、介质损坏、长期压测、多机独立故障域或完整 Raft 正确性证明。快照过大时保留日志，不能保证日志占用有硬上限；两个数据库间的快照恢复也不是跨库原子事务。相关细节见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/docs/review-status.md" rel="noopener noreferrer" target="_blank">状态与边界</a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/docs/read-consistency.md" rel="noopener noreferrer" target="_blank">读一致性</a>和<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/docs/dev/snapshot-install-recovery.md" rel="noopener noreferrer" target="_blank">快照安装恢复</a>。</p>
+<h2 id="motivation">一、项目问题与目标</h2>
+<p>Raft-KV 将 C++ 网络服务、Raft 共识、持久化与故障恢复放进同一条请求链路。客户端收到成功之前，系统需要完成请求校验、日志复制与多数派提交、状态机应用和持久化；连接中断、写入失败、Leader 切换和超时都会影响最终结果。</p>
+<p>KV 存储的业务接口相对简单：保存一个键值、读取一个值、删除一个键。由此可以聚焦网络与系统问题：保留 TCP 分片输入、让副本按序执行命令、恢复应用进度，并在高负载下限制请求积压。</p>
+<p>这些能力对应 C++ 后端及搜索、广告、推荐基础架构中的网络接入、配置与元数据存储、服务可靠性和性能诊断。当前项目实现通用 KV 与一致性机制；版本化策略配置演示仍是后续计划，推荐模型、召回和排序算法不在实现范围内。</p>
 <h3 id="detail-1">项目来源、许可证与改造范围</h3>
 <p>目前维护的仓库是 <a class="link" href="https://github.com/Die4U23/Raft-KV" rel="noopener noreferrer" target="_blank">Die4U23/Raft-KV</a>，采用 C++17、Muduo、Protobuf 和 RocksDB，默认运行一个固定成员的三节点 Raft 组。</p>
-<p>这个项目是在早期学习过程中参考已有代码和教程搭建起来的。由于时间较久，最初参考的教程链接与部分代码来源暂未找回，本文不将全部基础实现声明为个人原创；后续如找回相关资料，会补充出处与致谢。</p>
+<p>项目早期参考过已有代码和教程。最初教程链接与部分代码来源暂未找回，因此本文不把全部基础实现声明为原创；如找回相关资料，将补充出处与致谢。</p>
 <p>目前可追溯的工程改造，以仓库 <code>raft-cluster-namespace</code> 分支的以下提交为起点：</p>
 <ul>
 <li><a class="link" href="https://github.com/Die4U23/Raft-KV/tree/bc853d5fe8d0ffddbadbe736ccfe5100c7610b8c" rel="noopener noreferrer" target="_blank">改造前完整代码：<code>bc853d5</code></a>。</li>
@@ -56,15 +62,15 @@
 </ul>
 <p>基线已经包含网络接入、Raft 共识、状态机、RocksDB 存储及命名空间等模块。本文重点介绍此后开展的正确性修复、故障恢复验证、请求处理改进、重连退避优化，以及性能诊断与对照实验。这个基线用于界定本次改造的起点，不构成对更早代码来源或原创归属的认定。</p>
 <p><strong>许可证信息仍待补齐。</strong> 在基线与本文归档版本的受版本控制文件中，未找到项目级 <code>LICENSE</code>、<code>COPYING</code> 文件或明确的项目许可证声明，因此本文暂不填写具体许可证名称。第三方组件的许可与项目自身的许可分别核对，不从某个依赖的许可证推定整个项目的许可证。已知组件的官方入口列在文末。</p>
-<h2 id="capabilities">二、项目目前能做什么</h2>
-<p>“已实现”说明代码中存在这条路径；“已验证”还需要回答在哪个版本、什么环境、哪些输入和故障下检查过。二者需要分开阅读。</p>
+<h2 id="capabilities">二、文章归档版本的能力基线</h2>
+<p>下面的表格还原本文归档提交 <code>051ca62</code> 当时的状态，不能作为当前能力表使用。当前版本已增加表后更新中列出的功能；“已实现”与“已验证”仍要按源码版本、环境、输入与故障范围分别判断。</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
 <thead>
 <tr>
 <th scope="col">能力</th>
 <th scope="col">实现状态</th>
 <th scope="col">已有验证</th>
-<th scope="col">当前边界或计划</th>
+<th scope="col">归档版本当时的边界或计划</th>
 </tr>
 </thead>
 <tbody>
@@ -131,9 +137,9 @@
 </tbody>
 </table></div>
 <p>实现入口见<a class="link" href="https://github.com/Die4U23/Raft-KV/tree/051ca62/src" rel="noopener noreferrer" target="_blank">归档源码</a>，验证依据见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/LOCAL_REVIEW_STATUS.md" rel="noopener noreferrer" target="_blank">本地改造记录</a>及第六节逐项报告。</p>
-<p>尤其需要说明：<strong><code>GET</code> 直接读取当前节点的状态机。即使设置 <code>leader_only_reads=true</code>，也只是检查本机当前记录的角色，没有完成强一致读所需的多数派确认与应用等待。</strong> 网络隔离中的旧 Leader 可能还不知道多数派已经选出了新 Leader，因而可能返回旧值。线程安全、写入多数派提交和只允许 Leader 读，分别解决不同问题。</p>
+<p><strong>历史说明：</strong>在上述归档版本里，<code>GET</code> 直接读取当前节点状态机，<code>leader_only_reads=true</code> 仅检查本机角色，不能抵挡网络隔离中的旧 Leader 返回过时值。当前源码已提供独立的 <code>--linearizable_reads=true</code> ReadIndex 路径；默认 GET 仍是本地读，Leader-Only 仍不是线性一致读。详见本文更新摘要中的读语义入口。</p>
 <h2 id="architecture">三、系统架构：一次请求经过哪些模块</h2>
-<p>写请求的主路径是：客户端 → Muduo 接入层 → 命令处理 → Raft → 状态机 → RocksDB。读请求则从命令处理进入本地状态机，不经过 Raft 的读屏障。</p>
+<p>写请求的主路径是：客户端 → Muduo 接入层 → 命令处理 → Raft → 状态机 → RocksDB。该图展示的是本文归档版本的默认本地读；当前读路径还可按启动参数选择 ReadIndex，或选择满足时钟假设时可用的租约读。</p>
 <figure aria-label="Raft-KV 系统架构与线程职责" class="sort-figure">
 <figcaption>系统架构：写请求经过共识，本地读直接访问状态机</figcaption>
 <div class="sort-step"><span class="sort-label">网络接入</span><span class="sort-array"><b class="sort-cell is-active">客户端</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">Muduo</b></span><span class="sort-note">事件循环处理 TCP 连接、接收与回复</span></div>
@@ -144,7 +150,7 @@
 <div class="sort-step"><span class="sort-label">已提交批次</span><span class="sort-array"><b class="sort-cell is-fixed">Raft</b><b class="sort-cell">→</b><b class="sort-cell is-picked">串行应用线程</b></span><span class="sort-note">默认 async_apply=true；按日志顺序执行 KVStateMachine</span></div>
 <div class="sort-step"><span class="sort-label">业务落盘</span><span class="sort-array"><b class="sort-cell is-picked">KV + lastApplied</b><b class="sort-cell">→</b><b class="sort-cell is-picked">KV 库</b></span><span class="sort-note">同一个 WriteBatch，同步保存修改与应用位置</span></div>
 <div class="sort-step"><span class="sort-label">完成通知</span><span class="sort-array"><b class="sort-cell is-picked">应用线程</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">事件循环</b></span><span class="sort-note">成功时更新进度、释放提案配额、回复客户端；异常另行处理</span></div>
-<div class="sort-step"><span class="sort-label">读取路径</span><span class="sort-array"><b class="sort-cell is-active">GET</b><b class="sort-cell">→</b><b class="sort-cell is-picked">本地状态机</b></span><span class="sort-note">事件循环直接读取 KV；当前没有 Raft 读屏障</span></div>
+<div class="sort-step"><span class="sort-label">归档版读取</span><span class="sort-array"><b class="sort-cell is-active">GET</b><b class="sort-cell">→</b><b class="sort-cell is-picked">本地状态机</b></span><span class="sort-note">051ca62 默认路径；当前版本可按参数启用 ReadIndex</span></div>
 </figure>
 <p>各模块的职责如下：</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
@@ -231,7 +237,7 @@
 <h3 id="detail-2">客户端超时为什么不代表失败或撤销</h3>
 <p>客户端可能在日志写入前断开，也可能在日志已经提交、业务已经应用后，因回复丢失而超时。服务端不会因为调用方不再等待，就回滚已经进入 Raft 的命令。</p>
 <p>这不是只有理论上的可能性：<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/benchmarks/reconnect-validation.md" rel="noopener noreferrer" target="_blank">重连优化后的分区报告</a>中，<code>no-quorum-2</code> 在故障窗口内没有得到成功确认，被记为结果未知，恢复通信后却被应用。正确记录应当同时保留这两个事实，不能把它改记为“故障期间写入成功”或“超时必定失败”。</p>
-<p>项目尚无请求去重。调用方重试时，可能产生另一条日志；即使重复 <code>SET</code> 相同值最终看起来一样，重复 <code>DEL</code> 的返回值也可能由 1 变成 0。因此，重试语义需要单独设计。</p>
+<p>在本文归档版本中，项目尚无请求去重。调用方重试时可能产生另一条日志；即使重复 <code>SET</code> 相同值最终看起来一样，重复 <code>DEL</code> 的返回值也可能由 1 变成 0。当前版本已增加 <code>IDEMP</code> 最近请求身份与结果持久化，具体保留规则见更新摘要中的当前状态链接。</p>
 <h2 id="reliability">五、围绕可靠性做了哪些改造</h2>
 <p>下面按“基线已有 → 问题 → 本次改动 → 验证 → 剩余边界”介绍，避免把使用了某个组件直接写成个人新增能力。</p>
 <h3 id="detail-3">5.1 协议与请求处理</h3>
@@ -727,8 +733,8 @@
 <p>日志写与 KV 应用平均每批约 8.80、8.82 条。一批日志可以服务多个请求，一条 RPC 也可能覆盖多个日志；复制确认还可能来自不同 peer，阶段的统计区间又可能重叠。将表中均值相加，得到的不是任何一类真实请求的总延迟。</p>
 <p>此外，<code>write_completed</code> 到服务端成功回调为止，不含回复到达客户端的时间；<code>replication_data_ack</code> 包含缓冲与重试，不是纯网络 RTT，也不是多数派提交耗时。定义见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/concurrency.md" rel="noopener noreferrer" target="_blank">并发指标说明</a>，数值见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/docs/benchmarks/profile-validation.md" rel="noopener noreferrer" target="_blank">阶段差分报告</a>。</p>
 <p>现有数据能够支持的判断是：本轮同机资源余量较小，客户端值得纳入诊断，阶段计数可以帮助缩小调查范围。它还不足以定位唯一瓶颈、推出独立服务端容量，或预测三台物理机及更大集群的性能。完整 JSON、日志与核验材料通过文末仓库索引提供。</p>
-<h2 id="roadmap">十、接下来准备提高什么</h2>
-<p>以下均为后续计划。现有构建脚本和基础 KV 能力可以作为起点，但不能把尚未完成的功能写进已实现清单。</p>
+<h2 id="roadmap">十、当前边界与后续方向</h2>
+<p>早期文章归档把 ReadIndex、请求去重、快照列为计划；这些功能已在当前源码中实现，并在上方按当前版本重述。下表只列当前仍未交付或未获充分验证的事项，历史计划和旧状态不再代表现状。</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
 <thead>
 <tr>
@@ -741,40 +747,36 @@
 <tbody>
 <tr>
 <td>1</td>
-<td><strong>ReadIndex 强一致读</strong></td>
-<td>旧 Leader 可能返回旧数据；提交进度可能领先于应用进度</td>
-<td>满足当前任期提交前置条件，确认多数派、建立读屏障并等待应用；覆盖旧 Leader 隔离、应用落后、任期切换和超时</td>
+<td><strong>版本化策略配置示例</strong></td>
+<td>展示 KV 写读语义在具体配置发布场景中的用法</td>
+<td>演示配置发布、按版本读取、本地缓存与回滚，并说明缓存新鲜度与失败语义</td>
 </tr>
 <tr>
 <td>2</td>
-<td><strong>版本化策略配置演示</strong></td>
-<td>把 KV 能力放入一个具体的基础架构使用场景</td>
-<td>演示配置发布、按版本拉取、本地缓存与回滚；明确缓存新鲜度和失败语义，强一致要求依赖前一项</td>
+<td><strong>扩大故障与恢复覆盖</strong></td>
+<td>既有证据只覆盖指定网络与进程故障</td>
+<td>在独立环境补充掉电/存储故障模型、更多网络组合和长时间运行证据，并保留原始身份和日志</td>
 </tr>
 <tr>
 <td>3</td>
-<td><strong>Linux CI 与演示入口</strong></td>
-<td>自动构建脚本已有，但干净系统复现和持续集成尚未完成</td>
-<td>从干净 Linux 环境安装依赖、构建、测试；归档失败日志与版本身份，并提供可重复的三节点演示入口</td>
-</tr>
-<tr>
-<td>4</td>
-<td><strong>请求去重</strong></td>
-<td>写入生效后回复丢失，客户端向新 Leader 重试可能再次执行</td>
-<td>设计客户端标识、请求序号、随共识持久化的结果与清理规则；验证跨 Leader 重试不会重复产生业务效果</td>
-</tr>
-<tr>
-<td>5</td>
-<td><strong>快照与日志回收</strong></td>
-<td>长期运行日志增长，落后副本仅靠追日志恢复成本较高</td>
-<td>联合保存状态、应用位置和必要元数据；验证快照安装中断、重启恢复、日志回收后的继续复制</td>
+<td><strong>日志容量与动态扩展</strong></td>
+<td>快照超出 payload 上限时保留日志；集群固定成员、单组单分片</td>
+<td>明确日志长期容量策略，再单独设计和验证成员变更或分片方案，不从当前快照功能推断已有支持</td>
 </tr>
 </tbody>
 </table></div>
-<p>ReadIndex 的重点不只是增加一次心跳。需要明确何时可以相信当前读屏障，等待状态机应用到哪一个位置，以及等待期间角色变化如何结束请求。算法背景可参考 <a class="link" href="https://raft.github.io/raft.pdf" rel="noopener noreferrer" target="_blank">Raft 论文第 8 节</a>；对外读写语义的描述方式可对照 <a class="link" href="https://etcd.io/docs/v3.6/learning/api_guarantees/" rel="noopener noreferrer" target="_blank">etcd API 一致性保证</a>。</p>
-<p>动态成员变更、其他网络故障、真实存储故障和长期运行验证也仍在待办中，但不混入上述五项已完成成果。后续每完成一项，再附上实现、测试与剩余边界更新本文。</p>
+<p>ReadIndex 的当前实现依据请求之后发出的探针 ACK、多数派确认和应用位置等待；租约读另依赖单调时钟与新鲜度假设，租约不成立时退回 ReadIndex。这些语义不能简化成“只让 Leader 读”。算法背景可参考 <a class="link" href="https://raft.github.io/raft.pdf" rel="noopener noreferrer" target="_blank">Raft 论文第 8 节</a>；对外读写语义可对照 <a class="link" href="https://etcd.io/docs/v3.6/learning/api_guarantees/" rel="noopener noreferrer" target="_blank">etcd API 一致性保证</a>。</p>
+<p>上述后续方向是计划，尚无实现或验收结论。当前实现细节和功能边界以仓库<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/docs/review-status.md" rel="noopener noreferrer" target="_blank">状态说明</a>为准；历史性能与故障数据仍以各自报告提交、机器和负载为准。</p>
 <h2 id="changelog">十一、持续更新日志</h2>
 <p>以下按验收或归档日期倒序维护；同日记录按本次整理顺序排列。每次更新保留“问题或目标、改动、验证、结果、取舍、证据”六项。代码发布早于实测归档时，分别注明，避免把工具发布当成实验完成。</p>
+<h3>2026-10-27｜更新当前实现与验证状态</h3>
+<ul>
+<li><strong>本次更新：</strong>将文章标题与项目定位改为一致性存储、故障恢复和有界并发；早期归档中的旧待办明确标为历史，当前能力在开头与第十节重新列明。</li>
+<li><strong>当前实现：</strong>ReadIndex、可选租约读、自动快照及分块安装恢复、IDEMP、Pre-Vote、CheckQuorum 与有界请求路径均有当前源码和状态记录。默认 GET 仍是本地读；动态成员和多分片仍未实现。</li>
+<li><strong>验证证据：</strong>Linux 本地构建对应源码提交 <code>30d29ef</code>：20/20 CTest、80/80 Python 辅助检查、三节点冒烟和 ReadIndex 四场景脚本 4/0/0 通过。文章对应的当前说明提交 <code>65bbd9d</code> 更新 README 与状态文档，没有把后续文档整理冒充为新代码测试。</li>
+<li><strong>未覆盖边界：</strong>四场景 ReadIndex 脚本不模拟持续少数派分区；本地测试也不能替代所有 Linux CI、整机掉电、介质损坏、长时间运行或完整正确性证明。历史性能数字没有在当前源码重新测量。</li>
+<li><strong>依据：</strong><a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/README_CN.md" rel="noopener noreferrer" target="_blank">README 当前验证</a>、<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/65bbd9d88a812d7932840a8787923b044836ff31/docs/review-status.md" rel="noopener noreferrer" target="_blank">当前实现状态</a>。</li>
+</ul>
 <h3 id="detail-20">2026-09-13｜客户端头部读取对照完成：保留 classic 默认</h3>
 <ul>
 <li><strong>问题或目标</strong>：检验合并 RESP 回复类型字节与头部行读取，是否降低客户端 CPU 成本并改善同机吞吐。</li>
