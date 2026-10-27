@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="记录代码生成 Agent 的需求拆解、工具与验证闭环，以及正式评测和离线诊断的边界。">
+    <meta name="description" content="详解 ARC-Bench Agent 的需求树、模型工具循环、隔离验证、通用任务契约、候选回滚、持久预算和正式与本地验证结果。">
     <script src="/js/theme.js?v=20260819-3"></script>
     <title>ARC-Bench Agent 项目介绍：从需求树到可验证的代码生成</title>
     <script src="/js/highlight.min.js?v=20260819-3"></script>
@@ -36,30 +36,73 @@
 
                 <div class="content">
 
-<div class="note-box"><strong>本文关注的问题：</strong>让模型写出代码只是起点。一个能处理多模块任务的 Agent，还需要知道修改哪里、如何验证、何时停止，以及最终结果属于哪一类证据。</div>
-<p>阅读路线：<a class="link" href="#motivation">项目动机</a> → <a class="link" href="#architecture">执行链路</a> → <a class="link" href="#verification">验证与修复</a> → <a class="link" href="#results">结果边界</a> → <a class="link" href="#next">后续工作</a>。</p>
-<p>文章整理于 2026-10-27，基于 <a class="link" href="https://github.com/Die4U23/arcbench-agent/tree/76612a5c252af1aea363b7e154434aa8eb6831c4" target="_blank" rel="noopener noreferrer"><code>76612a5</code></a> 及其中记录的历史证据。历史正式成绩属于对应冻结版本，不自动代表后续代码的成绩。</p>
-<h2 id="motivation">一、为什么做代码生成 Agent</h2>
-<p>ARC-Bench Agent 面向 ArcBench 任务，读取需求、修改已有工程并接受评测。单次提示可以生成一段看起来合理的代码，但多页面、多接口的任务还要求模块之间对齐：页面操作要连接后端，持久化状态要能恢复，自动测试使用的控件和真实交互也必须吻合。</p>
-<p>因此项目把模型放进一个明确的工程流程：读取原始需求，拆分工作，允许有限范围的文件和构建工具调用，再收集失败并决定是否修复。模型负责提出和实现候选，程序负责维护边界、记录证据以及停止条件。这样可以观察失败发生在需求理解、代码修改、构建、交互还是运行环境，而不是把所有问题归为“模型不够聪明”。</p>
-<h2 id="architecture">二、需求如何走到交付</h2>
+
+<div class="note-box"><strong>ARC-Bench Agent 是面向需求驱动 Web 应用开发的 Agent。</strong>它读取结构化需求与已有工程，通过模型工具调用实现代码，再用构建、源码审核和浏览器结果驱动修复。订票网站是首个正式验证样例，通用化工作围绕任务契约、依赖、隔离状态、候选恢复和预算展开。</div>
+<p>本文整理于 2026-10-27。已提交版本的机制以 <code>76612a5</code> 为引用；竞赛通用控制器与五个本地参考应用仍包含未提交工作，下文单列为<strong>本地开发快照</strong>。本文附有<a class="link" href="/data/project-articles/arcagent-20261027-evidence.json" target="_blank" rel="noopener noreferrer">资料摘要与文件哈希</a>，只用于固定本次整理依据，不是完整源码发行包或新的验收记录。</p>
+<p>阅读路线：<a class="link" href="#architecture">架构</a> → <a class="link" href="#requirements">需求与上下文</a> → <a class="link" href="#generation">生成与工具</a> → <a class="link" href="#verification">验证</a> → <a class="link" href="#generic">通用任务控制器</a> → <a class="link" href="#rollback">修复与回滚</a> → <a class="link" href="#budget">预算</a> → <a class="link" href="#results">结果</a>。</p>
+<h2 id="motivation">一、从生成代码到交付应用</h2>
+<p>多页面 Web 任务同时涉及界面、API、数据模型和状态迁移。注册页面能显示，不代表账户会持久保存；订单按钮能点击，不代表刷新、取消、重新选择和多用户隔离都正确。Agent 的目标是将需求落实为跨模块可运行的行为，并留下可以定位失败的证据。</p>
+<p>模型负责提出计划、编辑代码和分析反馈；控制程序负责输入身份、可调用工具、预算、验证及停止条件。把这些职责分开后，一次失败可以具体区分为需求遗漏、修改未生效、构建错误、环境初始化失败或业务断言失败，而不是只得到一句“任务未完成”。</p>
+<h2 id="architecture">二、入口、编排器与验证器</h2>
 <figure class="project-visual">
 <a href="/images/projects/arcbench-20261027.png" target="_blank" rel="noopener noreferrer" aria-label="查看原图：ARC-Bench Agent 从需求到候选代码、验证与有界修复的执行闭环"><img src="/images/projects/arcbench-20261027.png" alt="ARC-Bench Agent 从需求到候选代码、验证与有界修复的执行闭环" width="1536" height="1024" loading="lazy" decoding="async" /></a>
 <figcaption>执行闭环示意：候选代码经过隔离构建与测试，失败进入有界修复；本地验证与平台正式评测分别记录。（点击图片查看原图）</figcaption>
 </figure>
-<p>代码入口、需求解析、编排、模型调用、工具和验证分别放在不同模块中。分层的好处是：同一套任务结构既能驱动本地示例，也能接入平台 Runtime SDK；每一步可以单独检查输入和输出。已有工程由 Runner 准备，Agent 直接修改目标目录，不靠复制一个完成项目覆盖它。</p>
-<p>生成代码的执行另有隔离边界：项目要求本地 Docker 和预先准备的镜像、依赖缓存，执行时禁网；缺失缓存或资源耗尽会明确失败，不静默回退到宿主机。隔离降低生成脚本影响环境的范围，也引入镜像、原生依赖和缓存准备成本。它不是对任意平台运行环境都已验证的保证。</p>
-<h2 id="verification">三、验证与收敛：让失败提供方向</h2>
-<p>构建成功只能说明代码通过了构建脚本，不能说明需求全部实现。项目会收集构建、测试、源码审核和浏览器交互结果，向修复阶段提供具体失败；最终仍重新检查整个项目。对于有参考图的任务，浏览器截图和交互记录可供视觉审核，但截图或模型评审同样有自身局限。</p>
-<p>Ticket Booking 的实践尤其说明测试粒度的重要性：一个页面能打开，并不代表订票、确认、刷新和后续订单状态都正确。本地公开案例的回归和浏览器探针可以帮助定位问题，但它们不等于平台完整测试环境。需求与公开测试应保持原样，修复目标是业务行为，而不是修改断言来制造通过。</p>
-<p>另一个取舍是避免无效循环。重复相同的失败工具调用会触发提醒和停止；连续多轮没有改动也会受限。每轮有请求和 token 预算，接近上限时保留资源做最终验证。模型返回截断、构建失败或预算耗尽时，系统应保留已有文件与失败记录，而不是把一次 HTTP 成功或局部测试通过写成任务完成。</p>
-<p>缓存有助于控制重复输入成本，但缓存命中取决于服务商，不能由输入总量推算。比单独追求命中率更重要的是减少重复失败的脚本、定位不唯一的文本替换和无进展修复，同时保留足够上下文让模型正确完成工作。项目记录可用的实际 usage；缺失字段保持未知。</p>
-<h2 id="results">四、哪些结果已经得到验证</h2>
-<p>仓库记录的历史冻结版本在 2026-10-14 的 Railway Ticket Booking Demo 正式 Stage 3 中取得 <strong>30/30</strong>。这一轮使用 Flash，记录为 209 次完整响应、总计 8,505,443 token。它是一次具体任务、具体冻结版本的正式结果；本地自测曾有失败，最终回退到可交付候选后通过正式评测。服务端上传包哈希未公开，因此本地包身份与服务端身份不能凭空画等号。见<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/docs/releases/ticketbooking-formal30-flash-20261014.json" target="_blank" rel="noopener noreferrer">冻结版本证据</a>和<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/README.md" target="_blank" rel="noopener noreferrer">项目 README</a>。</p>
-<p>之后的模块状态追踪修复和竞赛链路离线准备不属于那次正式成绩。项目记录了六任务需求分解、脚本模型替身和本地浏览器的准备与验证；这些检查可以发现接口、依赖与调度问题，却不证明六个真实任务已经由模型完成，也不等于平台 Test Results。某个局部案例或小样本通过，更不能换算成另一套正式 30/30。</p>
-<h2 id="next">五、限制与下一步</h2>
-<p>后续工作需要先固定候选代码、需求、环境和评测口径，检查依赖闭包、预算与失败恢复，再对真实任务进行有界实验。实验结果应同时保留未运行、失败、未知用量和完整分母；正式平台结果与离线诊断分开报告。缓存优化是否减少总费用，也必须通过可比较的完整运行验证。</p>
-<p>对这个项目而言，一个好的 Agent 不仅能在顺利时生成网站，也要在失败时留下足够证据，让人知道下一步该修什么、已有结论能覆盖到哪里。</p>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">模块</th><th scope="col">职责</th></tr></thead><tbody><tr><td>main.py / Runtime SDK</td><td>接收需求目录与目标工程，使用 Runner 提供的配置，报告设计、实现和测试进度</td></tr><tr><td>agent/requirements.py</td><td>读取 YAML 或 Markdown，构造统一需求树并保留来源</td></tr><tr><td>agent/orchestrator.py</td><td>按子树组织设计、实现、检查点与整站修复</td></tr><tr><td>agent/llm.py / model_transport.py</td><td>管理模型消息、工具循环、流式响应、用量与截断</td></tr><tr><td>agent/tools.py</td><td>浏览和编辑项目文件，执行受限构建与测试工具</td></tr><tr><td>agent/verify.py / visual_acceptance.py</td><td>收集构建、测试、页面截图、交互和视觉审核结果</td></tr></tbody></table></div>
+<p>平台形状的入口为 <code>main.py &lt;requirements-dir&gt; --output-dir &lt;application&gt;</code>。Runner 准备工程，Agent 在目标目录中修改已有文件，不拿一份预先完成的网站覆盖任务。Python 侧负责控制流程，生成的 Web 工程自行声明前后端依赖与脚本。固定版本见<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/README.md" target="_blank" rel="noopener noreferrer">运行与模块说明</a>。</p>
+<h2 id="requirements">三、需求树与上下文组织</h2>
+<p>Requirement Reader 优先读取 <code>requirements.yaml</code>，也可将 README 或 requirements Markdown 归一化为同一需求树。树保留父子层级，使“订单管理”的总体约束可以随“创建订单”“取消订单”等子模块一起进入实现上下文。原始需求保持不变，不能通过缩减需求来消除失败。</p>
+<p>有参考图时，需求图片作为视觉输入交给规划或实现模型；任务还需要一份视觉验收清单，描述参考图对应页面、视口、裁剪和交互。是否强制要求某张图，要服从原始文字中 Required 与 Optional 的作用域。本地通用化读取器进一步修复了多行可选引用的范围，避免把可选设计参考变成额外硬性验收条件。</p>
+<p>大任务不能只按页面名称切块。本地 <code>competition_context.py</code> 将原子需求组织为带来源的工作项，同时带入祖先约束、依赖、数据生命周期、测试与共享 helper；依赖展开后检查未知节点和环。实现顺序因此可以先建立账户、数据和公共接口，再落实依赖它们的交互。</p>
+<p>源码或需求太长时，模型可以分页读取精确原文。审核引用必须同时对应原始义务与当前源码片段；文件改变后旧哈希和旧结论失效。只读到一部分、引用陈旧文件或无关片段，不足以把整个模块标记为完成。这套通用化代码属于本地开发快照。</p>
+<h2 id="generation">四、模型工具循环怎样推进实现</h2>
+<p>一次实现并非“给模型需求，接收整份代码”。模型先定位文件、读取相关实现，再通过工具修改，随后获取命令退出码与检查输出，决定下一步。局部文本替换要求唯一匹配，避免模糊替换悄悄改错位置；模型输出截断会被明确记录，不能把半段工具参数当成完整操作执行。</p>
+<p>消息前缀保持系统指令、需求子树和实施计划一致，后续连续追加完整工具轮次，有利于服务方复用缓存。上下文超过 240,000 字符、检查反馈变化等条件触发有界压缩；图像不在每轮重复发送。日志按响应实际记录缓存命中与未命中 token，缺字段时保留 unavailable，而不是从输入量估算缓存收益。</p>
+<p>控制器还需要识别停滞。连续三轮完全相同的失败工具调用会在提醒后停止；连续没有文件改动也有提醒和上限。实现阶段从第 16 轮起定期运行现有构建和测试脚本，把具体错误送回模型，而不是一直编辑到预算耗尽才发现整个工程无法构建。对应实现见<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/agent/llm.py" target="_blank" rel="noopener noreferrer">工具循环与上下文管理</a>。</p>
+<h2 id="verification">五、验证分层，而不是一个通过按钮</h2>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">验证层</th><th scope="col">回答的问题</th><th scope="col">不能替代什么</th></tr></thead><tbody><tr><td>构建与启动</td><td>依赖、语法、导入、脚本和服务能否运行</td><td>业务行为是否满足需求</td></tr><tr><td>源码需求审核</td><td>原始义务在具体生产代码中是否有实现证据</td><td>真实浏览器和持久化行为</td></tr><tr><td>本地公开案例</td><td>指定控件、API、状态与交互断言是否通过</td><td>未公开或不同环境的正式平台验收</td></tr><tr><td>视觉与交互</td><td>页面、视口、截图和交互是否匹配参考</td><td>所有业务路径或像素级普遍一致</td></tr><tr><td>平台 Stage 3</td><td>该次上传版本在平台测试中的正式结果</td><td>后续修改版本和其他任务的成绩</td></tr></tbody></table></div>
+<p>对订票 Demo，公开案例正文及共享交互 helper 进入模块上下文，精确标签、控件角色和断言保持原样。由于逐例面板没有完整 spec 的 imports 与文件内 helper，本地补齐 jsdom 适配器的回归要与原始平台 Playwright 测试分别记录。额外浏览器探针用来检查真实 App 与后端，不能被自编测试转绿替代。</p>
+<p>源码审核要求每个缺口引用原始要求和已经读取的生产代码。如果审核发现业务缺陷，后续修复必须重新通过源码审核；只扩写测试或让构建变绿不会清除这个缺陷。同一运行内，只有完整审核输入不变时才可复用结论，避免无意义的重复审核。</p>
+<p>模块状态也与证据绑定。设计完成、实现完成、本地测试通过和正式验收是不同字段；父节点不能因部分子节点通过就变绿。新的测试证据未知时，旧测试状态要清除；ROOT 单独反映整套验证的退出结果。因此某些需求的本地案例可以通过，而整站仍因 runner 错误失败。见<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/agent/orchestrator.py" target="_blank" rel="noopener noreferrer">阶段编排</a>与<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/agent/verify.py" target="_blank" rel="noopener noreferrer">验证结果处理</a>。</p>
+<h2 id="generic">六、通用化：把任务和运行环境变成明确契约</h2>
+<p><strong>本节描述 2026-10-27 的本地开发快照。</strong>通用控制器通过显式竞赛入口接入，旧订票路线独立保留。它的通用性来自来源、依赖与验证协议，不来自为六个任务各写一套名称分支；真实跨任务自动生成成功率仍未得到验证。</p>
+<h3 id="task-bundle">不可变任务包</h3>
+<p><code>task_bundle.py</code> 固定需求、测试及 helper 的原始字节与 SHA-256，保存任务、模块、场景和文件来源。案例身份还包含 project、文件与完整标题路径，防止两个同名测试被错误合并。输入变化、动态导入无法解析、缺失依赖或数量不一致会阻止继续，而不是让模型猜测缺失内容。</p>
+<p>六任务原始目录包含 337 个原子需求，实际收集 514 个公开案例，平台标称 518 个。收集使用真实 Node/Playwright；因为 <code>--list</code> 也会加载 JavaScript，收集本身同样放进容器。没有把“能收集”当作“测试通过”。</p>
+<h3 id="worlds">数据初始化、时钟与隔离世界</h3>
+<p>一个测试可能需要空账户，另一个需要历史订单，还有任务要求每个案例独立运行。<code>verification_world.py</code> 显式定义 normal/history 等环境，绑定 origin、storage、run ID、seed、业务时钟和健康检查。SEED 数据可在新环境初始化；本应由用户操作生成的 CREATED 数据不能预置来迎合断言。</p>
+<p>普通服务重启应保留已创建数据，新的验证 run 则重建干净环境。种子哈希只证明输入没有变，SQL/HTTP 初始化观察还要验证应用实际消费了它；时钟合同同样需要浏览器与服务端行为一致。当前本地 Node Date preload 不自动覆盖所有语言和所有日期路径，正式 Runner 是否提供等价环境仍待验证。</p>
+<h3 id="sandbox">应用与测试各自隔离</h3>
+<p>生成应用和验证器分别运行在非 root、只读容器中，通过内部网络连接，不暴露主机端口。应用拿不到测试源码、验证报告或 Docker socket；原始测试只读挂载到验证器。报告从受控通道导出，清理和输入哈希复核完成后才形成最终结果。</p>
+<p>执行依赖预先准备的本地缓存。验证使用严格禁网 <code>npm ci</code>，核对 manifest 与 lockfile，缓存缺失明确失败。SQLite 等原生依赖还需要单独验证编译和加载：包能安装，并不意味着后端能启动。源代码、依赖缓存、镜像和运行配置都进入指纹，旧镜像不能冒充新源码的验收环境。</p>
+<h2 id="rollback">七、修复、候选比较与回滚</h2>
+<p>通用控制器执行“预检与收集 → 全局设计 → 按依赖实现 → 完整验证 → 分类修复”。失败按输入、基础设施、构建运行、业务行为、模型停止等类别处理。原始测试缺失或环境未初始化，不能交给模型不断修改业务代码；共同失败组则连同依赖与调用方进入有限修复。</p>
+<p>候选比较保留新增通过、丢失通过、未执行和阻塞的案例集合，要求案例与环境可比。它不只看通过数量：修复一个页面却破坏另一个流程，要能恢复此前较好的源码。恢复后必须使用新 run ID、新环境完整重测；旧报告和重复 run ID 不能解除 <code>RESTORED_CANDIDATE_UNVERIFIED</code>。</p>
+<p>一个离线回归专门构造了这种情况：初始候选 1/2 通过，修复破坏 seed，导致下一轮没有可信行为报告；控制器恢复原候选，再在新环境重测，仍得到 1/2，然后因无进展停止。这个实验验证了回滚机制，最终状态仍为 <code>DELIVERABLE_INCOMPLETE</code>，并没有把恢复成功写成业务全过。</p>
+<p>另一次兼容性修复保留对外的 <code>BUILD_RUNTIME</code> 分类，将 <code>WORLD_OBSERVATION</code> 等具体失败阶段作为附加信息，避免下游只认识旧分类时错误处理初始化失败。这类状态契约让修复策略与运行基础设施之间保持明确边界。</p>
+<p>后续还修复了初始化应用错误被误判为基础设施故障的问题。子进程日志可能被截断，单靠文本阶段不能可靠分类；控制器增加专用退出状态与严格类型化的失败尾记录，将明确的应用初始化错误归为 <code>WORLD_INITIALIZATION</code>，允许进入应用修复。OOM、信号终止和协议错误仍保持基础设施阻断，不让模型反复改业务代码。</p>
+<h2 id="budget">八、预算与交付收尾</h2>
+<p>已提交版本的配置模块默认限制单次运行 250 次模型请求、累计 8,000,000 个输入加输出 token，每次输出上限 12,000；这些默认值不等于平台入口的实际覆盖值。请求前检查累计量，响应后记录实际 usage；一条请求的实际用量无法预先精确确定，所以可能越过总阈值。接近上限时预留额度用于收尾，停止新功能生成，继续本地验证并保存已有文件。</p>
+<p>上述固定提交的 main.py 入口覆盖为 10,000,000 token / 250 次请求，并只接受 deepseek-flash；本地未提交的开发入口已移除这些覆盖和白名单，保留 Runner 提供的模型、预算和时限。SSE 需要收齐结束标记、工具参数和最终用量后才能执行，HTTP 200 或半段内容不算完整响应。来源见<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/README.md" target="_blank" rel="noopener noreferrer">默认预算与历史入口区别</a>。</p>
+<p>本地竞赛路线进一步加入持久资金账本，将任务输入、Agent 代码和费率证据绑定起来，按设计、实现、修复、审核阶段预留请求成本，再按观察到的 usage 结算。重启不能重置额度；上次遗留未结算请求会作为未知费用阻止继续。离线替身价格只用于机制自测，不能授权真实模型请求。</p>
+<p>资金守卫也经历过一次边界修复：启动时有效的报价，可能在后续请求前过期或被替换。现在每次预留都在持久事务中重新核对代码、任务输入、报价字节、来源快照、有效期、路由及输出上界；失效后持久停止。已经发出的请求仍按完整返回用量结算，下一次请求再阻断，不能丢弃已发生的费用。相关反例先复现失败，修复后 45 项针对性检查通过；它们均是离线替身验证。</p>
+<p>交付报告分别说明本地验证、候选可启动状态与待执行正式验收。一个可构建、可启动但仍有本地断言失败的候选，在既定路线允许时可以交给平台继续验收，但必须保留失败记录；“可交付候选”和“已正式通过”始终是两个结果。</p>
+<h2 id="results">九、正式结果、本地机制与参考应用</h2>
+<h3 id="formal">订票 Demo：一次正式 30/30</h3>
+<p>仓库归档的 Railway Ticket Booking Demo 在 2026-10-14 正式 Stage 3 取得 <strong>30/30</strong>。使用 Flash，记录 209 次完整响应、8,505,443 个 token；本地验证中有失败，最终恢复到可交付候选后通过正式评测。它支持该任务该冻结版本的结论，不自动扩展到后续通用控制器。服务端上传包哈希未公开，本地包身份与服务端身份不作未经证明的等同。见<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/docs/releases/ticketbooking-formal30-flash-20261014.json" target="_blank" rel="noopener noreferrer">冻结证据</a>。</p>
+<h3 id="references">五个本地参考应用：验证任务行为与环境</h3>
+<p>以下是<strong>手工本地参考实现</strong>在原始公开测试下的结果。它们帮助验证业务需求、初始化与测试环境，不是被测 Agent 从 Blank 自动生成的成绩。Ctrip 尚未执行，四条公开数量差额继续保留。</p>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">任务</th><th scope="col">本地公开案例</th><th scope="col">公开 / 标称</th><th scope="col">证据类别</th></tr></thead><tbody><tr><td>Keep</td><td>33/33 通过</td><td>33/33</td><td>手工参考实现</td></tr><tr><td>BookStack</td><td>35/35 通过</td><td>35/36</td><td>数量差额仍在</td></tr><tr><td>Stack Overflow</td><td>66/66 通过</td><td>66/68</td><td>数量差额仍在</td></tr><tr><td>PrestaShop</td><td>86/86 通过</td><td>86/86</td><td>手工参考实现</td></tr><tr><td>12306</td><td>142/142 通过</td><td>142/142</td><td>手工参考实现</td></tr><tr><td>Ctrip</td><td>未执行</td><td>152/153</td><td>数量差额仍在</td></tr></tbody></table></div>
+<p>五个已执行任务合计 362 个现有公开案例通过，但 BookStack 和 Stack Overflow 的整体 verifier 仍保留目录数量不一致，不能说五个任务都通过完整标称验收。六任务真实模型生成、正式平台验收和正式 Runner 环境等价性均未完成验证。</p>
+<h3 id="case-study">12306 的一个排错过程</h3>
+<p>12306 参考实现将账户、乘车人、车次、席别、锁座、订单与支付模拟接入 SQLite。服务端重新检查账户归属、席别、余量和价格，预览不建单，确认才创建订单；普通刷新或重启不重置锁座期限。它展示了多模块任务里真实状态联动的复杂度。</p>
+<p>首次完整公测为 112/142。失败快照显示 HTTP origin 下 <code>crypto.randomUUID</code> 不可用，导致页面交互中断；修复为该环境支持的随机字节接口，并修正独立的控件可访问名称问题。随后达到 141/142，剩余失败来自日期切换时先卸载旧列表造成的读取竞争；改为新结果就绪后替换，并在加载期间禁用操作，达到 142/142。补齐预订日期的 Asia/Shanghai 自然日处理后，最终源码再次完整通过 142/142，零跳过、零重试。</p>
+<p>这条记录保留启动失败、中断尝试、部分通过与最终运行。它是参考应用的诊断案例，不是 Agent 自动修复率，也不是对历史订票 Demo 平台失败的追溯归因。</p>
+<h2 id="next">十、当前交付与未完成部分</h2>
+<p>已具备的主线是需求树驱动的模型工具循环、阶段进度、构建与源码审核、公开交互回归、视觉验证、预算收尾和历史单任务正式证据。本地通用化又补入不可变任务包、依赖工作项、隔离环境、严格验证器、候选比较与持久资金账本。</p>
+<p>下一步需要把通用化源码与环境冻结为可复查候选，再验证真实模型从初始工程完成多个任务的完整链路。参考应用通过、脚本模型自测通过与真实自动生成成功回答的是不同问题；后续报告将分别给出生成成功率、修复轮次、费用、失败分母和正式成绩。当前公开 514 与标称 518 的差额，以及线上 Runner 初始化、依赖和计费合同，仍是不能省略的未确认项。</p>
+
+
 
                 </div>
             </article>

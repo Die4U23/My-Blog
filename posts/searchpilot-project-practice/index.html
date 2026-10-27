@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="从混合检索、CTR 校准到容器负载验证，记录 SearchPilot 的设计取舍、负结果和评估边界。">
+    <meta name="description" content="详解 SearchPilot 的数据版本、BM25/向量/RRF/LTR、CTR 校准、幂等反馈、多步只读 Agent、并发排错与实验结果。">
     <script src="/js/theme.js?v=20260819-3"></script>
     <title>SearchPilot 项目介绍：把搜索、排序与实验证据连起来</title>
     <script src="/js/highlight.min.js?v=20260819-3"></script>
@@ -36,31 +36,74 @@
 
                 <div class="content">
 
-<div class="note-box"><strong>本文要解决的问题：</strong>搜索结果是怎样从数据变成可比较的实验，再变成可以调用的服务？我以 SearchPilot 为例，沿着数据、检索、排序和验证这条链路，记录实现与尚未解决的问题。</div>
-<p>阅读路线：<a class="link" href="#motivation">项目动机</a> → <a class="link" href="#architecture">请求链路</a> → <a class="link" href="#ranking">排序取舍</a> → <a class="link" href="#evidence">实验与负载证据</a> → <a class="link" href="#next">限制和后续</a>。</p>
-<p>文章整理于 2026-10-27，基于项目归档版本 <a class="link" href="https://github.com/Die4U23/searchPilot/tree/fae045d3539d40e702724949d47e44e551843e77" target="_blank" rel="noopener noreferrer"><code>fae045d</code></a>。不同实验有各自的执行日期和环境，仓库版本只用于固定本文引用。</p>
-<h2 id="motivation">一、为什么做 SearchPilot</h2>
-<p>搜索与广告实验需要把召回、排序、点击率预估和实验指标接成完整链路，涉及几个具体问题：关键词匹配和语义相似给出的候选如何合并？排序模型的输入来自哪里？一次实验的数字能否和另一次比较？服务没有加载索引时，调用方又该收到什么？</p>
-<p>SearchPilot 是一个用于回答这些问题的实验平台。它以新闻数据为基础，把检索、回退推荐、广告评分、反馈和实验登记接到 API。重点不是声称自己实现了生产搜索引擎，而是让一个候选如何产生、怎样打分、结果从哪份数据和模型来，都有可以追溯的入口。</p>
-<h2 id="architecture">二、从数据到一次搜索请求</h2>
-<p>项目使用 MIND Small：先清洗物品和曝光数据并按时间切分，再生成搜索查询和相关性标注。数据版本与模型版本根据输入内容生成，实验记录保留来源。原始数据和模型产物不随仓库提交，因此复现需要按文档重新准备数据，而不能只凭一份代码就假定产物相同。</p>
+
+<div class="note-box"><strong>SearchPilot 是一个可复现的搜索、推荐与广告排序实验平台。</strong>它把新闻数据处理、四种搜索模式、回退推荐、CTR 校准、反馈持久化和实验分析接成 API，并提供一个能够按观察结果继续调用工具的只读 Agent。</div>
+<p>本文整理于 2026-10-27，依据已合并版本 <code>5644ce4</code>。多步 Agent 已随 PR #57 合并；长时间内存稳定性仍在单独验证，本文只引用已归档的完整实验。<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/README.md" target="_blank" rel="noopener noreferrer">项目 README</a>提供运行入口。</p>
+<p>阅读路线：<a class="link" href="#architecture">整体结构</a> → <a class="link" href="#data">数据与标注</a> → <a class="link" href="#retrieval">召回与排序</a> → <a class="link" href="#ctr">推荐与 CTR</a> → <a class="link" href="#agent">多步 Agent</a> → <a class="link" href="#engineering">工程问题</a> → <a class="link" href="#evidence">实验结果</a>。</p>
+<h2 id="motivation">一、项目解决什么问题</h2>
+<p>一个检索算法输出 Top-K，只完成了搜索系统的一部分。系统还需要回答：数据来自哪个版本，关键词和语义召回怎样合并，排序模型用了哪些特征，缺少索引时如何响应，以及某次实验能否与另一组数字直接比较。SearchPilot 将这些问题放在同一条可追溯链路中。</p>
+<p>项目以 MIND Small 新闻数据为基础。搜索侧比较 BM25、向量、RRF 和 LTR；推荐侧为有历史与无历史用户提供不同回退；广告侧展示点击概率校准如何影响带出价排序；实验侧保存配置、指标、分组和失败样例。Agent 则使用这些登记信息回答问题，不直接操作数据库或修改模型。</p>
+<h2 id="architecture">二、整体结构与一次请求</h2>
 <figure class="project-visual">
 <a href="/images/projects/searchpilot-20261027.png" target="_blank" rel="noopener noreferrer" aria-label="查看原图：SearchPilot 离线准备、检索融合、广告评分与实验记录"><img src="/images/projects/searchpilot-20261027.png" alt="SearchPilot 离线准备、检索融合、广告评分与实验记录" width="1536" height="1024" loading="lazy" decoding="async" /></a>
 <figcaption>项目链路示意：上方为离线产物，中间为检索路径，下方为广告评分和实验记录。LTR 为可选排序路径，eCPM 使用合成出价。（点击图片查看原图）</figcaption>
 </figure>
-<p>BM25 擅长词面匹配，向量检索则提供另一种语义相似性视角。RRF 按各路名次融合，不要求两种分数天然处于同一尺度；LTR 则利用特征学习排序。广告路径提供 CTR 预测、验证集温度缩放和基于合成出价的 eCPM，后者是实验演示，不等同于真实广告竞价收益。</p>
-<p>服务对缺失产物采用明确失败：索引或推荐模型不可用时，相应接口返回 <code>503 NOT_READY</code>，就绪检查也返回 503。容器可在监听前预热向量模型；它减少首个请求承担初始化的机会，但会增加启动等待。反馈在没有数据库时保存在内存，实验登记读取本地注册表；配置 PostgreSQL 后才走数据库路径。实现和启动方式见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/fae045d3539d40e702724949d47e44e551843e77/README.md" target="_blank" rel="noopener noreferrer">固定版本 README</a>。</p>
-<h2 id="ranking">三、排序不该只展示最好看的数字</h2>
-<p>项目保留了一个有代表性的负结果。2026-10-09 的测试集有 15 条查询，其中一条没有相关文档，不计入 nDCG、MRR 和 Recall。相同评测下，RRF 混合检索的 nDCG@10 为 0.7214，LTR 为 0.4596；其他两项指标也更低。这并不能证明学习排序本身无效，但足以说明当前特征、训练数据和候选集合还没有带来收益。</p>
-<p>分析发现，学到的 BM25 名次特征权重方向值得警惕：名次数字越大，在该模型里反而可能抬高分数，甚至影响未进入 BM25 前列的文档。与其只继续增加模型复杂度，更有价值的是检查特征语义、样本和召回覆盖，再保留失败案例。详情见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/fae045d3539d40e702724949d47e44e551843e77/docs/data/ltr-report.md" target="_blank" rel="noopener noreferrer">LTR 对照报告</a>。</p>
-<p>这里的查询规模很小，而且标注来自模型标注者，不是大规模人工标注的线上流量。双标一致性可以帮助发现分歧，不能把模型之间的一致当成真实用户相关性。指标适合指导下一轮诊断，不足以支持普遍的算法优势或线上效果结论。</p>
-<h2 id="evidence">四、把效果实验和负载实验分开</h2>
-<p>2026-10-25 的容器实验将负载查询扩展到 1,300 条，分别以并发 4、16、32 运行 15、15、60 分钟，正式请求分别为 9,358、12,538、53,309 次，均成功；5,200 个查询与模式组合的结果指纹跨档一致。这个扩展集合用于覆盖负载与结果稳定性，不是 1,300 条有相关性标注的效果测试。</p>
-<p>并发 32 的一小时观察中，最后 20 分钟 RSS 增长 1.535 MiB，线性拟合斜率为每分钟 0.0936 MiB，满足该实验预先设定的两个门槛；但全小时 RSS 仍增长 55.984 MiB。末段门槛通过不能推导无限期运行无泄漏，也不能把这次有背景争用的吞吐量当作容量 SLA。环境、时间窗口和原始记录见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/fae045d3539d40e702724949d47e44e551843e77/docs/data/container-expanded-soak-2026-10-25.md" target="_blank" rel="noopener noreferrer">扩大查询容器报告</a>。</p>
-<p>Agent 的评测也要按协议区分：旧版两阶段外部模型夹具于 2026-10-14 完成 50 题，结构化通过 46/50；新增多步决策路径的离线评测默认不发送外部请求，结果是 <code>UNRUN</code>。旧成绩不能移植为新多步能力的成绩。只读工具、引用校验和预算上限降低了实验的失控范围，但模拟响应通过仍不证明真实模型表现。</p>
-<h2 id="next">五、限制与下一步</h2>
-<p>下一步应优先扩大并人工复核相关性标注，检查 LTR 的名次特征、候选覆盖和分类型失败，再使用固定数据切分比较。资源方面需要延长观察并分析全小时增长，复现实验时保留模型、镜像和负载身份；不能仅从一个窗口推断内存生命周期。Agent 的新多步能力仍需独立的真实模型评测，继续把请求失败、未运行和成功保留在分母中。</p>
-<p>这个项目最有价值的部分，是让一次“不如基线”的排序实验和一次有限窗口内通过的资源检查，都能被准确解释。可复查的链路使系统的当前能力与实验边界更加清晰。</p>
+<p>离线脚本生成 Parquet 数据快照、索引、模型和评估报告。在线应用通过 <code>bootstrap.py</code> 装配搜索、推荐、CTR、反馈与实验仓储；<code>ports.py</code> 定义模块间协议，Pydantic 模型定义 HTTP 输入输出。算法实现与 API 路由分开，使测试可以注入小语料或内存仓储，真实运行则加载固定产物与 PostgreSQL。</p>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">入口</th><th scope="col">实际行为</th><th scope="col">关键输出或边界</th></tr></thead><tbody><tr><td>POST /search</td><td>选择 bm25、vector、hybrid 或 ltr，可按类别过滤</td><td>返回排名、分数、通道与模型版本</td></tr><tr><td>POST /recommend</td><td>已有历史走 ItemCF，无历史走热门回退</td><td>返回推荐通道与 cold_start</td></tr><tr><td>POST /ctr/score</td><td>加载 CTR 模型和校准器计算点击概率</td><td>模型未就绪返回 503</td></tr><tr><td>POST /feedback</td><td>按幂等键保存曝光或反馈</td><td>同键同内容重放，同键不同内容冲突</td></tr><tr><td>GET /experiments/&#123;id&#125;</td><td>读取实验配置、指标和来源</td><td>保留数据、协议与代码版本</td></tr><tr><td>POST /agent/analyze</td><td>确定性分析或显式开启的多步 LLM 模式</td><td>返回状态、停止原因、动作轨迹和引用</td></tr></tbody></table></div>
+<p>例如一次 <code>mode=hybrid</code> 的请求，经过输入校验、查询归一化、两路候选召回、去重融合后返回结果。索引缺失和“合法查询没有命中”是两种不同状态：前者返回 <code>503 NOT_READY</code>，后者才是有效空结果。<code>/health/live</code> 检查进程，<code>/health/ready</code> 检查依赖；流量准入不能只看进程存活。实现见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/src/searchpilot/search/service.py" target="_blank" rel="noopener noreferrer">搜索服务</a>。</p>
+<h2 id="data">三、数据、标注与版本如何对应</h2>
+<p>归档数据版本为 <code>d3a904f41240</code>，包含 65,238 条物品。搜索查询集共 100 条，按固定种子切为 70/15/15；相关性使用 0–3 级标注，并保存标注者身份。CTR 的曝光数据另有时间切分，因此搜索查询测试集和点击率测试集不是同一个分母。</p>
+<p>原始双标、补充候选池标注、争议裁定与正式评估入口分别保存。原始 <code>labels.csv</code> 不被诊断性补标覆盖，train/val 裁定也不会悄悄改变 test。这个划分很关键：如果大量标注文档来自 BM25 前列，未标注的向量候选直接按 0 分处理，就可能把候选池偏差混入模型比较。</p>
+<p>项目因此同时保留原口径、补充候选池后的口径和“仅评价已标注文档”的诊断，逐条追踪不同口径造成的变化。它们用于解释差异，不能挑选对某个模型最有利的一张表当作统一成绩。数据快照、模型元数据和实验记录共同保存版本与来源，原始数据及大型模型产物需要按文档重新准备。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/pool-label-eval.md" target="_blank" rel="noopener noreferrer">候选池标注诊断</a>与<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/adjudication-report.md" target="_blank" rel="noopener noreferrer">分歧裁定记录</a>。</p>
+<h2 id="retrieval">四、从两路召回到可解释排序</h2>
+<h3 id="hybrid">BM25、向量与 RRF</h3>
+<p>BM25 使用归一化与词干处理后的词项查询倒排索引，适合实体名和明确词面条件；向量路径使用 BAAI/bge-small-en-v1.5 编码查询，并做精确余弦检索，提供词面之外的候选。混合模式分别取两路 Top-100，再通过 RRF 融合。融合看名次而非直接相加原始分数，避免把 BM25 分值与余弦相似度当作同一尺度。</p>
+<pre><code>RRF(d) = Σ 1 / (60 + rank_i(d))
+同一通道的重复文档只计一次；融合去重后按分数排序。
+分数相同时按 item_id 排序，保证结果可复现。</code></pre>
+<p>默认融合参数为 60。某一路没有召回的文档不会在该路获得名次贡献。项目也保留分数归一化融合用于对照，但默认使用 RRF。实现见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/src/searchpilot/search/fusion.py" target="_blank" rel="noopener noreferrer">融合函数</a>。</p>
+<h3 id="ltr">LTR 怎样训练，为什么没有带来提升</h3>
+<p>LTR 是线性 pairwise 模型。对同一查询下等级不同的文档组成高低相关性对，优化 <code>softplus(-(s_hi - s_lo))</code>，让高相关文档的分数更大。训练和在线推理共用候选与特征组装路径；训练只使用 train 标签，均值和标准差用于特征标准化。</p>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">特征组</th><th scope="col">具体特征</th></tr></thead><tbody><tr><td>召回信号</td><td>BM25 分数、向量分数、BM25 名次、向量名次</td></tr><tr><td>统计与时间</td><td>训练点击数的 log1p、freshness_days</td></tr><tr><td>内容</td><td>类别匹配、标题字符数</td></tr></tbody></table></div>
+<p>两路 Top-100 的并集进入候选处理。文档未进入某一路前 100 时，名次特征记为 101，但仍补算该路的精确分数。这个缺席值是后来诊断的关键：已保存模型给 <code>bm25_rank</code> 学到了约 +0.635 的权重，导致名次数字越大反而贡献越高，缺席候选可能被抬到高相关文档前面。</p>
+<p>训练使用 70 条查询、705 行标注形成的 974 个文档对，40 个 epoch 后训练损失从 1.107 降至 0.183，但 test 排序仍退步。将缺席名次替换为训练均值没有消除问题；进一步将名次权重置零是诊断消融，并未成为重新验收的新模型。这里保留了从候选覆盖、特征语义到权重方向的分析链路。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/src/searchpilot/search/ltr.py" target="_blank" rel="noopener noreferrer">LTR 实现</a>与<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/ltr-rank-ablation.md" target="_blank" rel="noopener noreferrer">名次特征消融</a>。</p>
+<h2 id="ctr">五、回退推荐、CTR 校准与广告评分</h2>
+<p>推荐接口独立于搜索。已有历史用户可通过 ItemCF 利用物品共现取得邻居，无历史用户走热门回退。项目曾在启动阶段构建完整共现图，再展开双向邻居表，最后只保留每件物品的前 50 个邻居；中间图的内存成本远大于最终模型。</p>
+<p>改进后的拟合先建立“物品 → 去重用户历史”的倒排表，再逐物品统计共现并保留 Top-K，完成一行即释放临时统计。配对计算量仍为 <code>O(Σ h²)</code>，主要减少完整共现图的中间空间。5,000 用户的 A–B–B–A 对照中，完整邻居及 Top-10 预测的规范 JSON 指纹一致，拟合均值 3.265 → 2.094 秒，进程生命周期峰值工作集约下降 61.8%。这是固定子集两轮对照；完整 50,000 用户只运行了新版本，不据此报告全量加速比。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/itemcf-startup-2026-10-15.md" target="_blank" rel="noopener noreferrer">ItemCF 对照</a>。</p>
+<p>CTR 路径使用用户历史长度、类别匹配率、训练物品点击数和标题长度四类特征。历史归档按 200,000/50,000/50,000 行训练、验证、测试，校准器只在验证集拟合。温度缩放作用于 logit，目标是让预测概率更接近实际频率，而不是改变单独按 pCTR 排序的顺序。</p>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">test 模型</th><th scope="col">AUC</th><th scope="col">LogLoss</th><th scope="col">ECE</th></tr></thead><tbody><tr><td>MLP 原始输出</td><td>0.4836</td><td>0.3519</td><td>0.0374</td></tr><tr><td>MLP + 温度缩放</td><td>0.4836</td><td>0.1673</td><td>0.0063</td></tr></tbody></table></div>
+<p>校准降低了概率误差，但 AUC 没有变化，且这组 AUC 不支持“点击区分能力优秀”的结论。正历史用户、零历史用户、冷物品与已有点击物品还要分别检查。当前实验没有位置特征，日志中的位置偏差也是限制。完整 LR、Platt、等渗回归对照见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/ctr-report.md" target="_blank" rel="noopener noreferrer">CTR 报告</a>。</p>
+<p>广告演示按 <code>合成 bid × pCTR</code> 比较 eCPM 排序。校准对概率是单调变换，但不同物品再乘不同出价后，排名可以变化：20,831 次曝光的对照中，Top-1 一致率为 0.9180。出价来自固定种子的合成映射，没有真实竞价、预算 pacing 或 CVR 链路，因此代理收入只能用于这组实验内比较。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/ecpm-report.md" target="_blank" rel="noopener noreferrer">合成出价实验</a>。</p>
+<h2 id="service">六、反馈与实验登记怎样保持可追溯</h2>
+<p>反馈记录携带请求、物品、事件时间、模型版本及幂等键。PostgreSQL 使用唯一键和 <code>INSERT ... ON CONFLICT DO NOTHING</code> 处理重复提交；插入未发生时读取已有内容摘要。同键同内容返回原事件，同键不同内容返回 409。这样网络重试不会增加一条重复反馈，也不会静默覆盖第一次提交。内存实现采用同样的载荷摘要规则，但只有数据库路径能跨进程重启保留。</p>
+<p>实验登记除总体指标外，还保存配置、数据版本、代码提交、协议、<code>source</code> 与 <code>source_ref</code>。比较函数发现来源或协议不同就返回不可比较，不生成提升结论；同源同协议也仍需查看切分与实验条件。登记信息是 Agent 查询的对象，不能把“有一条实验记录”理解成已经重新运行了那次实验。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/src/searchpilot/db/feedback_store.py" target="_blank" rel="noopener noreferrer">反馈仓储</a>与<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/src/searchpilot/experiments/store.py" target="_blank" rel="noopener noreferrer">实验登记与比较</a>。</p>
+<h2 id="agent">七、只读 Agent 如何完成多步分析</h2>
+<p>早期线上路径按规则选择工具，历史外部评测固定为“选一个工具 → 执行 → 生成答案”。2026-10-27 的版本增加了真正的执行循环：模型提出公开计划与一个动作，服务端校验参数并调用工具，再把观察交回模型，由模型决定修订计划、继续读取或结束。默认配置仍不发送模型请求，LLM 模式需要显式启用。</p>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">只读工具</th><th scope="col">用途</th></tr></thead><tbody><tr><td>list_experiments</td><td>先发现实际存在的实验 ID</td></tr><tr><td>get_experiment_config</td><td>读取配置、数据版本和协议</td></tr><tr><td>get_metric</td><td>读取指定切分的一个指标</td></tr><tr><td>compare_experiments</td><td>检查来源与协议并比较记录</td></tr><tr><td>get_segment_metrics</td><td>查看用户或物品分组结果</td></tr><tr><td>get_failure_samples</td><td>读取具体失败样例</td></tr></tbody></table></div>
+<p>例如“比较当前两个检索实验并解释差异”，请求不必提供实验 ID。Agent 可以先列出实验，再读取配置和指标；遇到不存在的来源或缺失指标时，在剩余步数内修正动作。若两组记录来源不同，系统返回不可比较。工具集合不包含任意 SQL、Shell 或任意网络访问，也不提供修改索引和模型的能力。</p>
+<p>最终答案由服务端根据已验证引用和工具摘要生成。这样做来自一个具体漏洞：即使模型引用了正确记录，也可能在引用旁写出未经证据支持的数字。当前让模型负责选取证据和结束时机，把可展示的事实交给程序验证；它保留了分析动作的灵活性，也限制了自由文本解释的范围。元数据中的 ID、split、segment 还经过字符与长度校验，避免括号等内容混入引用格式。</p>
+<p>默认每次最多 8 次模型请求、每次预留 2,048 个输出 token、总预留 16,384 个输出 token；总执行时间 90 秒，单次 HTTP 30 秒，单次工具读取 5 秒。输入 token 不在这个输出额度内，因此不能把它当作金额上限。每个应用实例最多并行两个 Agent 请求，模型或 HTTP 错误终止本轮，不自动重试；动作格式和可恢复工具错误可在原预算内纠正。没有跨请求记忆或后台自主任务。完整契约见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/dev/autonomous-agent.md" target="_blank" rel="noopener noreferrer">多步 Agent 说明</a>。</p>
+<h2 id="engineering">八、三个工程问题及其处理</h2>
+<h3 id="concurrency">共享词干器的并发污染</h3>
+<p>四线程诊断触发 Snowball <code>IndexError</code>，进一步发现 <code>stemWords()</code> 共享可变词干器的 current 与游标状态。一个请求执行过程中，另一个请求会改写它们，GIL 并不让整个词干化操作自动成为原子操作。修复只对共享实例的调用加锁，并通过主动让出线程放大交错来回归；数字与缩写等不走词干化的分支不受影响。没有通过更换算法或模型掩盖问题。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/container-hour-2026-10-23.md" target="_blank" rel="noopener noreferrer">并发故障报告</a>。</p>
+<h3 id="startup">把首次编码成本移到启动阶段</h3>
+<p>首次向量请求需要加载和初始化模型，旧路径把这个成本留给用户请求。容器默认在监听前预热；四轮真实 HTTP 对照中，首次向量请求均值 8.817 → 0.068 秒，启动到 ready 则从 24.024 → 34.444 秒。它改善的是首个请求体验，代价是更长启动等待，没有证明总冷启动变快。预热失败时保留 BM25，向量相关模式仍明确未就绪。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/vector-startup-2026-10-22.md" target="_blank" rel="noopener noreferrer">启动预热对照</a>。</p>
+<h3 id="memory">区分活跃分配、分配器保留与 RSS</h3>
+<p>长时间压测发现 RSS 持续上升，诊断分别记录 API 进程、容器 cgroup 和客户端，而非只看 Docker 的一个显示值。组件层 <code>gc.collect()</code> 未使 RSS 降低，<code>malloc_trim()</code> 能释放一部分内存，说明分配器保留有贡献；这不等于所有增长均已归因。</p>
+<p>后续 THP 与 glibc arena 对照支持将正常容器配置为进程关闭 THP、<code>MALLOC_ARENA_MAX=2</code>，未加入定时 GC/trim。正式负载使用正常服务入口，并记录模型、数据、镜像与结果指纹，以检查配置变化是否影响业务输出。更长观察仍是独立工作。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/container-memory-arena-2026-10-25.md" target="_blank" rel="noopener noreferrer">内存对照报告</a>。</p>
+<h2 id="ranking">九、效果结果与多步任务结果</h2>
+<p>搜索 test 共 15 条查询，其中一条没有相关文档，nDCG、MRR、Recall 的有效分母为 14。以下来自同一次固定比较，不混用补标后的诊断口径。<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/ltr-report.md" target="_blank" rel="noopener noreferrer">原始排序报告</a>保留模型版本和训练条件。</p>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">搜索模式</th><th scope="col">nDCG@10</th><th scope="col">MRR@10</th><th scope="col">Recall@50</th></tr></thead><tbody><tr><td>BM25</td><td>0.6396</td><td>0.7143</td><td>0.7500</td></tr><tr><td>向量</td><td>0.7769</td><td>0.8095</td><td>0.9452</td></tr><tr><td>RRF</td><td>0.7214</td><td>0.7679</td><td>1.0000</td></tr><tr><td>LTR</td><td>0.4596</td><td>0.4595</td><td>0.7175</td></tr></tbody></table></div>
+<p>RRF 的候选覆盖与向量的前列排序表现不同；LTR 在该协议下是负结果。小规模、模型标注的查询集只能支持当前诊断，不能外推线上搜索质量。</p>
+<p>新 Agent 另用八个公开合成任务验证未知 ID 发现、工具错误后的改计划、跨来源比较拒绝与配置注入，每类有两个 ID/数值变体。最终运行时 8/8 正常结束，原结构化评分为 <strong>6/8</strong>。两个失败来自评分器要求“第一次工具调用即发现成功”；实际任务允许列表参数出错后纠正，只要求依赖 ID 的读取发生在成功发现之后。</p>
+<p>修正评分器后，对同一批轨迹事后复算为 <strong>8/8</strong>，新增模型调用为 0，原始 6/8 与 FAIL 保留。这个结果不是新一轮预注册实测。开发各轮、独立诊断与两次 API 验证合计 120 次外部请求、129,842 个已知 token；容器真实 HTTP 路径也已验证，但只启动 Agent 与本地登记，不能代替整站验收。历史两阶段 46/50 与新八题成绩分别报告，不能互相覆盖。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/agent-multistep-2026-10-27.md" target="_blank" rel="noopener noreferrer">完整多步验证报告</a>。</p>
+<h2 id="evidence">十、负载覆盖与当前交付边界</h2>
+<div class="table-scroll" role="region" aria-label="数据表，可横向滚动" tabindex="0"><table><thead><tr><th scope="col">并发</th><th scope="col">正式时长</th><th scope="col">成功请求</th></tr></thead><tbody><tr><td>4</td><td>15 分钟</td><td>9,358 / 9,358</td></tr><tr><td>16</td><td>15 分钟</td><td>12,538 / 12,538</td></tr><tr><td>32</td><td>60 分钟</td><td>53,309 / 53,309</td></tr></tbody></table></div>
+<p>2026-10-25 这组实验覆盖 1,300 条查询与四种模式，5,200 组结果指纹跨档一致。扩展查询用于负载覆盖，不是新增 1,300 条人工相关性标注。并发 32 最后 20 分钟 RSS 增长 1.535 MiB，斜率 0.0936 MiB/分钟，通过该轮预设门槛；全小时仍增长 55.984 MiB，且有背景容器争用。因此结果只说明该次有限窗口，没有给出容量 SLA 或无限期无泄漏保证。见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/5644ce42ab82eabf4af112f139ebf270ea620f5a/docs/data/container-expanded-soak-2026-10-25.md" target="_blank" rel="noopener noreferrer">扩大查询容器报告</a>。</p>
+<h2 id="next">十一、当前限制与后续方向</h2>
+<p>项目已把数据、召回、排序、服务和实验分析连起来。剩余重点是扩大并独立复核相关性标注，处理 LTR 的候选与特征问题，验证 CTR 的区分能力，并完成剩余内存增长的长期观察。多步 Agent 已有有限领域的执行机制与真实模型证据，但八个合成任务不代表通用规划能力、自然语言解释质量或生产稳定性。后续实验继续固定输入、代码与协议，使新旧结论可以明确对照。</p>
+
+
 
                 </div>
             </article>
