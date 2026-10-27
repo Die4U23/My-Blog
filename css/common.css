@@ -1,21 +1,10 @@
-/* Animate a registered value on the root: native scrollbar pseudo-elements
-   do not consistently animate their own background-color transitions. */
-@property --page-scrollbar-opacity {
-    syntax: '<number>';
-    inherits: true;
-    initial-value: 1;
-}
-
 /* 页面公有格式 */
 :root {
     --navbar-height: 60px;
-    --page-scrollbar-opacity: 1;
-    --page-scrollbar-ink: var(--page-scrollbar-thumb);
     --color-primary: #2c3e66;
     --page-background: linear-gradient(120deg, #d4e6f1, #e8daef);
     --navbar-background: #93c3e5;
     --page-scrollbar-track: #dee2ef;
-    --page-scrollbar-track-image: linear-gradient(180deg, #d8e5f0, #e5ddef);
     --page-scrollbar-thumb: rgba(78, 97, 125, 0.24);
     --page-scrollbar-thumb-hover: rgba(78, 97, 125, 0.46);
     --page-scrollbar-thumb-active: rgba(78, 97, 125, 0.64);
@@ -43,7 +32,6 @@
     --page-background: linear-gradient(120deg, #0d1728, #211b32);
     --navbar-background: #0f2642;
     --page-scrollbar-track: #171a2d;
-    --page-scrollbar-track-image: linear-gradient(180deg, #101829, #1e1b30);
     --page-scrollbar-thumb: rgba(165, 181, 208, 0.23);
     --page-scrollbar-thumb-hover: rgba(165, 181, 208, 0.44);
     --page-scrollbar-thumb-active: rgba(165, 181, 208, 0.62);
@@ -75,9 +63,8 @@
 html {
     /* Match the canvas exposed at the viewport edge to the opaque navigation. */
     background-color: var(--navbar-background);
-    transition: --page-scrollbar-opacity 180ms ease-out;
     scrollbar-width: thin;
-    scrollbar-color: var(--page-scrollbar-ink) var(--page-scrollbar-track);
+    scrollbar-color: var(--page-scrollbar-thumb) var(--page-scrollbar-track);
 }
 
 body {
@@ -94,91 +81,76 @@ body {
     transition: color 0.3s ease;
 }
 
-/* Keep the native hit area and layout width stable while the thumb is hidden.
-   Without JavaScript the scrollbar remains visible. */
-@media (forced-colors: none) {
-    html.scrollbar-auto:not(.scrollbar-visible) {
-        --page-scrollbar-ink: transparent;
-        --page-scrollbar-opacity: 0;
-        transition-duration: 280ms;
-    }
+/* Progressive enhancement: keep native scrolling, replace only its gutter.
+   The real navbar now owns the whole viewport width, including the right edge. */
+html.scrollbar-auto {
+    scrollbar-width: none;
 }
 
-/* Standard scrollbar engines use the same animated alpha. */
-@supports (color: color-mix(in srgb, black 50%, transparent)) {
-    html {
-        scrollbar-color:
-            color-mix(in srgb, var(--page-scrollbar-thumb) calc(var(--page-scrollbar-opacity) * 100%), transparent)
-            var(--page-scrollbar-track);
-    }
+html.scrollbar-auto::-webkit-scrollbar,
+html.scrollbar-auto body::-webkit-scrollbar {
+    display: none;
+}
+
+.page-scrollbar {
+    position: fixed;
+    top: calc(var(--navbar-height) + 8px);
+    right: 2px;
+    bottom: 8px;
+    width: 12px;
+    z-index: 900;
+    opacity: 0;
+    transition: opacity 280ms ease-out;
+    touch-action: none;
+    user-select: none;
+}
+
+.page-scrollbar[hidden] {
+    display: none;
+}
+
+html.scrollbar-visible .page-scrollbar,
+.page-scrollbar:focus-visible {
+    opacity: 1;
+    transition-duration: 180ms;
+}
+
+.page-scrollbar-thumb {
+    position: absolute;
+    top: 0;
+    left: 4px;
+    width: 4px;
+    border-radius: 999px;
+    background: var(--page-scrollbar-thumb);
+}
+
+.page-scrollbar:hover .page-scrollbar-thumb,
+.page-scrollbar:focus-visible .page-scrollbar-thumb {
+    background: var(--page-scrollbar-thumb-hover);
+}
+
+.page-scrollbar.is-dragging .page-scrollbar-thumb {
+    background: var(--page-scrollbar-thumb-active);
+}
+
+.page-scrollbar:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 1px;
+    border-radius: 6px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-    html,
-    html.scrollbar-auto:not(.scrollbar-visible) {
+    .page-scrollbar,
+    html.scrollbar-visible .page-scrollbar,
+    .page-scrollbar:focus-visible {
         transition: none;
     }
 }
 
-/* Use the rounded, arrow-free treatment where WebKit scrollbar styling exists.
-   Other engines keep the standard thin scrollbar; forced colors stay native. */
-@supports selector(::-webkit-scrollbar) {
-    @media (forced-colors: none) {
-        html {
-            scrollbar-width: auto;
-            scrollbar-color: auto;
-        }
+@media (forced-colors: active) {
+    .page-scrollbar-thumb {
+        background: CanvasText;
     }
-}
-
-/* A soft page-toned track masks the navigation-colored overscroll canvas.
-   Only the thumb gains contrast on interaction; its hue stays neutral. */
-html::-webkit-scrollbar,
-body::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-    background:
-        linear-gradient(var(--navbar-background) 0 var(--navbar-height), transparent var(--navbar-height)),
-        var(--page-scrollbar-track-image) var(--page-scrollbar-track);
-}
-
-html::-webkit-scrollbar-track,
-body::-webkit-scrollbar-track,
-html::-webkit-scrollbar-corner,
-body::-webkit-scrollbar-corner {
-    background: var(--page-scrollbar-track-image) var(--page-scrollbar-track);
-}
-
-/* Reserve the header area, so the thumb can never cross the navigation. */
-html::-webkit-scrollbar-track:vertical,
-body::-webkit-scrollbar-track:vertical {
-    margin-top: calc(var(--navbar-height) + 8px);
-    margin-bottom: 8px;
-}
-
-html::-webkit-scrollbar-thumb,
-body::-webkit-scrollbar-thumb {
-    background: var(--page-scrollbar-ink);
-    background-color: color-mix(in srgb, var(--page-scrollbar-thumb) calc(var(--page-scrollbar-opacity) * 100%), transparent);
-    background-clip: padding-box;
-    border: 2px solid transparent;
-    border-radius: 999px;
-}
-
-html::-webkit-scrollbar-thumb:hover,
-body::-webkit-scrollbar-thumb:hover {
-    background-color: var(--page-scrollbar-thumb-hover);
-    background-color: color-mix(in srgb, var(--page-scrollbar-thumb-hover) calc(var(--page-scrollbar-opacity) * 100%), transparent);
-}
-
-html::-webkit-scrollbar-thumb:active,
-body::-webkit-scrollbar-thumb:active {
-    background-color: var(--page-scrollbar-thumb-active);
-}
-
-html::-webkit-scrollbar-button,
-body::-webkit-scrollbar-button {
-    display: none;
 }
 
 /* 顶部导航栏 */
