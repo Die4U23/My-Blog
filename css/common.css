@@ -3,6 +3,8 @@
     --color-primary: #2c3e66;
     --page-background: linear-gradient(120deg, #d4e6f1, #e8daef);
     --navbar-background: #93c3e5;
+    --page-scrollbar-track: #e0e2ef;
+    --page-scrollbar-thumb: #718198;
     --surface: rgba(255, 255, 255, 0.65);
     --surface-hover: rgba(255, 255, 255, 0.82);
     --surface-solid: #ffffff;
@@ -26,6 +28,8 @@
     --color-primary: #c5d9ff;
     --page-background: linear-gradient(120deg, #0d1728, #211b32);
     --navbar-background: #0f2642;
+    --page-scrollbar-track: #171b2d;
+    --page-scrollbar-thumb: #8190aa;
     --surface: rgba(20, 32, 52, 0.78);
     --surface-hover: rgba(31, 48, 76, 0.94);
     --surface-solid: rgba(28, 44, 70, 0.96);
@@ -54,9 +58,13 @@
 html {
     /* Match the canvas exposed at the viewport edge to the opaque navigation. */
     background-color: var(--navbar-background);
+    scrollbar-width: thin;
+    scrollbar-color: var(--page-scrollbar-thumb) var(--page-scrollbar-track);
 }
 
 body {
+    /* Keep viewport scrollbar colors from inheriting into nested scrollers. */
+    scrollbar-color: auto;
     font-family: sans-serif;
     background-color: var(--navbar-background);
     background-image: var(--page-background);
@@ -66,6 +74,54 @@ body {
     overflow-wrap: break-word;
     /* Switch the canvas and navigation fill together, including during a bounce. */
     transition: color 0.3s ease;
+}
+
+/* Use the rounded, arrow-free treatment where WebKit scrollbar styling exists.
+   Other engines keep the standard thin scrollbar; forced colors stay native. */
+@supports selector(::-webkit-scrollbar) {
+    @media (forced-colors: none) {
+        html {
+            scrollbar-width: auto;
+            scrollbar-color: auto;
+        }
+    }
+}
+
+/* The opaque track must not reveal the navigation-colored canvas underneath. */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: var(--page-scrollbar-track);
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner {
+    background: var(--page-scrollbar-track);
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+    background: var(--page-scrollbar-thumb);
+    border: 2px solid var(--page-scrollbar-track);
+    border-radius: 999px;
+}
+
+html::-webkit-scrollbar-thumb:hover,
+body::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
+
+html::-webkit-scrollbar-thumb:active,
+body::-webkit-scrollbar-thumb:active {
+    background: var(--accent);
+}
+
+html::-webkit-scrollbar-button,
+body::-webkit-scrollbar-button {
+    display: none;
 }
 
 /* 顶部导航栏 */
