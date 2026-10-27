@@ -1,0 +1,130 @@
+{
+  "recorded_on": "2026-10-27",
+  "kind": "Editorial summary of local development evidence; not a new acceptance run or full source release",
+  "committed_base": "76612a5c252af1aea363b7e154434aa8eb6831c4",
+  "publication_status": "The listed competition files were uncommitted local development at capture time. Do not construct GitHub blob links to these files at committed_base.",
+  "scope": "Generic task contracts, source-bound context, isolated verification, repair and rollback, persistent budget, manual reference applications. No external model or platform run was performed for this article.",
+  "manual_reference_results": [
+    {
+      "task": "Keep",
+      "passed": 33,
+      "public_cases": 33,
+      "declared_cases": 33,
+      "agent_generated": false,
+      "formal_status": "UNVERIFIED"
+    },
+    {
+      "task": "BookStack",
+      "passed": 35,
+      "public_cases": 35,
+      "declared_cases": 36,
+      "agent_generated": false,
+      "formal_status": "UNVERIFIED"
+    },
+    {
+      "task": "Stack Overflow",
+      "passed": 66,
+      "public_cases": 66,
+      "declared_cases": 68,
+      "agent_generated": false,
+      "formal_status": "UNVERIFIED"
+    },
+    {
+      "task": "PrestaShop",
+      "passed": 86,
+      "public_cases": 86,
+      "declared_cases": 86,
+      "agent_generated": false,
+      "formal_status": "UNVERIFIED"
+    },
+    {
+      "task": "12306",
+      "passed": 142,
+      "public_cases": 142,
+      "declared_cases": 142,
+      "agent_generated": false,
+      "formal_status": "UNVERIFIED"
+    },
+    {
+      "task": "Ctrip",
+      "passed": null,
+      "public_cases": 152,
+      "declared_cases": 153,
+      "agent_generated": false,
+      "formal_status": "UNVERIFIED"
+    }
+  ],
+  "sources": [
+    {
+      "path": "docs/competition/M1_M2_OFFLINE_ACCEPTANCE.md",
+      "sha256": "9f35f4ee7c71d718f5ba5b60d003ac930d38b04c0384d2b4a7aef8bf26d5acf7",
+      "opening_excerpt": "# M1/M2 实现与离线验收\r\n\r\n日期：2026-10-23。依据：[竞赛 PRD](../COMPETITION_PRD.md)。本次范围是通用任务契约和独立验证链路，没有启动竞赛应用生成、付费评测或平台提交。代码仍为工作区改动。\r\n\r\n后续更新：生成编排接入与离线验收见 [M3 报告](M3_OFFLINE_ACCEPTANCE.md)。下文保留 M1/M2 当时的交付边界。"
+    },
+    {
+      "path": "docs/competition/M3_OFFLINE_ACCEPTANCE.md",
+      "sha256": "0308b930ca29f1a407ce81269f1dfb96addc37fc773a17266cd1f995d2257a03",
+      "opening_excerpt": "# M3 通用编排、修复与候选恢复：离线验收\r\n\r\n日期：2026-10-23。依据：[竞赛 PRD](../COMPETITION_PRD.md) FR-06～09。M1/M2 的来源、工具链和隔离边界沿用 [前阶段报告](M1_M2_OFFLINE_ACCEPTANCE.md)。被测 Agent 未调用外部模型服务、未启动付费评测、未提交平台，代码留在工作区。"
+    },
+    {
+      "path": "docs/competition/M4_OFFLINE_ACCEPTANCE.md",
+      "sha256": "cdc2e21c9b65646cd090543ee1e21f0bf31e6b4240d3a968678cf62989902e0b",
+      "opening_excerpt": "# M4 离线启动门槛：实现与验收\r\n\r\n日期：2026-10-24（本轮工作始于 10 月 23 日）。本文承接 [M4 准备方案](M4_PREPARATION.md)，记录后续实现；准备方案保留为历史决策依据。范围是通用启动机制与合成任务的离线验收，**不代表 Keep/BookStack 已自主生成或通过竞赛**。被测 Agent 外部模型请求、付费评测、平台提交均为 0。开发子代理的 Codex 使用不计作竞赛模型调用。"
+    },
+    {
+      "path": "docs/competition/M4_REAL_TASK_READINESS.md",
+      "sha256": "a570673193170a2182f58888f1562061327de9cb5dda9afe1364a375af902f89",
+      "opening_excerpt": "# M4 后续：真实任务输入与修复闭环\n\n日期：2026-10-25。目标仍是同一 Agent 通过六任务完整正式验收。本文记录本轮可离线完成的推进；真实生成、真实任务功能用例、付费评测和平台提交均未启动。\n\n同日后续已经生成 Keep 的实际本地 plan，并按用户选择准备 DeepSeek 直连；最新运行材料、预算、镜像和本地 SDK 配置见 [Keep 启动准备记录](M4_KEEP_LAUNCH_READINESS.md)。本文下面的回归与镜像值保留为该阶段历史证据。"
+    },
+    {
+      "path": "docs/competition/M4_KEEP_LOCAL_IMPLEMENTATION.md",
+      "sha256": "e3aed5334dbb4b4209625b13429f530c81cddcb307db97558d29a3b2ad7e5ae3",
+      "opening_excerpt": "# Keep 本地初始化与 33 条公测（2026-10-26）\n\n本轮补齐了 Keep 的本地初始化器、SQLite 业务存储和 React 界面。最终在全新的正常/历史世界上完整执行原始公测：**33/33 通过，0 跳过、0 重试**。两世界各两条 SQL 初始化断言和两条 HTTP 业务断言也全部通过。\n\n这是用户本轮授权下编写的**手工本地参考实现**，状态为 `LOCAL_MANUAL_REFERENCE_VERIFIED`。它没有经过 Agent 生成路径，不能作为 Agent 自动生成能力、六任务全过或正式平台验收的证明。正式状态仍为 `UNVERIFIED`；其他五任务的业务验证仍为 `UNRUN`。\n\n真实模型调用、付费评测、平台提交均为 **0**，没有创建正式预算账本或 execution registry。线上 Runner 的部署、隔离、初始化接口及 ARC 实际路由计费证据继续保持待补证阻断。"
+    },
+    {
+      "path": "docs/competition/M4_BOOKSTACK_LOCAL_IMPLEMENTATION.md",
+      "sha256": "e589aea24e58b87d51ee2ca6d28e1bdf0e4c958e4d0edf0226c9a95623af824a",
+      "opening_excerpt": "# BookStack 本地实现与 35 条公开案例（2026-10-26）\n\n本轮完成 BookStack 手工本地参考实现，最终在全新世界中执行现有全部 **35 条公测：35 通过、0 失败、0 跳过、0 重试**。独立的 3 条 SQL 初始化断言和 2 条 HTTP 断言也全部通过。\n\n上游仍标称 **36** 条，公开源码与需求场景仍只有 **35** 条，原因未明。状态为 `LOCAL_PUBLIC_CASES_VERIFIED_CATALOG_MISMATCH`，并没有解除 `CATALOG_MISMATCH`：原始 verifier 的 `passed=false` 原样保留，其唯一剩余错误是 `declared and collected counts differ`。本地“35 条全部通过”与“总体验收仍被数量差额阻断”分别记录，没有改分母、补造第 36 条或放宽通用 verifier。\n\n本实现没有经过 Agent 生成路径，不作为自动生成候选或正式提交。正式状态仍为 `UNVERIFIED`。真实模型调用、付费评测、平台提交均为 **0**，没有创建正式预算账本或 execution registry。"
+    },
+    {
+      "path": "docs/competition/M4_STACKOVERFLOW_LOCAL_IMPLEMENTATION.md",
+      "sha256": "1488260966c817fcbd6c2305a111fb13b7a624599aba335bf7a25e5c263bbe5f",
+      "opening_excerpt": "# Stack Overflow 本地实现与 66 条公开案例（2026-10-26）\n\n本轮补齐 Stack Overflow 手工本地参考实现，在全新世界中完整执行现有公测：**66/66 通过，0 失败、0 跳过、0 重试**。8 条 SQL 初始化断言和 2 条 HTTP 断言也全部通过。\n\n上游标称仍为 **68** 条，公开源码与需求场景仍为 **66** 条，差额原因未明。最终状态为 `LOCAL_PUBLIC_CASES_VERIFIED_CATALOG_MISMATCH`；原始 verifier 的 `passed=false` 原样保留，唯一剩余错误为 `declared and collected counts differ`。没有改分母、补造两条案例或修改通用 verifier。\n\n这是用户授权编写的**手工本地参考实现**，没有经过 Agent 生成路径，不作为自动生成候选或正式平台接受证明。正式状态仍为 `UNVERIFIED`。真实模型调用、付费评测、平台提交均为 **0**，没有创建正式预算账本或 execution registry。"
+    },
+    {
+      "path": "docs/competition/M4_PRESTASHOP_LOCAL_IMPLEMENTATION.md",
+      "sha256": "f17ef265f54ceb20cb34e89e500356f77a8db37aab771c3640a7dbfb0b94df5b",
+      "opening_excerpt": "# PrestaShop 本地实现与 86 条公开案例（2026-10-26）\r\n\r\n补齐 PrestaShop 手工本地参考实现，在全新数据库中完整执行原始公测：**86/86 通过，0 失败、0 跳过、0 重试**。7 条 SQL 初始化断言和 1 条 HTTP 初始化断言全部通过。公开与标称数量同为 86，原始 verifier `passed=true`，`errors=[]`，runner exit code 为 0。\r\n\r\n这是独立的手工本地参考实现，没有经过 Agent 生成路径，不作为自动生成候选或正式平台接受证明。状态为 `LOCAL_MANUAL_REFERENCE_VERIFIED`，正式状态仍为 `UNVERIFIED`。真实模型、付费评测、平台提交均为 **0**；未创建正式预算账本或 execution registry。"
+    },
+    {
+      "path": "docs/competition/M4_12306_LOCAL_IMPLEMENTATION.md",
+      "sha256": "b003e047c3cff3b0e849216cbe04a013dce602fd811118d3b3d67554e9457f2d",
+      "opening_excerpt": "# 12306 本地实现与 142 条公开案例（2026-10-27）\r\n\r\n补齐 12306 手工本地参考实现，最终全新世界完整执行原始公测：**142/142 通过，0 失败、0 跳过、0 重试**。公开与标称数量均为 142；原始 verifier `passed=true`、`errors=[]`、runner exit code 为 0。7 条 SQL 与 1 条 HTTP 初始化断言通过。\r\n\r\n这是独立的手工本地参考实现，未经过 Agent 生成路径。状态为 `LOCAL_MANUAL_REFERENCE_VERIFIED`，正式状态仍 `UNVERIFIED`。本轮真实模型调用、付费评测、平台提交均为 **0**；未创建正式资金账本或 execution registry。"
+    },
+    {
+      "path": "agent/competition_context.py",
+      "sha256": "4a65e9ad7c9a14b24288ecaa380525f94df872afbdfd617d4629934859445d23"
+    },
+    {
+      "path": "agent/competition_orchestrator.py",
+      "sha256": "edc96abeb9e77ae4bd499b0df585caf774dfdbd0c9751bd6235122c153454bb5"
+    },
+    {
+      "path": "agent/campaign_budget.py",
+      "sha256": "3063ced79a8990ed473011dca417a2339981bd44bba810ccc230901a0c6bcbc2"
+    },
+    {
+      "path": "docs/competition/M4_REQUEST_FUNDING_GUARD.md",
+      "sha256": "233b2bb6c571de2e007000a51a2e4567c7266eb9f7a739810a8c0a64e30651bc",
+      "opening_excerpt": "# 逐请求资金来源校验（2026-10-26）\n\n本轮按用户已确认的边界继续离线推进：缺少线上 Runner / Keep 初始化证明及 ARC 生效计价时保持阻断。新增逐请求费率有效期、来源完整性和输出上界检查。**真实模型调用、付费评测和平台提交均为 0；没有初始化正式账本或执行 registry。**\n\n本轮机器索引：[2026-10-26-m4-request-guard.json](2026-10-26-m4-request-guard.json)。原始日志在 `local-runs/m4-request-guard-20261026/`；上一轮 [部署与路由核查](M4_DEPLOYED_RUNNER_ROUTE_AUDIT.md)中的未知项继续保留。"
+    },
+    {
+      "path": "docs/competition/M4_LOCAL_ONLINE_REQUIREMENTS_TRIAL.md",
+      "sha256": "bfcaae662ffa6a37ed1419bed5adb5198d4286d4dc0a7645682d1d9c473d3a6b",
+      "opening_excerpt": "# 线上需求下载与本地尝试（2026-10-26）\n\n本轮已从线上重新下载六任务完整公开材料，在新目录执行本地准备、原始 Playwright 收集、Keep 计划与禁网安装检查，并对干净 Blank 做实际启动尝试。下载后的材料可以独立用于本地检查；线上 Runner 的待补证事项不阻塞这些离线操作。\n\n真实模型调用、付费评测和平台提交均为 **0**，没有创建正式账本或执行 registry；没有手工编写 Keep 应用冒充生成结果。机器索引见 [2026-10-26-m4-online-snapshot.json](2026-10-26-m4-online-snapshot.json)。"
+    }
+  ],
+  "notes": [
+    "Source excerpts are historical report openings; later task progress is given in manual_reference_results.",
+    "This snapshot contains selected descriptions and file hashes, not the original local-run logs or a reproducible acceptance bundle."
+  ]
+}
