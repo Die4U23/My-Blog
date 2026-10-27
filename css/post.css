@@ -4,30 +4,6 @@ body {
     min-width: 0;
 }
 
-body::-webkit-scrollbar {
-    height: 10px;
-    background: transparent;
-}
-
-body::-webkit-scrollbar-track {
-    background: var(--subtle-border);
-    border-radius: 3px;
-}
-
-body::-webkit-scrollbar-thumb {
-    background: var(--scroll-thumb);
-    border-radius: 3px;
-}
-
-body::-webkit-scrollbar-thumb:hover {
-    background: var(--text-muted);
-}
-
-body::-webkit-scrollbar-button {
-    display: none;
-}
-
-
 .layout {
     margin: 30px auto;
     overflow: visible;
