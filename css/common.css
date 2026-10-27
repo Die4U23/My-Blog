@@ -1,5 +1,7 @@
 /* 页面公有格式 */
 :root {
+    --navbar-height: 60px;
+    --page-scrollbar-ink: var(--page-scrollbar-thumb);
     --color-primary: #2c3e66;
     --page-background: linear-gradient(120deg, #d4e6f1, #e8daef);
     --navbar-background: #93c3e5;
@@ -65,7 +67,7 @@ html {
     /* Match the canvas exposed at the viewport edge to the opaque navigation. */
     background-color: var(--navbar-background);
     scrollbar-width: thin;
-    scrollbar-color: var(--page-scrollbar-thumb) var(--page-scrollbar-track);
+    scrollbar-color: var(--page-scrollbar-ink) var(--page-scrollbar-track);
 }
 
 body {
@@ -74,12 +76,20 @@ body {
     font-family: sans-serif;
     background-color: var(--navbar-background);
     background-image: var(--page-background);
-    padding-top: 60px;
+    padding-top: var(--navbar-height);
     min-height: 100vh;
     color: var(--text-primary);
     overflow-wrap: break-word;
     /* Switch the canvas and navigation fill together, including during a bounce. */
     transition: color 0.3s ease;
+}
+
+/* Keep the native hit area and layout width stable while the thumb is hidden.
+   Without JavaScript the scrollbar remains visible. */
+@media (forced-colors: none) {
+    html.scrollbar-auto:not(.scrollbar-visible) {
+        --page-scrollbar-ink: transparent;
+    }
 }
 
 /* Use the rounded, arrow-free treatment where WebKit scrollbar styling exists.
@@ -99,7 +109,9 @@ html::-webkit-scrollbar,
 body::-webkit-scrollbar {
     width: 8px;
     height: 8px;
-    background: var(--page-scrollbar-track-image) var(--page-scrollbar-track);
+    background:
+        linear-gradient(var(--navbar-background) 0 var(--navbar-height), transparent var(--navbar-height)),
+        var(--page-scrollbar-track-image) var(--page-scrollbar-track);
 }
 
 html::-webkit-scrollbar-track,
@@ -109,9 +121,16 @@ body::-webkit-scrollbar-corner {
     background: var(--page-scrollbar-track-image) var(--page-scrollbar-track);
 }
 
+/* Reserve the header area, so the thumb can never cross the navigation. */
+html::-webkit-scrollbar-track:vertical,
+body::-webkit-scrollbar-track:vertical {
+    margin-top: calc(var(--navbar-height) + 8px);
+    margin-bottom: 8px;
+}
+
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
-    background: var(--page-scrollbar-thumb);
+    background: var(--page-scrollbar-ink);
     background-clip: padding-box;
     border: 2px solid transparent;
     border-radius: 999px;
@@ -140,6 +159,7 @@ body::-webkit-scrollbar-button {
     width: 100%;
     z-index: 1000;
     background-color: var(--navbar-background);
+    min-height: var(--navbar-height);
     padding: 0 20px;
     display: flex;
     justify-content: space-between;
@@ -366,8 +386,8 @@ figcaption {
 }
 
 @media (max-width: 768px) {
-    body {
-        padding-top: 52px;
+    :root {
+        --navbar-height: 52px;
     }
 
     .navbar {
