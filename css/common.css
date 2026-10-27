@@ -1,6 +1,15 @@
+/* Animate a registered value on the root: native scrollbar pseudo-elements
+   do not consistently animate their own background-color transitions. */
+@property --page-scrollbar-opacity {
+    syntax: '<number>';
+    inherits: true;
+    initial-value: 1;
+}
+
 /* 页面公有格式 */
 :root {
     --navbar-height: 60px;
+    --page-scrollbar-opacity: 1;
     --page-scrollbar-ink: var(--page-scrollbar-thumb);
     --color-primary: #2c3e66;
     --page-background: linear-gradient(120deg, #d4e6f1, #e8daef);
@@ -66,6 +75,7 @@
 html {
     /* Match the canvas exposed at the viewport edge to the opaque navigation. */
     background-color: var(--navbar-background);
+    transition: --page-scrollbar-opacity 180ms ease-out;
     scrollbar-width: thin;
     scrollbar-color: var(--page-scrollbar-ink) var(--page-scrollbar-track);
 }
@@ -89,6 +99,24 @@ body {
 @media (forced-colors: none) {
     html.scrollbar-auto:not(.scrollbar-visible) {
         --page-scrollbar-ink: transparent;
+        --page-scrollbar-opacity: 0;
+        transition-duration: 280ms;
+    }
+}
+
+/* Standard scrollbar engines use the same animated alpha. */
+@supports (color: color-mix(in srgb, black 50%, transparent)) {
+    html {
+        scrollbar-color:
+            color-mix(in srgb, var(--page-scrollbar-thumb) calc(var(--page-scrollbar-opacity) * 100%), transparent)
+            var(--page-scrollbar-track);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    html,
+    html.scrollbar-auto:not(.scrollbar-visible) {
+        transition: none;
     }
 }
 
@@ -131,6 +159,7 @@ body::-webkit-scrollbar-track:vertical {
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb {
     background: var(--page-scrollbar-ink);
+    background-color: color-mix(in srgb, var(--page-scrollbar-thumb) calc(var(--page-scrollbar-opacity) * 100%), transparent);
     background-clip: padding-box;
     border: 2px solid transparent;
     border-radius: 999px;
@@ -139,6 +168,7 @@ body::-webkit-scrollbar-thumb {
 html::-webkit-scrollbar-thumb:hover,
 body::-webkit-scrollbar-thumb:hover {
     background-color: var(--page-scrollbar-thumb-hover);
+    background-color: color-mix(in srgb, var(--page-scrollbar-thumb-hover) calc(var(--page-scrollbar-opacity) * 100%), transparent);
 }
 
 html::-webkit-scrollbar-thumb:active,
