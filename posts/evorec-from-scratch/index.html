@@ -3,9 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="记录 EvoRec 从选题、离线实验到本地单实例演示的过程。R01–R06 已归档；R06 未获替换原路径的证据。">
+    <meta name="description" content="EvoRec 从冷启动离线实验 R01–R06 到本地推荐 Demo 的实践记录：区分冻结模型与新品内容基线，呈现研究结论、浏览器状态恢复、504 与验证边界。">
     <script src="/js/theme.js?v=20260819-3"></script>
-    <title>从零构建 EvoRec：一个推荐算法项目的持续实践记录</title>
+    <title>EvoRec 项目介绍：动态商品库推荐、离线实验与服务闭环</title>
     <link rel="stylesheet" href="/css/link.css?v=20260819-3">
     <link rel="stylesheet" href="/css/code.css?v=20260819-3">
     <link rel="stylesheet" href="/css/post.css?v=20260819-3">
@@ -30,15 +30,16 @@
 
         <main class="post-content">
             <article class="post-article">
-                <h1>从零构建 EvoRec：一个推荐算法项目的持续实践记录</h1>
-                <p class="post-date">2026-09-15 · 日志更新至 2026-10-08</p>
+                <h1>EvoRec 项目介绍：动态商品库推荐、离线实验与服务闭环</h1>
+                <p class="post-date">2026-10-27 · 持续更新</p>
 
                 <div class="content">
-<blockquote><p>记录从选题、方案设计、算法实验到系统展示的完整过程。</p></blockquote>
-<blockquote><p>当前阶段：R01–R06 离线实验已归档。R06 在相同候选预算下比较多兴趣召回，覆盖略增，但区间跨过零，没有证据支持替换原路径。本地单实例演示已接通会话、反馈、新品内容基线、策略对比和可选的冻结 R06 服务；R06 默认关闭，不能把任意新商品放进旧模型。</p></blockquote>
+<blockquote><p>这篇文章记录 EvoRec 如何从冷启动研究问题发展为带有离线实验和本地可操作 Demo 的项目，并区分实验结果、系统能力与尚未验证的范围。</p></blockquote>
+<blockquote><p>截至 2026-10-27：R01–R06 离线研究已形成完整记录；当前本地 Demo 提供两条分开的体验路径——批准的冻结 R06 模型，以及不依赖研究模型的合成商品内容基线。它不是生产推荐服务，也不表示完整研究 PRD 已完成。</p></blockquote>
+<p>本文的早期实验数字和失败记录仍按当时协议保留。最新版本还修复了发现页、反馈来源绑定及标签页状态恢复问题；这些页面和恢复检查不能替代完整模型负载复验。当前 R06 结果仍保留 <code>A-frozen-s17</code>：多兴趣方案没有显示稳定优势，冷商品进入候选池略有增加，但无历史冷目标仍未命中。Demo 里的 <code>adaptive</code> 是兼容入口并固定解析为 <code>dense</code>，不是动态学习路由。</p>
 
 <h2 id="background">一、项目背景与目标</h2>
-<p>这个项目源于我从 C++ 后端开发向推荐算法领域转型的学习需求。相比单纯阅读论文或跑通开源代码，我希望通过构建一个完整的推荐系统来理解算法背后的工程实现、实验设计和问题权衡。</p>
+<p>EvoRec 面向动态商品库的冷启动问题，将离线推荐研究、服务端请求处理和本地交互演示放在同一个项目中。关键问题不只是模型排序分数，还包括新品何时进入候选集、反馈怎样改变后续请求，以及模型与商品版本如何保持可追溯。</p>
 
 <h3>为什么选择推荐系统</h3>
 <p>推荐系统是一个既有理论深度又有工程复杂度的领域。它涉及机器学习、信息检索、系统设计等多个方面，同时也有明确的业务价值和评估标准。选择“动态商品库推荐”这个场景，是因为它包含了推荐系统中最核心的挑战：</p>
@@ -50,15 +51,15 @@
 </ul>
 
 <h3>项目目标</h3>
-<p>通过这个项目，我希望实现以下几个目标：</p>
+<p>项目覆盖以下能力：</p>
 <ul>
-<li><strong>技术能力：</strong>掌握 Python/PyTorch 推荐算法实现，理解序列推荐、双塔模型等经典方法。</li>
-<li><strong>工程能力：</strong>构建完整的推荐服务，包括数据处理、模型训练、在线服务和前端展示。</li>
-<li><strong>实验方法：</strong>学会设计实验、选择基线、分析结果、定位问题。</li>
-<li><strong>可交付成果：</strong>一个可演示的推荐系统，包括算法模块、API 服务和前端界面。</li>
+<li><strong>召回与排序：</strong>协同过滤、内容双塔、策略门控、冷样本加权和多兴趣候选的离线实现与比较。</li>
+<li><strong>服务与持久化：</strong>FastAPI 请求编排、PostgreSQL 请求/结果记录、反馈与商品版本管理。</li>
+<li><strong>商品生命周期：</strong>导入校验、异步构建、预览、显式发布、下架和回滚。</li>
+<li><strong>对照评估：</strong>固定输入与策略、分组指标、不确定性分析及结果追溯。</li>
 </ul>
 
-<p>离线实验已推进到 R06。工程侧已有本地持久化演示：会话与反馈写入 PostgreSQL，商品导入、后台构建和发布可以在单实例上操作。页面是零构建的本地 Web，不是最初设想的 React 应用。冻结 R06 服务要显式启用、批准并发布；新品走独立内容基线。持续负载、多 worker 租约和公网身份仍未验收。仓库当前 HEAD 为 <a class="link" href="https://github.com/Die4U23/EvoRec/commit/6fd93babd4c410f0a98068a6646993facc94d9a1" rel="noopener noreferrer" target="_blank"><code>6fd93ba</code></a>。</p>
+<p>研究轨迹现已覆盖 R01–R06：热门与协同基线、序列模型、内容双塔、门控与冷商品保留、冷样本加权排序，以及多兴趣召回和残差排序的受控比较。系统侧也已把推荐请求、PostgreSQL 持久化、反馈、商品构建/发布、结果查看与本地页面接通。二者是不同层面的成果：离线指标回答冻结协议下的研究问题，Demo 证明本地流程可操作，不代表线上业务效果。</p>
 <h2 id="problem">二、核心问题与解决思路</h2>
 
 <h3>问题场景</h3>
@@ -83,7 +84,7 @@
 <li><strong>效果看板：</strong>实时监控推荐质量和冷商品曝光率。</li>
 </ul>
 
-<p>这四项里，推荐、反馈、新品发布和策略对比已经能在本地单实例上操作。效果看板没有做成线上监控；现有的是结果页上的离线档案，以及评估工作台里按冻结配置重算的指标。成功标准不仅是功能完成，更重要的是实验可信、结果可追溯。没有对照的改动不写成提升。</p>
+<p>成功标准不仅是功能完成，更重要的是实验可信、结果可追溯。每个设计决策都需要有数据支撑。</p>
 <figure>
 <img src="/images/evorec/user-flow.svg" alt="EvoRec 用户流程图" />
 <figcaption>EvoRec 用户流程图：从用户登录到推荐反馈的完整流程。</figcaption>
@@ -95,18 +96,18 @@
 <h2 id="tech-stack">三、技术选型与架构设计</h2>
 
 <h3>技术栈选择</h3>
-<p>在明确了问题和目标后，我需要选择合适的技术栈。考虑到学习曲线、生态成熟度和社区支持，最终选择了以下技术组合：</p>
+<p>技术选择围绕离线实验效率、服务边界和本地可复现演示：</p>
 
 <ul>
 <li><strong>算法框架：Python + PyTorch</strong> — 推荐算法领域的主流选择，有丰富的预训练模型和工具库。</li>
 <li><strong>向量检索：Faiss</strong> — Facebook 开源的高性能相似度搜索库，支持多种索引类型。</li>
 <li><strong>数据存储：PostgreSQL</strong> — 可靠的关系数据库，支持事务和复杂查询。</li>
 <li><strong>API 服务：FastAPI</strong> — 现代 Python Web 框架，自动生成文档，异步支持好。</li>
-<li><strong>前端展示：</strong>最初计划用 React。实际落地的是零构建本地页面，由 FastAPI 提供 <code>/app</code>，不单独做前端构建。</li>
+<li><strong>前端展示：原生 HTML/CSS/JavaScript</strong> — 当前本地 Demo 用无构建步骤页面展示推荐、反馈、商品管理与结果查看；React 等框架仍是后续选项。</li>
 </ul>
 
 <h3>架构设计原则</h3>
-<p>在设计系统架构时，我遵循以下原则：</p>
+<p>系统架构遵循以下原则：</p>
 
 <ul>
 <li><strong>模块解耦：</strong>算法、数据、服务和展示模块独立开发和测试。</li>
@@ -115,24 +116,29 @@
 <li><strong>可测试性：</strong>关键路径有自动化检查，使用测试替身隔离依赖。</li>
 </ul>
 
-<figure>
-<img src="/images/evorec/architecture.svg" alt="EvoRec 系统架构图" />
-<figcaption>EvoRec 系统架构图：算法、数据、服务和展示模块的组织关系。</figcaption>
-</figure>
+<pre><code>离线研究：src/evorec/research → 候选生成 / 训练 / 评估
+                              │ 固定模型与数据版本
+                              ▼
+浏览器 → FastAPI → Recommend.execute → PostgreSQL
+                    │ 请求快照 / 资格过滤 / Top-K / 幂等结果
+                    ├── 冻结 R06：CF + 内容召回 + 排序器
+                    └── 新品 Demo：合成目录内容基线
+后台 workers：商品目录构建 / 策略比较 / 批量评估</code></pre>
+<p>图中的冻结模型与合成内容基线是两条分别配置的路径；离线研究产物不会自动成为线上活动模型。</p>
 
 <h3>关于 C++ 的考虑</h3>
-<p>作为 C++ 背景的开发者，我最初考虑在性能关键路径使用 C++。但经过权衡后决定：</p>
+<p>考虑到主要算法实验基于 Python，实现初期没有在性能关键路径额外引入 C++：</p>
 <ul>
 <li><strong>先用 Python 验证：</strong>在明确瓶颈之前，不引入额外复杂度。</li>
 <li><strong>保留优化空间：</strong>如果后续测量发现性能问题，可以用 pybind11 封装 C++ 扩展。</li>
 <li><strong>利用现有工具：</strong>Faiss 本身就是 C++ 实现，通过 Python 绑定使用即可。</li>
 </ul>
 
-<p>这个决策让离线实验先跑起来。到 2026-10 测量 R06 服务路径之后，在线实现仍然是 Python。可选的 NumPy 分块只加速冻结内容召回这一段，<code>cpp/</code> 仍是接入条件，没有换成 pybind11。</p>
+<p>这一取舍减少了跨语言边界，同时保留了在测得实际瓶颈后再评估 C++ 扩展的空间。</p>
 <h2 id="framework">四、工程框架搭建</h2>
 
 <h3>设计原则</h3>
-<p>在开始编码之前，我花了相当多时间思考工程组织。一个好的框架应该：</p>
+<p>工程组织需要满足以下原则：</p>
 <ul>
 <li><strong>契约先行：</strong>先定义接口和数据格式，模块之间通过契约通信。</li>
 <li><strong>可测试性：</strong>核心逻辑独立于外部依赖，可以用测试替身验证。</li>
@@ -140,43 +146,46 @@
 <li><strong>清晰的状态转换：</strong>区分“服务启动”和“推荐就绪”，明确商品的生命周期。</li>
 </ul>
 
-<figure>
-<img src="/images/evorec/directory-structure.svg" alt="EvoRec 工程目录结构" />
-<figcaption>EvoRec 工程目录结构：各模块的职责划分。</figcaption>
-</figure>
+<pre><code>src/evorec/domain/          领域对象、规则与协议
+src/evorec/application/     推荐、反馈、商品与评估用例
+src/evorec/infrastructure/ 数据库、模型与 worker 适配器
+src/evorec/api/             FastAPI 路由与请求契约
+src/evorec/research/        离线数据处理、训练与评估
+web/                        原生 HTML/CSS/JavaScript 页面
+db/                         PostgreSQL schema 与迁移
+scripts/                    服务、目录、比较和评估任务入口</code></pre>
 
 <h3>核心模块</h3>
 <ul>
-<li><strong>domain/</strong> — 不可变请求快照和合法推荐规则，不依赖具体数据库。</li>
-<li><strong>application/</strong> — 推荐编排、就绪查询和依赖接口。</li>
-<li><strong>infrastructure/</strong> — 内存后端、PostgreSQL、冻结模型和目录适配。</li>
-<li><strong>api/</strong> — FastAPI 的会话、推荐、反馈和管理路由。</li>
-<li><strong>research/</strong> — 离线采样、训练和评价。服务默认不加载研究模型。</li>
-<li><strong>web/</strong> — 本地推荐页、商品工作台、结果页和评估页。</li>
+<li><strong>domain/</strong> — 领域对象和业务逻辑，不依赖具体实现。</li>
+<li><strong>infrastructure/</strong> — PostgreSQL 与模型运行时等外部依赖适配器。</li>
+<li><strong>application/</strong> — 应用层服务，协调领域对象和适配器。</li>
+<li><strong>api/</strong> — FastAPI 路由和请求处理。</li>
+<li><strong>research/</strong> — 离线实验脚本和评估代码。</li>
 </ul>
 
 <h3>当前实际进展</h3>
-<p>早期框架只证明契约和应用层边界：FastAPI 骨架、请求绑定和用测试替身隔开的检查。那一轮约 55 项自动检查不能说明推荐效果或数据库事务已经成立。</p>
-<p>到 2026-10-08，同一套服务已经能做这些事：</p>
+<p>下列清单是 2026-09-15 初始框架阶段的记录，不是当前系统能力的完整说明。此后服务与本地 Demo 已继续落地：</p>
 <ul>
-<li>创建带访问令牌的会话，执行推荐，并用 <code>event_id</code> 幂等记录收藏、隐藏和撤销。配置 <code>EVOREC_DATABASE_URL</code> 后，会话、请求和结果写入 PostgreSQL；不配置时仍可用进程内后端。</li>
-<li>管理端导入商品、排队构建标题和类别内容基线、预览、确认发布、下架和守卫回滚。构建由独立的 <code>catalog_worker</code> 消费，只启动 API 时任务保持排队。</li>
-<li>策略对比和批量快照评估各有自己的 worker 与页面。它们的结果与普通推荐记录分开存放。</li>
-<li>冻结 R06 包可以显式启用、批准准备并发布。默认关闭。新品走独立内容基线，最多 5,000 件，不能把任意新 ID 放进旧模型。</li>
+<li>建立了 FastAPI 服务骨架，定义了推荐接口的输入输出契约。</li>
+<li>实现了 55 项自动检查，覆盖请求绑定、参数验证、超时处理等边界情况。</li>
+<li>使用测试替身隔离了模型和存储依赖，确保应用层逻辑可独立验证。</li>
+<li>定义了商品状态机，明确了从入库到上线的完整流程。</li>
 </ul>
 
 <figure>
 <img src="/images/evorec/api-response.svg" alt="EvoRec API 接口响应示例" />
-<figcaption>EvoRec API 接口响应示例：推荐请求的数据契约。</figcaption>
+<figcaption>历史示意（2026-09-15 初始框架）：推荐请求的早期数据契约，当前路由和响应以仓库 API 契约为准。</figcaption>
 </figure>
 
 <figure>
 <img src="/images/evorec/test-results.svg" alt="自动检查结果" />
-<figcaption>自动检查结果：55 项检查通过，覆盖契约与边界验证。</figcaption>
+<figcaption>历史记录（2026-09-15 初始框架）：当时 55 项契约与边界检查通过，不代表当前测试总量或完整 Demo 验收。</figcaption>
 </figure>
 
-<p><strong>重要说明：</strong>服务测试通过，只说明这条本地路径按约定工作。推荐质量仍以第五节的离线实验为准。R06 在原 2 秒期限下的完整包请求曾经超时，并发负载里仍有 504，不能把演示能点开写成吞吐已经达标。</p>
-<h2 id="data-baseline">五、第二阶段：准备数据与建立基线</h2>
+<p><strong>历史验证边界：</strong>当时的 55 项检查只支持契约和应用层边界，不证明推荐效果、数据库事务或真实吞吐。后续数据库、推荐服务与页面交互另有独立验证记录，不能把这组旧检查数当作当前回归规模。</p>
+<h2 id="data-baseline">五、离线实验档案：R01–R05</h2>
+<p>以下实验按发生顺序保留其数据、指标和当时结论。它们是历史运行，不是当前服务性能或新商品质量的证据；R06 是后续冻结比较，负责更新当前策略取舍。</p>
 <ul>
 <li>数据从哪里来，包含哪些字段。</li>
 <li>如何清洗交互、统一商品 ID 和处理缺失数据。</li>
@@ -199,7 +208,7 @@
 <p><strong>R03 已完成。</strong> 引入内容双塔架构，使用商品标题、品牌和类别进行语义编码。完成 48 个 epoch 训练，构建协同过滤与内容检索的混合召回策略。内容融合改善整体排序性能，但冷商品命中率仍低于预期。</p>
 <figure>
 <img src="/images/evorec/content-tower-architecture.png" alt="内容双塔结构与实现边界" />
-<figcaption>内容双塔结构与实现边界：R03 训练，R04 冻结复用。后来的单实例演示不改变这张图的训练边界，见更新日志。</figcaption>
+<figcaption>内容双塔结构与实现边界：R03 训练，R04 冻结复用。在线业务接入仍是计划。</figcaption>
 </figure>
 <figure>
 <img src="/images/evorec/r03-learning-curves.png" alt="R03 内容双塔训练曲线" />
@@ -209,8 +218,7 @@
 <img src="/images/evorec/r03-test-comparison.png" alt="R03 整体排序与冷商品召回" />
 <figcaption>R03 整体排序与冷商品召回：内容融合改善整体排序，但冷商品命中少于纯内容路径。</figcaption>
 </figure>
-<p><strong>R04 已完成。</strong> 冻结 R03 模型，设计冷商品保留与门控策略。通过验证集比较五种预登记策略，分析冷商品在各检索阶段的落选位置。门控机制根据历史信号动态调整召回路径，在不跳过任何检索通道的前提下提升冷商品曝光。</p>
-<p>2026-09-24 的研究索引把这一轮改记为：冷商品保留和规则门控未获验证集支持，留下的是落选位置。上面这句话和 09-16 日志保留当时的写法；是否构成曝光提升，以仓库 <a class="link" href="https://github.com/Die4U23/EvoRec/blob/6fd93babd4c410f0a98068a6646993facc94d9a1/docs/experiments/r04-gating/report.html" rel="noopener noreferrer" target="_blank">R04 报告</a>为准。</p>
+<p><strong>R04 历史实验。</strong> 冻结 R03 模型，预登记五种冷商品保留与门控策略，并在新用户验证集上按整体质量下限和同分规则选择配置。测试集上 seed 17 的 reserve-2 比 fixed 多命中 2 个冷目标，gated-2 没有提升；命中集合并非嵌套。因此，这组结果只说明指定策略在该次固定测试中的差异，不足以支持门控稳定提升效果的泛化结论。</p>
 <figure>
 <img src="/images/evorec/cold-reservation-flow.png" alt="冷商品保留与门控流程" />
 <figcaption>冷商品保留与门控流程：五种策略在实验前固定。门控只读取历史信号；未跳过任一检索路径。</figcaption>
@@ -231,7 +239,7 @@
 <img src="/images/evorec/r04-gate-activity.png" alt="R04 门控活动与冷商品曝光" />
 <figcaption>R04 门控活动与冷商品曝光：改变列表的请求比例和新增冷商品位置数量，与目标命中率分别评价。</figcaption>
 </figure>
-<p><strong>R05 已完成。</strong> 引入新排序模型 ColdListMLP，针对冷样本进行加权训练。完成 35 轮训练，在相同候选池下与普通 ListMLP 进行对比。冷样本加权策略在保持整体性能的同时提升冷商品排序效果。</p>
+<p><strong>R05 历史实验。</strong> 引入 ColdListMLP，对冷样本加权训练。原始同候选池对比中 ColdListMLP 仅运行 seed 17，普通 ListMLP 有三个种子；因此不能把该单种子差异概括为可重复的稳定提升。后续在独立样本上的三种子复验报告 NDCG@10 为 0.009315 ± 0.000387，冷目标命中数为 26 / 24 / 27；它验证了另一轮固定协议下的结果，并不消除不同样本或策略之间的不确定性。详见<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/docs/experiments/r05-cold-replication/report.md" rel="noopener noreferrer" target="_blank">R05 三种子复验</a>。后续 R06 的多兴趣方案配对区间跨零，当前选择仍是 A-frozen-s17。</p>
 <figure>
 <img src="/images/evorec/r05/learning-curves.png" alt="R05 新排序模型训练曲线" />
 <figcaption>R05 新排序模型训练曲线：4 次训练、35 轮。普通损失与冷样本加权损失的绝对值不直接比较；最佳轮次只看验证集。</figcaption>
@@ -240,6 +248,7 @@
 <img src="/images/evorec/r05/test-comparison.png" alt="R05 同候选池排序比较" />
 <figcaption>R05 同候选池排序比较：ColdListMLP 只运行 seed 17；普通 ListMLP 有三个种子。R03 参考使用不同编码器与召回链路。</figcaption>
 </figure>
+<h3>R06 固定协议结果</h3>
 <p><strong>R06 已完成，但没有证据支持替换原路径。</strong> 测试用户与 R01–R05 的交集为零，共 12,524 个正反馈请求、9,373 名用户。比较的是相同候选数量预算下的均值内容召回和近期多兴趣召回。验证规则保留 A-frozen-s17，本轮没有换路径。</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
 <thead>
@@ -283,48 +292,13 @@
 </tbody>
 </table></div>
 <p>冷目标进入候选池由 115 / 6,978 增至 122 / 6,978。无历史冷目标仍是 0 / 3,928。B 减 A 的整体 NDCG 差值为 −0.000033769，95% 边际区间 [−0.000260567, +0.000184014]；C 减 D 为 −0.000335551，[−0.000686012, +0.000000421]。两个区间都跨过零。测试批次里均值内容路径用时 7.865 秒，多兴趣计算另用 12.469 秒。这是离线批次时间，不是线上延迟。共 6 次训练、74 轮。50 项预登记区间按用户聚类重采样 10,000 次后独立复算，条件于固定检查点，不含训练随机性，也没有做多重比较校正。三个种子的平均不是集成推荐。数字来自仓库 README 的当前结果表。</p>
-<h2 id="algorithms">六、第三阶段：理解与实现推荐方法</h2>
-<ul>
-<li>从简单基线开始，逐步理解序列推荐与内容检索。</li>
-<li>如何阅读 TIGER、LIGER 等相关工作。</li>
-<li>商品内容向量、语义 ID 和用户表示分别是什么。</li>
-<li>新商品加入后，各条检索路径如何处理。</li>
-<li>为什么提出预算路由，以及它依赖哪些信息。</li>
-<li>论文实现与统一实验协议之间有哪些差异。</li>
-</ul>
-<p>实际走过的方法是这几条，不是论文复现清单。</p>
-<ul>
-<li><strong>统计基线：</strong>热门和 ItemCF 用来确认时间回放本身能跑通。R02 里更强的对照是时间衰减协同融合，序列模型没有超过它。</li>
-<li><strong>序列模型：</strong>自注意力序列模型按用户历史预测下一个商品。它只能推荐训练词表里的 ID。R02 的 6,874 个模型冷目标全部未命中，说明继续加训练轮数解决不了新品。</li>
-<li><strong>内容双塔：</strong>用标题、品牌和类别做语义向量，让没有交互的商品也能进入候选。R03 的内容融合改善了整体排序，冷商品命中仍低于纯内容路径。</li>
-<li><strong>门控与冷排序：</strong>R04 在冻结的 R03 模型上比较五种预登记策略，并记录冷商品在哪一段落选。后来的研究索引不把门控当成已获验证集支持的提升。R05 在同一候选池里比较普通 ListMLP 和冷样本加权的 ColdListMLP。</li>
-<li><strong>多兴趣召回：</strong>R06 在相同候选数量下，把近期多个兴趣和均值内容向量对照。覆盖略增，排序差值的区间跨过零，所以服务默认仍走原来的冻结路径，而不是自动换成多兴趣。</li>
-</ul>
-<p>预算路由和生成式语义 ID 没有做统一对照。TIGER、LIGER 仍只作为阅读背景，没有对应的实验协议。</p>
-<h2 id="experiments">七、第四阶段：用实验检验想法</h2>
-<ul>
-<li>实验要验证的假设是什么。</li>
-<li>为什么选择这些基线与评价指标。</li>
-<li>如何比较整体、冷物品和低频物品表现。</li>
-<li>如何保证不同方法的候选范围和计算预算可比。</li>
-<li>消融实验如何判断每个模块的作用。</li>
-<li>哪些实验没有提升，可能原因是什么。</li>
-<li>哪些观察可以形成结论，哪些还需要更多证据。</li>
-</ul>
-<figure>
-<img src="/images/evorec/metrics-comparison.svg" alt="实验结果对比" />
-<figcaption>实验结果对比：测试集 NDCG@10 - 不同方法在整体、冷物品和低频物品上的表现。</figcaption>
-</figure>
-<p>对照时固定这几件事：用户按哈希划分，测试请求不能看到未来交互；冷目标是训练时没出现过的商品，无历史冷目标又是其中完全没有可建模行为的一部分；不同方法要在同一候选数量预算下比，不能一边多召回一边声称排序更好。R06 把这三条都写进了预登记。结果是覆盖从 115 增到 122，无历史冷目标仍是 0，整体 NDCG 的配对区间跨过零。因此这一轮的结论是“不替换”，不是“多兴趣更好”。均值和三个种子的标准差都不是置信区间。不同轮次的用户样本也不能直接相减，当成跨轮提升。</p>
-<h2 id="integration">八、第五阶段：把算法接入可操作的系统</h2>
-<ul>
-<li>一次推荐请求如何经过各个模块。</li>
-<li>用户收藏、屏蔽和撤销如何影响后续请求。</li>
-<li>新品如何完成校验、编码、索引构建与发布。</li>
-<li>模型、物品映射和索引如何保持版本一致。</li>
-<li>发布失败、请求超时和版本回滚如何处理。</li>
-<li>前端怎样展示真实状态与实验结果。</li>
-</ul>
+<h2 id="algorithms">六、推荐方法与实现</h2>
+<p>离线研究包括流行度与时间衰减协同基线、序列模型、商品内容双塔、冷商品保留/门控、冷样本加权排序，以及 R06 多兴趣召回和候选内残差排序。实验数据按时间协议切分，模型拟合与请求时可用商品资格分开处理；同一轮固定候选范围和评估输入，并分别报告整体与冷商品指标。这里的内容是项目实际实现和实验，不是论文复现目录。</p>
+<p>R06 在独立留出用户上比较 A-frozen、B-frozen、C-adapted、D-adapted 四组方法：冷目标入池从 115/6,978 增至 122/6,978，但无历史目标仍为 0/3,928；配对区间跨零，验证规则因此保留 A-frozen-s17。它说明增加候选路径还不足以解决冷启动，也没有证据替换当前保留模型。</p>
+<h2 id="experiments">七、实验协议与结果</h2>
+<p>每轮实验记录样本、时间切分、随机种子、候选池和指标定义。R06 使用 12,524 个正反馈事件和 9,373 名用户，与 R01–R05 用户无交集；模型质量同时查看 NDCG@10、冷 Recall@20 与配对不确定性。种子标准差不是置信区间，配对区间跨零也不能写成方法胜出。最新研究结论和区间见<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/docs/experiments/r06-multi-interest/report.md" rel="noopener noreferrer" target="_blank">R06 报告</a>。</p>
+<p>自适应预算路由算法、生成式推荐及更完整的研究 PRD 仍未交付；固定别名 <code>adaptive</code> 不应被当成这些研究功能。</p>
+<h2 id="integration">八、服务与商品闭环</h2>
 <figure>
 <img src="/images/evorec/request-sequence.svg" alt="推荐请求时序图" />
 <figcaption>推荐请求时序图：一次推荐请求如何经过各个模块。</figcaption>
@@ -333,49 +307,24 @@
 <img src="/images/evorec/item-state.svg" alt="商品状态图" />
 <figcaption>商品状态图：新品从校验、编码到索引构建与发布的状态流转。</figcaption>
 </figure>
-<p>一次推荐现在按这个顺序走：校验会话令牌和幂等键，取得这一个请求的执行租约，绑定当时的商品包、模型身份和已见集合，再做召回、排序、过滤和 Top-K。结果与请求一起写入数据库。相同键加相同输入会重放原结果；相同键加不同输入返回 409。收藏、隐藏和撤销必须来自该会话真实返回过的商品，按 <code>event_id</code> 幂等，并在状态变化时推进历史版本。</p>
-<p>新品不进入旧的 R06 权重。独立内容基线入口只需要服务环境和本地 PostgreSQL：创建临时 schema、合成目录和一个后台 worker。导入和构建不会自动发布，页面确认之后才切换活动版本。版本切换、下架和恢复会让旧的构建预览失效。回滚使用原来的发布协议，不复活已下架商品，也不改写已经返回的推荐。</p>
-<p>冻结 R06 是另一条入口。它装载已批准的 137,249 件商品包，默认关闭，管理员在演示入口里也是关的。固定示例历史取批准包里第一个非零向量的训练商品，本包是 <code>0060501960</code>，不是真实用户。这个商品缺失或表示漂移时，创建和重置会话返回 409，不另选种子。结果页只展示 2026-09-17 的公开档案，并保留“多兴趣没有获得替换依据”的原文，不在页面上重新训练。</p>
-<p>策略对比和批量评估是后台任务。评估页把已保存的比较按独立的 K 重新计算 Top-K、NDCG@10 和 Recall@20，失败指标保持未知，不补零。普通推荐账本不和这些任务混在一起。</p>
-<p>页面必须从服务地址打开，直接用 <code>file://</code> 调不到 API。公网身份、多 worker 租约续期和多机部署没有做。发布锁按实际目录表隔离；从旧的全局锁升级时，必须先停掉同一目录的 API 和各类 worker，再一起启动新代码。</p>
-<h2 id="performance">九、第六阶段：性能分析与 C++ 优化</h2>
-<ul>
-<li>如何测量排队、模型、检索和后处理耗时。</li>
-<li>实际瓶颈出现在哪里。</li>
-<li>为什么选择某个模块进行优化。</li>
-<li>Python 与 C++ 的接口、数据传递和生命周期如何设计。</li>
-<li>优化前后的正确性、内存和延迟对比。</li>
-<li>如果收益不足，最终保留了什么实现。</li>
-</ul>
-<p>测量先落在两处，而且都不能写成端到端加速。</p>
-<p>离线召回组件上，可选的 NumPy 2.1.3 分块后端和默认标准库做过同机对照：四个固定请求、两轮交错，共 32 次召回，逐次核对顺序、候选特征和 Top-20。有历史请求的召回中位数从标准库 3.668 秒降到分块后端 0.0764 秒。这次对照不含加载、排序、数据库和 HTTP，也不把更早单次约 7 到 8 秒的观察拿来当对照组。</p>
-<p>在线完整包是另一回事。原期限是 2 秒。目录读取和可信捕获经常占掉其中一大段；重置后的新计算曾经在这个期限上返回 504。把目录行从字典换成紧凑 tuple 后，负载验收没有通过：120 笔、并发 2 时出现几十个 <code>recommendation_timeout</code>。这次减配已从生产捕获路径撤回。随后把同会话不同推荐键的入场锁从 <code>FOR UPDATE</code> 改成 <code>FOR SHARE</code>，同键和反馈、重置仍排他。未插桩的 120 笔负载仍有 7 个 504，成功吞吐约 0.933 次/秒，全部客户端耗时的 p50 约 1.985 秒。计时包含每笔新建 HTTP 客户端，不等于纯服务时间。</p>
-<p>2026-10-08 把数据库阶段再拆开。干净提交上 24 笔双并发全部成功，每笔负载新建约 4 次连接，非重叠连接段的中位数约 544 毫秒，目录查询和接收约 354 毫秒，行解码约 98 毫秒。阶段有嵌套，不能相加。这组插桩结果不覆盖上一轮那 7 个 504，也不表示 SLA 已经达到。下一步是做有界连接握手对照，没有为此接上连接池，也没有放宽传输检查。</p>
-<p>C++ 扩展没有进入这条路径。收益不足的 Python 减配被撤回，保留的是阶段记录和原来的捕获实现。</p>
-<h2 id="conclusion">十、最终展示与阶段复盘</h2>
-<ul>
-<li>最终完成了哪些功能，哪些仍在规划中。</li>
-<li>如何启动项目并重放完整演示。</li>
-<li>哪些研究假设获得了支持，哪些没有成立。</li>
-<li>最值得保留的技术决策和最想重做的部分。</li>
-<li>对推荐算法、C++ 和工程协作的理解发生了什么变化。</li>
-<li>下一版本准备解决什么具体问题。</li>
-</ul>
-<p>现在能交出去的是两套东西。研究侧是 R01 到 R06 的协议、报告和负面结果：序列模型没有打过时间衰减协同融合，门控没有被后来的索引写成已获支持，多兴趣召回没有获得替换原路径的证据。工程侧是本地单实例演示。内容基线用 <code>scripts/run_catalog_demo.py</code>，不需要研究模型。已批准的 R06 包用 <code>scripts/run_r06_demo.py</code>，自带临时 schema 和随机本地端口，正常退出后删除本轮演示数据。页面在 <code>/app</code>，结果档案在 <code>/app/results</code>，批量评估在 <code>/app/evaluations</code>。</p>
-<p>还不能写成完成的，是作者自己的连续计时复演、公网身份、多协调实例、持续负载，以及 300 ms / 20 QPS / 99% 这一类目标。完整包在 2 秒期限下仍会超时。演示能走通，不表示推荐质量或线上容量已经成立。</p>
+<p>推荐服务由 FastAPI 与 PostgreSQL 支撑。<code>Recommend.execute</code> 捕获会话历史、商品资格和模型绑定的请求快照，执行召回排序、资格过滤、去重与 Top-K，再保存并返回同一版本结果；相同幂等键重放原结果，输入冲突会拒绝。反馈携带请求来源与会话 epoch。商品管理采用导入校验、后台构建、预览和显式发布分步流程，避免把导入误当成线上资格。批准的冻结 R06 包与合成商品内容基线属于两条独立路径。</p>
+<p>页面状态隔离迟到响应并在刷新时恢复服务端可确认的状态。浏览器标签页存储异常时提示恢复风险，并在当前页面内存中保留原操作编号供重试；若刷新或关闭页面，未写入的内存状态不保证恢复。详见<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/web/README.md" rel="noopener noreferrer" target="_blank">Web 行为说明</a>与<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/docs/validation/feedback-recovery-20261019.md" rel="noopener noreferrer" target="_blank">恢复验证记录</a>。</p>
+<h2 id="performance">九、负载诊断与性能边界</h2>
+<p>项目已对 R06 服务做过 HTTP 期限、并发、队列和结果持久化路径的诊断。2026-10-14 的历史冻结包在完整商品目录、单 worker、原 2 秒期限下，两轮并发负载各 120/120 成功且无 504，客户端 p95 约 1.87 秒；这是特定机器、包和提交上的测量，不是长期服务级别。更早出现的间歇 504 根因未全部归因，2026-10-27 版本也没有重新验收完整 R06 负载。</p>
+<p>当前没有 C++/pybind11 扩展，也没有足够证据报告它的性能收益。300 ms、20 QPS、长期稳定性和生产级 SLA 均未验收。回归检查、网页演示和离线算法指标回答不同问题，不能互相替代。</p>
+<h2 id="conclusion">十、项目限制与交付</h2>
+<p>截至本文更新，可交付物包括 R01–R06 离线报告与复算材料，以及能够本地启动的推荐 Demo：冻结模型路径用于反馈与策略体验，合成内容路径用于新品导入、构建和发布；比较、评估任务和结果页提供研究结果浏览。还没有被证明的是稳定服务级别、持续负载能力或真实业务收益。后续工作应继续针对这些边界补充可复核的证据，并明确新研究功能与现有能力的差别。</p>
 <h2 id="changelog">十一、持续更新日志</h2>
-<p>每次更新采用固定格式：</p>
-<h3>YYYY-MM-DD｜本次推进的主题</h3>
+<p>以下保留早期 R01–R05 的数据、失败与当时结论，作为历史记录。后续证据修正了结论时，以最新日期摘要和对应实验报告为准，不把旧结论套用到当前模型或 Demo。</p>
+<h3>2026-10-27｜Demo、R06 结论与恢复边界更新</h3>
 <ul>
-<li><strong>本次问题：</strong> 为什么需要推进这项工作。</li>
-<li><strong>实际改动：</strong> 修改了哪些设计、代码或实验配置。</li>
-<li><strong>验证过程：</strong> 使用什么输入与方法检查。</li>
-<li><strong>结果与证据：</strong> 数据、截图、日志或对应代码版本。</li>
-<li><strong>遇到的问题：</strong> 失败现象、排查过程与尚未确认的解释。</li>
-<li><strong>当前结论：</strong> 本次工作能够支持什么判断。</li>
-<li><strong>下一步：</strong> 一个具体、可验证的任务。</li>
+<li><strong>本次推进：</strong>把文章的阶段摘要从早期 M0/R05 更新到当前本地 Demo，澄清离线研究与可操作系统是两类证据，并保留早期实验数字作为历史记录。</li>
+<li><strong>研究结论：</strong>R06 的 A-frozen / B-frozen / C-adapted / D-adapted 配对结果未支持替换 A-frozen-s17；候选池冷目标为 115/6,978 → 122/6,978，但无历史冷目标仍为 0/3,928。配对整体 NDCG 与冷 Recall 区间跨零。见<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/docs/experiments/r06-multi-interest/report.md" rel="noopener noreferrer" target="_blank">固定版本 R06 报告</a>。</li>
+<li><strong>系统交付：</strong>本地 Demo 有冻结 R06 与合成新品内容基线两条路径；后者的内容推荐不是模型效果验证。<code>adaptive</code> 在冻结 R06 上是解析到 <code>dense</code> 的兼容别名，不代表动态学习路由。2026-10-27 版本 <code>a4f8556</code> 的 235 项前端脚本与 28 项 API/页面检查及对应 CI 有记录，见<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/README.md" rel="noopener noreferrer" target="_blank">当前 README 与验收边界</a>。</li>
+<li><strong>恢复边界：</strong>隐藏/撤销入口在同一标签页刷新后可从服务端会话恢复；存储写入异常时本页内存仍保留原操作编号供重试，并提示不要刷新或离开。关闭标签页或刷新后未保存的内存状态不保证恢复。详情见<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/web/README.md" rel="noopener noreferrer" target="_blank">页面交互说明</a>与<a class="link" href="https://github.com/Die4U23/EvoRec/blob/a16e8af/docs/validation/feedback-recovery-20261019.md" rel="noopener noreferrer" target="_blank">反馈恢复检查</a>。</li>
+<li><strong>未确认范围：</strong>10 月 27 日版本没有重新训练或重新验收完整 R06 负载。10 月 14 日历史冻结验收报告了两轮 120/120、0 次 504，但更早间歇 504 的完整根因尚未确定；不能据此宣称 504 已修复、20 QPS / 300 ms SLA 已达成或已具备生产稳定性。</li>
+<li><strong>后续方向：</strong>按版本补齐完整 R06 负载与历史 504 的根因调查，持续区分已验证恢复行为与尚未覆盖的存储、负载和服务级别目标。</li>
 </ul>
-<p>若后续结果推翻旧结论，保留旧记录，并注明修正日期和原因。2026-09-17 之后的条目按 <a class="link" href="https://github.com/Die4U23/EvoRec" rel="noopener noreferrer" target="_blank">Die4U23/EvoRec</a> 的提交说明和 <code>main</code> 上的 README 补录，本文没有重新跑实验或浏览器验收。没有对照时不填写性能提升比例。</p>
 <h3>2026-10-07 / 10-08｜R06 并发入场、目录减配撤回，以及数据库阶段计时</h3>
 <ul>
 <li><strong>本次问题：</strong>完整 R06 请求在负载下超时。需要分清是入场互斥、目录捕获，还是数据库连接和事务。</li>

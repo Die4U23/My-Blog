@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="记录代码生成 Agent 的需求拆解、工具与验证闭环，以及正式评测和离线诊断的边界。">
+    <script src="/js/theme.js?v=20260819-3"></script>
+    <title>ARC-Bench Agent 项目介绍：从需求树到可验证的代码生成</title>
+    <script src="/js/highlight.min.js?v=20260819-3"></script>
+    <link rel="stylesheet" href="/css/link.css?v=20260915-1">
+    <link rel="stylesheet" href="/css/code.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/post.css?v=20260819-3">
+    <link rel="stylesheet" href="/css/common.css?v=20260824-2">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+</head>
+<body>
+    <div class="navbar">
+        <div class="left-group">
+            <a href="/">首页</a>
+            <a href="/about/">关于</a>
+        </div>
+        <div class="right-group">
+            <a href="https://github.com/Die4U23" target="_blank" rel="noopener noreferrer">GitHub</a>
+        </div>
+    </div>
+
+    <div class="layout">
+        <aside class="post-sidebar">
+            <div class="site-info"><div id="toc-container"></div></div>
+        </aside>
+
+        <main class="post-content">
+            <article class="post-article">
+                <h1>ARC-Bench Agent 项目介绍：从需求树到可验证的代码生成</h1>
+                <p class="post-date">2026-10-27</p>
+
+                <div class="content">
+
+<div class="note-box"><strong>本文关注的问题：</strong>让模型写出代码只是起点。一个能处理多模块任务的 Agent，还需要知道修改哪里、如何验证、何时停止，以及最终结果属于哪一类证据。</div>
+<p>阅读路线：<a class="link" href="#motivation">项目动机</a> → <a class="link" href="#architecture">执行链路</a> → <a class="link" href="#verification">验证与修复</a> → <a class="link" href="#results">结果边界</a> → <a class="link" href="#next">后续工作</a>。</p>
+<p>文章整理于 2026-10-27，基于 <a class="link" href="https://github.com/Die4U23/arcbench-agent/tree/76612a5c252af1aea363b7e154434aa8eb6831c4" target="_blank" rel="noopener noreferrer"><code>76612a5</code></a> 及其中记录的历史证据。历史正式成绩属于对应冻结版本，不自动代表后续代码的成绩。</p>
+<h2 id="motivation">一、为什么做代码生成 Agent</h2>
+<p>ARC-Bench Agent 面向 ArcBench 任务，读取需求、修改已有工程并接受评测。单次提示可以生成一段看起来合理的代码，但多页面、多接口的任务还要求模块之间对齐：页面操作要连接后端，持久化状态要能恢复，自动测试使用的控件和真实交互也必须吻合。</p>
+<p>因此项目把模型放进一个明确的工程流程：读取原始需求，拆分工作，允许有限范围的文件和构建工具调用，再收集失败并决定是否修复。模型负责提出和实现候选，程序负责维护边界、记录证据以及停止条件。这样可以观察失败发生在需求理解、代码修改、构建、交互还是运行环境，而不是把所有问题归为“模型不够聪明”。</p>
+<h2 id="architecture">二、需求如何走到交付</h2>
+<figure class="sort-figure" aria-label="Agent 执行链路"><figcaption>从需求到候选，再到验证</figcaption><ol>
+<li>读取 YAML 或 Markdown 需求，归一化为需求树，同时保留原始要求。</li>
+<li>编排器按子树规划和实现；模型通过受限工具读取、编辑文件和运行允许的脚本。</li>
+<li>构建、测试与交互检查产生反馈；失败进入有界修复，必要时回退较好的候选。</li>
+<li>输出交付报告和可追溯状态；平台正式评测另行执行。</li>
+</ol></figure>
+<p>代码入口、需求解析、编排、模型调用、工具和验证分别放在不同模块中。分层的好处是：同一套任务结构既能驱动本地示例，也能接入平台 Runtime SDK；每一步可以单独检查输入和输出。已有工程由 Runner 准备，Agent 直接修改目标目录，不靠复制一个完成项目覆盖它。</p>
+<p>生成代码的执行另有隔离边界：项目要求本地 Docker 和预先准备的镜像、依赖缓存，执行时禁网；缺失缓存或资源耗尽会明确失败，不静默回退到宿主机。隔离降低生成脚本影响环境的范围，也引入镜像、原生依赖和缓存准备成本。它不是对任意平台运行环境都已验证的保证。</p>
+<h2 id="verification">三、验证与收敛：让失败提供方向</h2>
+<p>构建成功只能说明代码通过了构建脚本，不能说明需求全部实现。项目会收集构建、测试、源码审核和浏览器交互结果，向修复阶段提供具体失败；最终仍重新检查整个项目。对于有参考图的任务，浏览器截图和交互记录可供视觉审核，但截图或模型评审同样有自身局限。</p>
+<p>Ticket Booking 的实践尤其说明测试粒度的重要性：一个页面能打开，并不代表订票、确认、刷新和后续订单状态都正确。本地公开案例的回归和浏览器探针可以帮助定位问题，但它们不等于平台完整测试环境。需求与公开测试应保持原样，修复目标是业务行为，而不是修改断言来制造通过。</p>
+<p>另一个取舍是避免无效循环。重复相同的失败工具调用会触发提醒和停止；连续多轮没有改动也会受限。每轮有请求和 token 预算，接近上限时保留资源做最终验证。模型返回截断、构建失败或预算耗尽时，系统应保留已有文件与失败记录，而不是把一次 HTTP 成功或局部测试通过写成任务完成。</p>
+<p>缓存有助于控制重复输入成本，但缓存命中取决于服务商，不能由输入总量推算。比单独追求命中率更重要的是减少重复失败的脚本、定位不唯一的文本替换和无进展修复，同时保留足够上下文让模型正确完成工作。项目记录可用的实际 usage；缺失字段保持未知。</p>
+<h2 id="results">四、哪些结果已经得到验证</h2>
+<p>仓库记录的历史冻结版本在 2026-10-14 的 Railway Ticket Booking Demo 正式 Stage 3 中取得 <strong>30/30</strong>。这一轮使用 Flash，记录为 209 次完整响应、总计 8,505,443 token。它是一次具体任务、具体冻结版本的正式结果；本地自测曾有失败，最终回退到可交付候选后通过正式评测。服务端上传包哈希未公开，因此本地包身份与服务端身份不能凭空画等号。见<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/docs/releases/ticketbooking-formal30-flash-20261014.json" target="_blank" rel="noopener noreferrer">冻结版本证据</a>和<a class="link" href="https://github.com/Die4U23/arcbench-agent/blob/76612a5c252af1aea363b7e154434aa8eb6831c4/README.md" target="_blank" rel="noopener noreferrer">项目 README</a>。</p>
+<p>之后的模块状态追踪修复和竞赛链路离线准备不属于那次正式成绩。项目记录了六任务需求分解、脚本模型替身和本地浏览器的准备与验证；这些检查可以发现接口、依赖与调度问题，却不证明六个真实任务已经由模型完成，也不等于平台 Test Results。某个局部案例或小样本通过，更不能换算成另一套正式 30/30。</p>
+<h2 id="next">五、限制与下一步</h2>
+<p>后续工作需要先固定候选代码、需求、环境和评测口径，检查依赖闭包、预算与失败恢复，再对真实任务进行有界实验。实验结果应同时保留未运行、失败、未知用量和完整分母；正式平台结果与离线诊断分开报告。缓存优化是否减少总费用，也必须通过可比较的完整运行验证。</p>
+<p>对这个项目而言，一个好的 Agent 不仅能在顺利时生成网站，也要在失败时留下足够证据，让人知道下一步该修什么、已有结论能覆盖到哪里。</p>
+
+                </div>
+            </article>
+        </main>
+
+        <aside class="post-right"><!-- 空置空间 --></aside>
+    </div>
+
+    <script>hljs.highlightAll();</script>
+    <script src="/js/footer.js?v=20260824-2"></script>
+    <script src="/js/toc.js?v=20260819-3"></script>
+</body>
+</html>
