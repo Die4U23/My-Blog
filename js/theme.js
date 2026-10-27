@@ -33,7 +33,8 @@
             meta.name = 'theme-color';
             document.head.appendChild(meta);
         }
-        meta.content = theme === 'dark' ? '#111b2e' : '#b8d7ee';
+        // Keep Safari's toolbar tint aligned with common.css's opaque navigation.
+        meta.content = theme === 'dark' ? '#0f2642' : '#93c3e5';
     }
 
     function updateToggle(button, theme) {
