@@ -1,0 +1,42 @@
+{
+  "created": "2026-10-27",
+  "generator": "Built-in image generation tool",
+  "style_reference": "https://blog.cloudflare.com/building-workflows-durable-execution-on-workers/",
+  "diagrams": [
+    {
+      "id": "raft",
+      "file": "raft-20261027.png",
+      "prompt": "Redesign this diagram into a restrained, minimal ENGINEERING DOCUMENTATION DIAGRAM, in the spirit of Cloudflare technical blog architecture diagrams. Completely remove all 3D, perspective, hardware illustrations, robots, metallic textures, gradients, shadows, large poster headline, glossy cards, ornamental drawings. Pure white background. Flat small rectangular nodes with thin charcoal borders, thin orthogonal arrows, mostly black text, just ONE muted blue accent (#4263a6) for important nodes and lightly tinted grouping. Crisp Chinese sans-serif typography, careful alignment, generous whitespace, high legibility. 1536x1024 landscape. Small unobtrusive title at upper left, all diagram text same readable scale; not marketing poster. Preserve technical relationships; remove redundant decorations. Title 'Raft-KV · 请求路径'. Upper section '写入': '客户端' → 'Leader' branching to exactly 'Follower 1' and 'Follower 2'; label branch arrows '日志复制'. Beneath leader branch put ordered horizontal path '多数派提交' → '串行应用' → 'RocksDB' → '成功回复'. Bottom section '读取': two clean parallel rows: '默认 GET' → '本地状态'; 'ReadIndex（可选）' → '多数派确认' → '等待应用' → '返回结果'. No icons whatsoever, no extra text.",
+      "sha256": "af4c8663500c1704e5e8b0935f417e97544b47318c44ae85cfbf148bb37c77fa"
+    },
+    {
+      "id": "searchpilot",
+      "file": "searchpilot-20261027.png",
+      "prompt": "Redesign this diagram into a restrained, minimal ENGINEERING DOCUMENTATION DIAGRAM, in the spirit of Cloudflare technical blog architecture diagrams. Completely remove all 3D, perspective, hardware illustrations, robots, metallic textures, gradients, shadows, large poster headline, glossy cards, ornamental drawings. Pure white background. Flat small rectangular nodes with thin charcoal borders, thin orthogonal arrows, mostly black text, just ONE muted blue accent (#4263a6) for important nodes and lightly tinted grouping. Crisp Chinese sans-serif typography, careful alignment, generous whitespace, high legibility. 1536x1024 landscape. Small unobtrusive title at upper left, all diagram text same readable scale; not marketing poster. Preserve technical relationships; remove redundant decorations. Title 'SearchPilot · 检索与实验'. Main row '查询' splits into 'BM25' and '向量检索', both converge on 'RRF 融合' → 'LTR（可选）' → '搜索结果'. A thin lightly shaded top grouping '离线准备' contains 'MIND Small' → '数据切分 / 索引与模型', with dotted arrows to the two retrieval nodes to distinguish data preparation from request flow. Lower two compact separated groups: '广告评分' with 'CTR' → '温度校准' → '合成出价 eCPM'; '实验记录' with '数据版本 / 模型版本 / 来源' → '只读 Agent'. No icons, no decorative result cards.",
+      "sha256": "6ab0b42f60ebb675bb12f71d986bed9b2450b4b46882802589ac0eb71b706701"
+    },
+    {
+      "id": "arcbench",
+      "file": "arcbench-20261027.png",
+      "prompt": "Redesign this diagram into a restrained, minimal ENGINEERING DOCUMENTATION DIAGRAM, in the spirit of Cloudflare technical blog architecture diagrams. Completely remove all 3D, perspective, hardware illustrations, robots, metallic textures, gradients, shadows, large poster headline, glossy cards, ornamental drawings. Pure white background. Flat small rectangular nodes with thin charcoal borders, thin orthogonal arrows, mostly black text, just ONE muted blue accent (#4263a6) for important nodes and lightly tinted grouping. Crisp Chinese sans-serif typography, careful alignment, generous whitespace, high legibility. 1536x1024 landscape. Small unobtrusive title at upper left, all diagram text same readable scale; not marketing poster. Preserve technical relationships; remove redundant decorations. Title 'ARC-Bench Agent · 执行闭环'. One clean main horizontal path '原始需求' → '需求树' → '编排器' → '候选代码' → '构建与测试' → '交付报告'. Enclose only '构建与测试' in a thin dashed grouping titled '隔离执行'. One thin return arrow below from tests back to candidate code labeled '有界修复'. A small annotation above orchestrator '请求与 token 预算'. Bottom row two explicitly distinct zones, '本地验证' on left and '平台正式评测' on right, separated by a vertical dotted rule; right contains '提交候选' → '正式结果'. Left simply '构建 / 测试 / 交互检查'. Do not repeat the entire main workflow on bottom. No icons or pass badges.",
+      "sha256": "46cb791a2f5ff4e7614b8ac3c05d878d82043c571e4638000fcfd052dfee0af6"
+    },
+    {
+      "id": "klogg",
+      "file": "klogg-20261027.png",
+      "prompt": "Redesign this diagram into a restrained, minimal ENGINEERING DOCUMENTATION DIAGRAM, in the spirit of Cloudflare technical blog architecture diagrams. Completely remove all 3D, perspective, hardware illustrations, robots, metallic textures, gradients, shadows, large poster headline, glossy cards, ornamental drawings. Pure white background. Flat small rectangular nodes with thin charcoal borders, thin orthogonal arrows, mostly black text, just ONE muted blue accent (#4263a6) for important nodes and lightly tinted grouping. Crisp Chinese sans-serif typography, careful alignment, generous whitespace, high legibility. 1536x1024 landscape. Small unobtrusive title at upper left, all diagram text same readable scale; not marketing poster. Preserve technical relationships; remove redundant decorations. Title 'klogg-longline · 有界搜索与预览'. Left a simple long flat segmented bar labeled '超长日志行'. Upper route labeled '完整搜索': '分块读取' → '跨块字面匹配' → '命中字节位置'. Lower route labeled '局部显示': a small bracket highlights a short slice of the log bar then '16 KiB 预览窗口' → '异步显示'. Tiny two adjacent outlined rectangles at upper match node show a blue short line straddling their boundary to illustrate cross-chunk matching, no 3D. Bottom muted footnote text '64 位索引 · 取消与代次隔离 · 文件变化检测'. No hardware or document illustrations.",
+      "sha256": "aa2f04f7d44355c52a0177d1d51330c9e1676832e72c59dd32171c2f5653be8e"
+    }
+  ],
+  "screenshots": {
+    "project": "EvoRec",
+    "source_commit": "a4f8556ef832a97650d904c609aace0aa4f3dc7a",
+    "evidence": "https://github.com/Die4U23/EvoRec/blob/a16e8af/docs/validation/readme-refresh-20261027.json",
+    "mode": "catalog / synthetic content baseline; R06 not loaded",
+    "files": [
+      "../evorec/catalog-discovery-20261027.jpg",
+      "../evorec/catalog-details-20261027.jpg"
+    ],
+    "modifications": "None; copied original captures"
+  }
+}

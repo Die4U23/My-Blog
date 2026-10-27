@@ -47,6 +47,10 @@
 <p>项目基于 <a class="link" href="https://github.com/variar/klogg/tree/25c7de6d8f6da2ce6a00882e5af70b4f331af4c5" target="_blank" rel="noopener noreferrer">variar/klogg 固定上游源码快照</a>，保留上游 GPL-3.0-or-later 许可和版权信息，没有导入上游 Git 历史。klogg 原有查看器、索引、界面与依赖来自上游项目及其维护者；本项目在此基础上完成可追溯的可靠性改造与验证工具，不将整个 klogg 项目归为本项目原创。已合并的代码、生命周期修复、构建和证据整理范围可在<a class="link" href="https://github.com/Die4U23/klogg-longline/commit/5400b0320ab4ee12e4d49448f157367397e925ed" target="_blank" rel="noopener noreferrer">固定提交</a>及<a class="link" href="https://github.com/Die4U23/klogg-longline/blob/5400b0320ab4ee12e4d49448f157367397e925ed/UPSTREAM.json" target="_blank" rel="noopener noreferrer">上游源码来源清单</a>中复核。</p>
 
 <h2 id="design">二、把行变成可控的字节窗口</h2>
+<figure class="project-visual">
+<a href="/images/projects/klogg-20261027.png" target="_blank" rel="noopener noreferrer" aria-label="查看原图：klogg 超长行的分块完整搜索与局部异步预览"><img src="/images/projects/klogg-20261027.png" alt="klogg 超长行的分块完整搜索与局部异步预览" width="1536" height="1024" loading="lazy" decoding="async" /></a>
+<figcaption>搜索与显示路径示意：受支持的 UTF-8 字面搜索分块扫描完整输入，界面只读取有界预览窗口。（点击图片查看原图）</figcaption>
+</figure>
 <p>索引仍记录行边界，但文件位置使用 64 位字节偏移；压缩索引只有在块内相对跨度需要时才扩展为 64 位存储。读取同时区分实体文件字节与索引中可能存在的合成末尾换行，避免把“行结束标记”当成文件真实内容。对普通行，搜索器先根据索引规划每批最大字节范围，再取得 RAII 预算租约后读取；缓冲区在队列、匹配和合并阶段仍被引用时，预算也不会提前释放。项目设置 128 MiB 活跃搜索数据通路预算，但索引、累计命中、正则引擎内部内存和分配器保留空间另计，所以这不是进程 RSS 上限。</p>
 <p>超长行走独立的流式 UTF-8 字面搜索路径：固定大小的块逐段读取，匹配器跨块保留模式状态。这样一个命中串即使横跨块边界，也能返回所在行和首次命中字节位置；不必先构造整条行字符串。当前支持的是非空、区分大小写、无预过滤的 UTF-8 字面模式，模式最大 1 MiB；超长行正则、布尔或反向匹配、含换行模式及不支持编码会明确拒绝，不通过截断输入来伪装完整搜索。密集命中保留每行首个字节位置，最多 65,536 行；继续遇到额外命中时以 <code>partial</code> 终止，避免把部分结果缓存成完整结果。</p>
 <p>显示采用独立的异步预览窗口。每行最多读取 16 KiB 原始字节，每一帧最多处理 128 KiB 原始输入及 256 行；界面标明窗口字节范围、总行长度和是否截断，用户可查看前后窗口，也可以从搜索命中跳到对应字节位置。它清楚地表示“当前看到的是这一段”，并没有暗示整行已经载入。整行复制、Quick Find 和旧式整行导出在超长行上明确不可用；窗口内局部文本仍可选择复制。</p>
