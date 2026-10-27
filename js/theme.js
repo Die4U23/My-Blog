@@ -70,6 +70,8 @@
         updateToggle(toggleButton, currentTheme);
 
         toggleButton.addEventListener('click', function() {
+            if (toggleButton.disabled) return;
+            currentPeriod = getTimePeriod();
             const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
             applyTheme(nextTheme);
 
@@ -79,8 +81,14 @@
                     period: currentPeriod
                 }));
             } catch (error) {
-                // 禁用本地存储时，切换在当前页面仍然有效。
+                // 保存失败时不刷新，避免新选择在重载后丢失。
+                return;
             }
+
+            // Reload once after persisting the choice so Safari can resample its
+            // toolbar tint. Native reload scroll restoration keeps the reading position.
+            toggleButton.disabled = true;
+            window.location.reload();
         });
     }
 
