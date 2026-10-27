@@ -44,11 +44,10 @@
 <p>SearchPilot 是一个用于回答这些问题的实验平台。它以新闻数据为基础，把检索、回退推荐、广告评分、反馈和实验登记接到 API。重点不是声称自己实现了生产搜索引擎，而是让一个候选如何产生、怎样打分、结果从哪份数据和模型来，都有可以追溯的入口。</p>
 <h2 id="architecture">二、从数据到一次搜索请求</h2>
 <p>项目使用 MIND Small：先清洗物品和曝光数据并按时间切分，再生成搜索查询和相关性标注。数据版本与模型版本根据输入内容生成，实验记录保留来源。原始数据和模型产物不随仓库提交，因此复现需要按文档重新准备数据，而不能只凭一份代码就假定产物相同。</p>
-<figure class="sort-figure" aria-label="SearchPilot 数据和请求链路"><figcaption>离线准备与在线调用</figcaption><ol>
-<li>新闻数据与时间切分 → BM25 索引、向量索引、排序与 CTR 模型。</li>
-<li>查询进入 API → 关键词或向量召回 → RRF 融合或 LTR 排序 → 返回候选与版本信息。</li>
-<li>反馈、推荐和实验登记提供其他观察入口；只读 Agent 使用窄工具读取证据。</li>
-</ol></figure>
+<figure class="project-visual">
+<a href="/images/projects/searchpilot-20261027.png" target="_blank" rel="noopener noreferrer" aria-label="查看原图：SearchPilot 离线准备、检索融合、广告评分与实验记录"><img src="/images/projects/searchpilot-20261027.png" alt="SearchPilot 离线准备、检索融合、广告评分与实验记录" width="1536" height="1024" loading="lazy" decoding="async" /></a>
+<figcaption>项目链路示意：上方为离线产物，中间为检索路径，下方为广告评分和实验记录。LTR 为可选排序路径，eCPM 使用合成出价。（点击图片查看原图）</figcaption>
+</figure>
 <p>BM25 擅长词面匹配，向量检索则提供另一种语义相似性视角。RRF 按各路名次融合，不要求两种分数天然处于同一尺度；LTR 则利用特征学习排序。广告路径提供 CTR 预测、验证集温度缩放和基于合成出价的 eCPM，后者是实验演示，不等同于真实广告竞价收益。</p>
 <p>服务对缺失产物采用明确失败：索引或推荐模型不可用时，相应接口返回 <code>503 NOT_READY</code>，就绪检查也返回 503。容器可在监听前预热向量模型；它减少首个请求承担初始化的机会，但会增加启动等待。反馈在没有数据库时保存在内存，实验登记读取本地注册表；配置 PostgreSQL 后才走数据库路径。实现和启动方式见<a class="link" href="https://github.com/Die4U23/searchPilot/blob/fae045d3539d40e702724949d47e44e551843e77/README.md" target="_blank" rel="noopener noreferrer">固定版本 README</a>。</p>
 <h2 id="ranking">三、排序不该只展示最好看的数字</h2>

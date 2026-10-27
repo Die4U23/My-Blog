@@ -139,18 +139,10 @@
 <p>实现入口见<a class="link" href="https://github.com/Die4U23/Raft-KV/tree/051ca62/src" rel="noopener noreferrer" target="_blank">归档源码</a>，验证依据见<a class="link" href="https://github.com/Die4U23/Raft-KV/blob/051ca62/LOCAL_REVIEW_STATUS.md" rel="noopener noreferrer" target="_blank">本地改造记录</a>及第六节逐项报告。</p>
 <p><strong>历史说明：</strong>在上述归档版本里，<code>GET</code> 直接读取当前节点状态机，<code>leader_only_reads=true</code> 仅检查本机角色，不能抵挡网络隔离中的旧 Leader 返回过时值。当前源码已提供独立的 <code>--linearizable_reads=true</code> ReadIndex 路径；默认 GET 仍是本地读，Leader-Only 仍不是线性一致读。详见本文更新摘要中的读语义入口。</p>
 <h2 id="architecture">三、系统架构：一次请求经过哪些模块</h2>
-<p>写请求的主路径是：客户端 → Muduo 接入层 → 命令处理 → Raft → 状态机 → RocksDB。该图展示的是本文归档版本的默认本地读；当前读路径还可按启动参数选择 ReadIndex，或选择满足时钟假设时可用的租约读。</p>
-<figure aria-label="Raft-KV 系统架构与线程职责" class="sort-figure">
-<figcaption>系统架构：写请求经过共识，本地读直接访问状态机</figcaption>
-<div class="sort-step"><span class="sort-label">网络接入</span><span class="sort-array"><b class="sort-cell is-active">客户端</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">Muduo</b></span><span class="sort-note">事件循环处理 TCP 连接、接收与回复</span></div>
-<div class="sort-step"><span class="sort-label">命令处理</span><span class="sort-array"><b class="sort-cell is-fixed">解析与校验</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">准入</b></span><span class="sort-note">保留半包，展开命名空间，检查容量</span></div>
-<div class="sort-step"><span class="sort-label">写入路径</span><span class="sort-array"><b class="sort-cell is-active">SET / DEL</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">组批 → Raft</b></span><span class="sort-note">事件循环负责选举、复制与提交</span></div>
-<div class="sort-step"><span class="sort-label">本地日志</span><span class="sort-array"><b class="sort-cell is-fixed">Raft</b><b class="sort-cell">→</b><b class="sort-cell is-picked">日志库</b></span><span class="sort-note">RocksDB 保存日志与硬状态；仍在事件循环同步写入</span></div>
-<div class="sort-step"><span class="sort-label">节点通信</span><span class="sort-array"><b class="sort-cell is-fixed">PeerManager</b><b class="sort-cell">↔</b><b class="sort-cell is-fixed">另两节点</b></span><span class="sort-note">Protobuf 消息 + TCP 帧；各节点有独立日志和 KV</span></div>
-<div class="sort-step"><span class="sort-label">已提交批次</span><span class="sort-array"><b class="sort-cell is-fixed">Raft</b><b class="sort-cell">→</b><b class="sort-cell is-picked">串行应用线程</b></span><span class="sort-note">默认 async_apply=true；按日志顺序执行 KVStateMachine</span></div>
-<div class="sort-step"><span class="sort-label">业务落盘</span><span class="sort-array"><b class="sort-cell is-picked">KV + lastApplied</b><b class="sort-cell">→</b><b class="sort-cell is-picked">KV 库</b></span><span class="sort-note">同一个 WriteBatch，同步保存修改与应用位置</span></div>
-<div class="sort-step"><span class="sort-label">完成通知</span><span class="sort-array"><b class="sort-cell is-picked">应用线程</b><b class="sort-cell">→</b><b class="sort-cell is-fixed">事件循环</b></span><span class="sort-note">成功时更新进度、释放提案配额、回复客户端；异常另行处理</span></div>
-<div class="sort-step"><span class="sort-label">归档版读取</span><span class="sort-array"><b class="sort-cell is-active">GET</b><b class="sort-cell">→</b><b class="sort-cell is-picked">本地状态机</b></span><span class="sort-note">051ca62 默认路径；当前版本可按参数启用 ReadIndex</span></div>
+<p>写请求的主路径是：客户端 → Muduo 接入层 → 命令处理 → Raft → 状态机 → RocksDB。下图概括写入、默认本地读与可选 ReadIndex 的路径；当前读路径还可按启动参数选择满足时钟假设时可用的租约读，图中省略网络接入、组批与线程通知细节。</p>
+<figure class="project-visual">
+<a href="/images/projects/raft-20261027.png" target="_blank" rel="noopener noreferrer" aria-label="查看原图：Raft-KV 写入与读取路径"><img src="/images/projects/raft-20261027.png" alt="Raft-KV 写入与读取路径" width="1536" height="1024" loading="lazy" decoding="async" /></a>
+<figcaption>请求路径示意：写入经多数派提交、串行应用和落盘后回复；默认 GET 读取本地状态，可选 ReadIndex 先确认多数派并等待应用。（点击图片查看原图）</figcaption>
 </figure>
 <p>各模块的职责如下：</p>
 <div aria-label="数据表，可横向滚动" class="table-scroll" role="region" tabindex="0"><table>
