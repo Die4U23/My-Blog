@@ -54,19 +54,18 @@
 html {
     /* Match the canvas exposed at the viewport edge to the opaque navigation. */
     background-color: var(--navbar-background);
-    /* Keep fixed navigation at the edge during Safari's vertical rubber banding. */
-    overscroll-behavior-y: none;
 }
 
 body {
     font-family: sans-serif;
-    background: var(--page-background);
+    background-color: var(--navbar-background);
+    background-image: var(--page-background);
     padding-top: 60px;
     min-height: 100vh;
     color: var(--text-primary);
     overflow-wrap: break-word;
-    overscroll-behavior-y: none;
-    transition: background 0.3s ease, color 0.3s ease;
+    /* Switch the canvas and navigation fill together, including during a bounce. */
+    transition: color 0.3s ease;
 }
 
 /* 顶部导航栏 */
