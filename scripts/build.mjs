@@ -79,7 +79,10 @@ export function staticBlog() {
         this.emitFile({ type: 'asset', fileName, source });
       }
     },
-    async writeBundle({ dir }) {
+    async writeBundle({ dir }, bundle) {
+      // The live server publishes the Git checkout. Keep its HTML and fingerprinted
+      // assets in sync with dist; the other public files already live in the checkout.
+      await Promise.all(Object.keys(bundle).map(file => cp(path.join(dir, file), file)));
       for (const name of ['images', 'data', 'js/highlight.min.js', 'favicon.ico', 'favicon.png',
         'favicon-moon.ico', 'favicon-moon-32.png', 'apple-touch-icon-moon.png']) {
         await cp(name, path.join(dir, name), { recursive: true });

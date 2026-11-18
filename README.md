@@ -30,7 +30,7 @@ npm ci
 npm run build
 ```
 
-将 `dist/` 的内容发布到 Nginx 站点根目录。公共页面组件位于 `src/pages.jsx`，交互组件位于 `src/client.jsx`。历史链接重定向和 HTML 缓存检查见[部署说明](docs/html-cache-deployment.md)。
+线上站点沿用仓库根目录提供静态文件。修改文章或前端后运行构建，将生成的 `index.html`、`about/`、`posts/` 和 `assets/` 的变更随源码提交；删除文章时也要删除对应的生成页面。现有部署同步提交后即可提供新版。构建同时保留独立的 `dist/` 目录，供只发布静态产物的环境使用。历史链接重定向和 HTML 缓存检查见[部署说明](docs/html-cache-deployment.md)。
 
 首页的文章星球复用首页收录的文章。精选和四个主题的示例分组在 `src/archiveTopics.ts`，可按文章目录名（slug）调整归属。新增带摘要的文章会自动进入「全部文章」，把 slug 加入主题即可在对应的主题星球显示。六个主题分别使用土星、地球、木星、火星、水星和海王星的本地纹理，经球面投影和着色，土星另配示意星环。[Solar System Scope](https://www.solarsystemscope.com/textures/) · [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)。
 

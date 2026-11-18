@@ -6,8 +6,9 @@ Last-Modified。浏览器正常访问时验证缓存，未修改返回 304，修
 
 ## 应用到线上 Nginx
 
-在仓库根目录运行 `npm ci` 和 `npm run build`，将 `dist/` 的内容发布到站点根目录，
-或将 Nginx 的 `root` 指向构建产物目录。部署人员需检查 `sudo nginx -T` 中
+当前发布方式直接同步仓库根目录。开发时运行 `npm ci` 和 `npm run build`，将生成的 HTML
+和 `assets/` 随源码提交。单独配置静态发布时也可以把 `dist/` 的内容部署到站点目录。
+修改缓存配置前，请检查 `sudo nginx -T` 中
 `server_name mengsblog.top` 对应的 HTTPS server 块：
 
 1. 备份实际生效的站点配置，在该 server 块内 include 本仓库
