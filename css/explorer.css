@@ -124,7 +124,8 @@
 }
 .topic-buttons::after {
     content: ''; position: absolute; pointer-events: none;
-    left: calc(var(--column) * var(--pitch)); top: calc((var(--row) + 1) * var(--cell-height) - 4px);
+    left: 0; top: calc(var(--cell-height) - 4px);
+    transform: translate(calc(var(--column) * (100% + var(--gap))), calc(var(--row) * var(--cell-height)));
     width: calc(var(--pitch) - var(--gap)); height: 2px;
     background: linear-gradient(90deg, transparent 6%, var(--accent) 38%, var(--accent) 62%, transparent 94%);
 }
@@ -231,7 +232,7 @@
     .profile { column-gap: 10px; }
 }
 @media (prefers-reduced-motion: no-preference) {
-    .topic-buttons::after { transition: left .27s cubic-bezier(.22,.78,.22,1), top .22s ease-out; }
+    .topic-buttons::after { transition: transform .24s cubic-bezier(.22,.78,.22,1); }
     .topic-buttons button > span { transition: transform .2s ease-out; }
     .topic-buttons button[data-pointed] > span { transform: translateY(-3px); }
     .topic-buttons button:active > span { transform: translateY(1px) scale(.97); }
@@ -248,4 +249,13 @@
     .post-list li:hover { transform: translateY(-2px); }
     .post-list li:hover::before { opacity: 1; }
     .post-list li:hover .row-arrow { transform: translate(3px,-2px); }
+}
+@media (pointer: coarse) and (prefers-reduced-motion: no-preference) {
+    .planet-stage { transition: none; }
+    .galaxy-near { transform: translateX(var(--sky-shift)); transition: transform .22s ease-out; }
+    .current-world { animation: touch-arrive .22s ease-out; }
+    .post-list li { animation-duration: .15s; animation-delay: 0s; }
+    @keyframes touch-arrive {
+        from { opacity: .72; transform: translateX(calc(var(--direction) * 12px)); }
+    }
 }
