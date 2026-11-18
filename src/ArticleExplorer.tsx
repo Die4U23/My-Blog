@@ -42,8 +42,8 @@ function OrbitPager({ page, pages, onStep }: { page: number; pages: number; onSt
 export function ArticleExplorer({ posts }: { posts: ArchivePost[] }) {
   const section = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
-  const [journey, setJourney] = useState<{ index: number; previous: number | null; direction: number }>({
-    index: 0, previous: null, direction: 1,
+  const [journey, setJourney] = useState<{ index: number; previous: number | null; direction: number; skyKey: number }>({
+    index: 0, previous: null, direction: 1, skyKey: 0,
   });
   const topicIndex = journey.index;
   const [hoveredTopic, setHoveredTopic] = useState<number | null>(null);
@@ -52,11 +52,12 @@ export function ArticleExplorer({ posts }: { posts: ArchivePost[] }) {
   const previewing = indicated !== topicIndex;
   const [topicPages, setTopicPages] = useState<Record<number, number>>({});
   const choose = useCallback((index: number) => {
-    const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const fullTravel = matchMedia('(pointer: fine) and (prefers-reduced-motion: no-preference)').matches;
     setJourney(current => {
       if (index === current.index) return current;
       const forward = (index - current.index + topics.length) % topics.length;
-      return { index, previous: reduced ? null : current.index, direction: forward <= topics.length / 2 ? 1 : -1 };
+      return { index, previous: fullTravel ? current.index : null, skyKey: fullTravel ? index : 0,
+        direction: forward <= topics.length / 2 ? 1 : -1 };
     });
   }, []);
   useEffect(() => {
@@ -118,8 +119,9 @@ export function ArticleExplorer({ posts }: { posts: ArchivePost[] }) {
     </header>
     <div className="archive-explore">
       <div className="planet-stage" ref={stage} aria-hidden="true" data-preview={previewing || undefined}
-        style={{ '--direction': journey.direction, '--nebula-tone': topics[indicated].planet.color } as CSSProperties}>
-        <GalaxyField key={`sky-${topicIndex}`} travel={journey.previous !== null} />
+        style={{ '--direction': journey.direction, '--sky-shift': (topicIndex - 2) * 3 + 'px',
+          '--nebula-tone': topics[indicated].planet.color } as CSSProperties}>
+        <GalaxyField key={`sky-${journey.skyKey}`} travel={journey.previous !== null} />
         {journey.previous !== null && <TopicPlanet key={journey.previous} index={journey.previous} departing entering={false} />}
         <TopicPlanet key={topicIndex} index={topicIndex} departing={false} entering={journey.previous !== null} />
       </div>
