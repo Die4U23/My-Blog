@@ -2,11 +2,12 @@
 
 HTML 返回 `Cache-Control: no-cache, must-revalidate`，保留 ETag 和
 Last-Modified。浏览器正常访问时验证缓存，未修改返回 304，修改后返回新页面。
-图标、CSS 和 JavaScript 继续通过版本化 URL 区分内容。
+图标通过版本化 URL 区分内容，构建生成的 CSS 和 JavaScript 使用带内容指纹的文件名。
 
 ## 应用到线上 Nginx
 
-仅拉取 Git 提交不会启用 Nginx 配置。部署人员需检查 `sudo nginx -T` 中
+在仓库根目录运行 `npm ci` 和 `npm run build`，将 `dist/` 的内容发布到站点根目录，
+或将 Nginx 的 `root` 指向构建产物目录。部署人员需检查 `sudo nginx -T` 中
 `server_name mengsblog.top` 对应的 HTTPS server 块：
 
 1. 备份实际生效的站点配置，在该 server 块内 include 本仓库

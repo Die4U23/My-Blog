@@ -1,0 +1,7 @@
+{
+  "title": "klogg-longline 项目介绍：面向大文件与超长行的可靠性改造",
+  "date": "2026-10-27",
+  "summary": "基于 klogg 改进 64 位索引、跨块字面搜索与异步有界预览，说明 Windows 验证结果和剩余 GUI 限制",
+  "listOrder": 4,
+  "description": "介绍 klogg-longline 项目的大文件与超长行可靠性改造：有界读取、跨块字面搜索、异步预览、Windows 验证结果及未完成的 AC11 首窗心跳验收。"
+}

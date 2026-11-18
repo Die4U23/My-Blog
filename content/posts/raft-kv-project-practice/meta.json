@@ -1,0 +1,9 @@
+{
+  "title": "Raft-KV 项目介绍：一致性存储、故障恢复与有界并发",
+  "date": "2026-10-27",
+  "dateNote": "持续更新",
+  "summary": "C++17 三节点 KV 存储，介绍 ReadIndex、RocksDB 持久化、快照恢复、有界队列与故障验证",
+  "listDate": "更新于 2026-10-27",
+  "listOrder": 1,
+  "description": "沿着一次写请求理解 C++、Muduo、Raft 与 RocksDB，结合故障证据、重连优化和性能对照；更新至 2026-10-27，区分当前 ReadIndex、快照与幂等实现和历史测试边界。"
+}

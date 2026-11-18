@@ -1,123 +1,128 @@
-/* 正文 */
-.container {
-    width: calc(100% - 32px);
-    max-width: 1400px;
-    margin: 30px auto;
-    padding: 20px;
-    border-radius: 16px;
-    display: flex;
-    align-items: flex-start;
-    gap: 30px;
-    flex-flow: row wrap;
+@import "./explorer.css";
+@import "tailwindcss/utilities.css" layer(utilities) source(none);
+@source "../src/StarHero.tsx";
+@theme { --spacing: .25rem; }
+
+.home { padding-bottom: 64px; }
+.sky-nav { margin-bottom: calc(0px - var(--navbar-height)); }
+.masthead {
+    --italic: #39596e; --dot: #975a34;
+    --sky-base: url('/images/sky/lagoon-infrared.webp');
+    --sky-detail: url('/images/sky/lagoon-visible.webp');
+    --sky-base-grade: saturate(.8) contrast(1.08) brightness(.97);
+    --sky-reveal-grade: saturate(.9) brightness(.96);
+    --photo-edge: linear-gradient(90deg, transparent, #0001 16%, #000a 42%, black 66%);
+    --lens-x: 73%; --lens-y: 43%; --lens-radius: clamp(155px, 19vw, 325px);
+    --star-opacity: .38;
+    min-height: 100vh;
+    min-height: 100svh;
+    padding-top: var(--navbar-height);
 }
-
-        /* 左侧个人介绍卡片 */
-        .profile {
-            flex: 0 0 220px;
-            width: 220px;
-            background-color: var(--surface);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 10px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-soft);
-            transition: all 0.3s ease;
-        }
-
-	.profile:hover {
-	    transform: translateY(-5px);
-	    box-shadow: var(--shadow-raised);
-	}
-
-	.profile h3 {
-            color: var(--text-link);
-            margin-bottom: 12px;
-            text-align: center;
-            font-size: 1.4rem;
-        }
-
-        .profile p {
-            color: var(--text-primary);
-            line-height: 1.6;
-            margin-bottom: 10px;
-        }
-
-        .profile .avatar {
-            text-align: center;
-            margin-bottom: 15px;
-        }
-
-        .profile .avatar img {
-            width: 100px;
-            height: 100px;
-            border-radius: 50%;
-            object-fit: cover;
-            border: 2px solid var(--avatar-border);
-        }
-
-	/* 右侧文章列表区域 */
-        .posts-area {
-            flex: 1;
-            min-width: 0;
-            background-color: var(--surface);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 20px;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-soft);
-	    transition: all 0.25s ease;
-        }
-
-	.posts-area:hover {
-	    transform: translateY(-5px);
-	    box-shadow: var(--shadow-raised);
-	}
-
-        .posts-area h2 {
-            color: var(--text-link);
-            margin-bottom: 20px;
-            border-left: 4px solid var(--accent);
-            padding-left: 12px;
-        }
-
-@media (max-width: 768px) {
-    .container {
-        width: 100%;
-        margin: 18px auto;
-        padding: 0 12px;
-        gap: 16px;
-        flex-direction: column;
-    }
-
-    .profile {
-        width: 100%;
-        min-height: 0;
-        padding: 16px;
-        flex-basis: auto;
-    }
-
-    .profile .avatar {
-        margin-bottom: 10px;
-    }
-
-    .profile .avatar img {
-        width: 88px;
-        height: 88px;
-    }
-
-    .posts-area {
-        width: 100%;
-        padding: 16px;
-    }
-
-    .posts-area h2 {
-        font-size: 1.4rem;
-    }
+:root[data-theme="dark"] .masthead {
+    --italic: #c8cde9; --dot: #d3b294;
+    --sky-base: url('/images/sky/nircam.webp');
+    --sky-detail: url('/images/sky/miri.webp');
+    --sky-base-grade: saturate(.74) contrast(1.04) brightness(.85);
+    --sky-reveal-grade: brightness(.9);
+    --star-opacity: .85;
 }
+.sky-field {
+    z-index: -1;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, #0000, #0001 9%, #000d 23%, #000 36% 57%, #000c 70%, #0005 85%, #0001 94%, transparent);
+}
+.sky-photo {
+    left: 21%;
+    background-size: cover; background-position: 50% 42%;
+    mask-image: var(--photo-edge);
+}
+.sky-base { background-image: var(--sky-base); filter: var(--sky-base-grade); }
+.sky-reveal {
+    background-image: var(--sky-detail);
+    filter: var(--sky-reveal-grade);
+    mask-image: var(--photo-edge),
+                radial-gradient(circle var(--lens-radius) at calc(var(--lens-x) - 21vw) var(--lens-y), #000 10%, #000b 52%, transparent);
+    mask-composite: intersect;
+    opacity: 0;
+}
+.sky-stars, .sky-stars::before, .sky-stars::after { position: absolute; inset: 0; pointer-events: none; }
+.sky-stars { opacity: var(--star-opacity); }
+.sky-stars::before, .sky-stars::after { content: ''; }
+.sky-stars::before {
+    background: radial-gradient(1px 1px at 4% 48%, #b1c6d5 65%, transparent),
+                radial-gradient(1px 1px at 13% 28%, #c4d6ed 70%, transparent),
+                radial-gradient(1px 1px at 24% 69%, #bfd3db 65%, transparent),
+                radial-gradient(1.4px 1.4px at 38% 32%, #b8cad9 55%, transparent),
+                radial-gradient(1px 1px at 49% 58%, #e0e5e9 67%, transparent),
+                radial-gradient(1px 1px at 75% 19%, #d3d9f0 70%, transparent);
+}
+.sky-stars::after {
+    background: radial-gradient(1.8px 1.8px at 8% 37%, #d6e3ef 50%, transparent),
+                radial-gradient(1.4px 1.4px at 31% 24%, #e7d9c8 55%, transparent),
+                radial-gradient(2px 2px at 45% 45%, #e0eaf3 45%, transparent),
+                radial-gradient(1.6px 1.6px at 62% 68%, #f6e8ca 52%, transparent),
+                radial-gradient(2px 2px at 81% 36%, #e6e9f0 50%, transparent);
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .masthead[data-exploring] .sky-reveal { opacity: 1; }
+    .sky-reveal { transition: opacity .32s ease-out; }
+    .sky-stars::before, .sky-stars::after { transition: transform .55s ease-out; }
+    .sky-stars::before { transform: translate(calc(var(--drift-x, 0px) * .3), calc(var(--drift-y, 0px) * .3)); }
+    .sky-stars::after { transform: translate(var(--drift-x, 0px), var(--drift-y, 0px)); }
+}
+.sky-copy { margin-block: auto; padding-block: clamp(48px, 8vh, 110px); }
+.sky-copy h1 {
+    font: 400 clamp(74px, 8.1vw, 140px)/.89 var(--serif);
+    letter-spacing: -.07em; color: var(--text-heading);
+}
+.sky-copy h1 em { font-weight: 400; color: var(--italic); }
+.sky-copy h1 em span { color: var(--dot); }
+.sky-copy p {
+    margin-top: clamp(23px, 4vh, 40px); color: var(--text-heading);
+    font: 500 clamp(1.08rem, 1.55vw, 1.4rem)/1.7 var(--serif); letter-spacing: .025em;
+}
+.sky-copy p span { display: inline-block; }
+.sky-command {
+    min-height: 46px; padding: 0 14px; gap: 10px; margin-top: 28px;
+    color: var(--terminal-fg); background: color-mix(in srgb, var(--terminal-bg) 82%, transparent);
+    border: 1px solid var(--terminal-line); border-radius: 8px; text-decoration: none;
+}
+.sky-command > svg, .sky-command code span { color: var(--terminal-accent); }
+.sky-command code { font: 500 1rem/1.2 var(--mono); }
+.sky-command kbd {
+    margin-left: 4px; padding-left: 11px; display: grid;
+    border-left: 1px solid var(--terminal-line); color: var(--terminal-accent);
+}
+.sky-command:hover, .sky-command:focus-visible { background: var(--terminal-raised); color: var(--terminal-fg); }
+.sky-command:focus-visible { outline: 2px solid var(--italic); outline-offset: 4px; }
+.sky-legend {
+    gap: 18px; padding-block: 8px max(8px, env(safe-area-inset-bottom));
+    min-height: 42px; color: var(--text-secondary);
+    font: 400 .79rem/1.5 var(--mono);
+}
+.sky-legend > * { display: inline-flex; gap: 9px; align-items: center; }
+.sky-legend svg, .sky-target i { color: var(--accent); }
+.sky-target i { font-style: normal; padding-inline: .25em; }
+.sky-night-target, :root[data-theme="dark"] .sky-day-target { display: none; }
+:root[data-theme="dark"] .sky-night-target { display: inline; }
 
-@media (hover: none) {
-    .profile:hover,
-    .posts-area:hover {
-        transform: none;
+
+@media (min-width: 601px) and (max-width: 1000px) {
+    .masthead { --photo-edge: linear-gradient(90deg, transparent 12%, #0002 42%, #0004 55%, black 84%); }
+    .sky-copy h1 { font-size: clamp(58px, 8.4vw, 84px); }
+}
+@media (max-width: 600px) {
+    .home { padding-bottom: 40px; }
+    .sky-field {
+        bottom: auto; height: max(48%, calc(100% - 350px));
+        mask-image: linear-gradient(to bottom, transparent, #0002 16%, #000d 33%, black 45% 61%, #000a 77%, transparent);
     }
+    .sky-photo { left: 0; background-position: 50% 46%; mask-image: none; }
+    .sky-reveal { mask-image: radial-gradient(circle var(--lens-radius) at var(--lens-x) var(--lens-y), black, transparent); }
+    .sky-copy { margin-top: auto; margin-bottom: 0; padding-block: 24px clamp(30px, 6svh, 62px); }
+    .sky-copy h1 { font-size: clamp(53px, 13.3vw, 80px); }
+    .sky-copy p { margin-top: 21px; }
+    .sky-command { margin-top: 20px; }
+    .sky-legend { font-size: .71rem; gap: 5px; }
+    .sky-target { gap: 5px; }
 }

@@ -1,74 +1,47 @@
-
-/* ---------- 代码块容器 ---------- */
-pre {
+.content pre {
+    --syntax-name: #30567a;
+    --syntax-type: #685126;
+    --syntax-string: #386049;
+    --syntax-number: #824a33;
+    --syntax-meta: #824761;
+    --syntax-params: #624e68;
     margin: 1.5rem 0;
-    padding: 0;
-    border-radius: 10px;
-    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
-    overflow-x: auto;
     max-width: 100%;
-    background: #1e1e2f;
-    border: 1px solid #313244;
-    box-sizing: border-box;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;                     /* 细滚动条 */
-    scrollbar-color: #45475a transparent;     /* 滑块颜色 轨道颜色 */
+    overflow-x: auto;
+    border: 1px solid var(--terminal-line);
+    border-radius: 8px;
+    background: var(--terminal-bg);
+    color: var(--terminal-fg);
 }
 
-/* ---------- WebKit 内核（Chrome / Edge / Safari）---------- */
-pre::-webkit-scrollbar {
-    width: 6px;                /* 垂直滚动条宽度（若需要） */
-    height: 6px;               /* 水平滚动条高度 */
-}
-pre::-webkit-scrollbar-button {
-    display: none;             /* 隐藏两端箭头按钮 */
-    width: 0;
-    height: 0;
-}
-pre::-webkit-scrollbar-track {
-    background: transparent;   /* 轨道透明，与 pre 背景融合 */
-}
-pre::-webkit-scrollbar-thumb {
-    background-color: #45475a; /* 滑块颜色，略亮于背景 #1e1e2f，仍可辨识 */
-    border-radius: 3px;
-}
-pre::-webkit-scrollbar-corner {
-    background: transparent;   /* 右下角交汇处 */
+:root[data-theme="dark"] .content pre {
+    --syntax-name: #89b4fa;
+    --syntax-type: #f9e2af;
+    --syntax-string: #a6e3a1;
+    --syntax-number: #fab387;
+    --syntax-meta: #f38ba8;
+    --syntax-params: #f2cdcd;
 }
 
-/* ---------- 代码块核心样式 ---------- */
-.hljs {
-    display: inline-block;
-    min-width: 100%;
+.content pre > code {
+    display: block;
     width: max-content;
-    background: transparent;          /* 深色背景，可改为任意颜色 */
-    color: #cdd6f4;              /* 默认文字颜色 */
+    min-width: 100%;
     padding: 1.2rem 1.5rem;
-    font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
-    font-size: 14px;
-    line-height: 1.6;
-    border: none;
-    box-sizing: border-box;
+    font: 14px/1.65 var(--mono);
     white-space: pre;
     tab-size: 4;
 }
 
 @media (max-width: 768px) {
-    .hljs {
-        padding: 1rem;
-        font-size: 13px;
-    }
+    .content pre > code { padding: 1rem; font-size: 13px; }
 }
 
-/* ---------- 语法高亮---------- */
-.hljs-keyword    { color: #cba6f7; }  /* int, class, return 等 */
-.hljs-built_in   { color: #89b4fa; }  /* std, cout, void 等 */
-.hljs-type       { color: #f9e2af; }  /* 类型名 */
-.hljs-string     { color: #a6e3a1; }  /* 字符串 */
-.hljs-number     { color: #fab387; }  /* 数字 */
-.hljs-comment    { color: #6c7086; font-style: italic; }  /* 注释 */
-.hljs-meta       { color: #f38ba8; }  /* #include 等预处理 */
-.hljs-function   { color: #89b4fa; }  /* 函数名 */
-.hljs-title      { color: #89b4fa; }  /* 类名 / 函数定义名 */
-.hljs-params     { color: #f2cdcd; }  /* 函数参数 */
-.hljs-literal    { color: #fab387; }  /* true / false */
+.hljs-keyword { color: var(--terminal-accent); }
+.hljs-built_in, .hljs-function, .hljs-title { color: var(--syntax-name); }
+.hljs-type { color: var(--syntax-type); }
+.hljs-string { color: var(--syntax-string); }
+.hljs-literal, .hljs-number { color: var(--syntax-number); }
+.hljs-comment { color: var(--text-muted); font-style: italic; }
+.hljs-meta { color: var(--syntax-meta); }
+.hljs-params { color: var(--syntax-params); }

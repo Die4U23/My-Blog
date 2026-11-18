@@ -1,0 +1,30 @@
+name: Blog CI
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Check generated pages and redesign screenshots
+        run: |
+          test -s dist/index.html
+          test -s dist/about/index.html
+          for post in content/posts/*/; do
+            test -s "dist/posts/$(basename "$post")/index.html"
+          done
+          for image in home-before.png home-after.png; do
+            test -s "dist/images/starry-blog-redesign/$image"
+          done

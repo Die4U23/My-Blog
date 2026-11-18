@@ -1,0 +1,7 @@
+{
+  "title": "SearchPilot 项目介绍：把搜索、排序与实验证据连起来",
+  "date": "2026-10-27",
+  "summary": "从 BM25、向量与 RRF 检索到 LTR、CTR 校准和只读分析 Agent，结合离线评估与容器负载验证介绍技术取舍",
+  "listOrder": 2,
+  "description": "详解 SearchPilot 的数据版本、BM25/向量/RRF/LTR、CTR 校准、幂等反馈、多步只读 Agent、并发排错与实验结果。"
+}

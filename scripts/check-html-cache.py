@@ -58,10 +58,9 @@ def check_page(base, path):
 def main():
     base = (sys.argv[1] if len(sys.argv) > 1 else "https://mengsblog.top").rstrip("/")
     root = Path(__file__).resolve().parents[1]
-    paths = [
-        "/" if path.parent == root else "/" + path.parent.relative_to(root).as_posix() + "/"
-        for path in sorted(root.rglob("index.html"))
-        if ".git" not in path.parts
+    paths = ["/", "/about/"] + [
+        f"/posts/{meta.parent.name}/"
+        for meta in sorted((root / "content" / "posts").glob("*/meta.json"))
     ]
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
         results = list(pool.map(lambda path: check_page(base, path), paths))

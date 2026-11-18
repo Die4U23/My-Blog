@@ -1,0 +1,7 @@
+{
+  "title": "为什么 vector<bool> 不是普通 vector：用 vector<uint8_t> 替代",
+  "date": "2026-09-01",
+  "summary": "讲清位压缩代理、泛型和并发陷阱，并给出 uint8_t 迁移方案",
+  "listOrder": 7,
+  "description": "解释 std::vector<bool> 的位压缩特化、代理引用、泛型代码和并发陷阱，并给出使用 std::vector<uint8_t> 替代的 C++17 实践与迁移方法。"
+}
