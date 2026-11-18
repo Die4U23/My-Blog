@@ -145,8 +145,9 @@
     text-decoration: underline dotted 2px; text-underline-offset: .3em;
 }
 .orbit-pager button:not([aria-disabled="true"]):hover { background: var(--surface); }
-.archive-reading { min-width: 0; }
-.archive-reading.paged {
+.archive-reading {
+    --entry-title-size: clamp(18px, 1.6vw, 24px);
+    min-width: 0;
     display: grid; grid-template-columns: minmax(0, 1fr) 44px;
     grid-template-areas: "heading heading" "list pager"; column-gap: clamp(10px, 1.6vw, 24px);
     align-items: start;
@@ -185,13 +186,16 @@
 }
 .row-meta { column-gap: 12px; flex-wrap: wrap; margin-bottom: 7px; }
 .row-meta span { color: var(--accent); }
-.post-list h3 { font: 600 clamp(18px, 1.6vw, 24px)/1.46 var(--serif); }
+.post-list h3 { font: 600 var(--entry-title-size)/1.46 var(--serif); }
 .post-list h3 a { text-decoration: none; color: var(--text-heading); }
 .post-list h3 a::after { content: ''; position: absolute; inset: 0; }
 .post-list h3 a:visited { color: var(--text-secondary); }
 .post-list h3 a:hover, .post-list h3 a:focus-visible { color: var(--accent); }
 .row-arrow { position: absolute; top: 50%; right: 3px; color: var(--accent); }
-.post-list p { color: var(--text-secondary); font-size: .93rem; margin-top: 6px; }
+.post-list p {
+    display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2;
+    overflow: hidden; color: var(--text-secondary); font-size: .93rem; line-height: 1.55; margin-top: 4px;
+}
 .profile {
     display: grid; grid-template-columns: 48px minmax(0, 1fr) auto;
     grid-template-areas: "avatar name about" "avatar bio bio" ". email email";
@@ -204,30 +208,38 @@
 .profile .author-email { grid-area: email; justify-self: start; }
 .profile .about-link { grid-area: about; white-space: nowrap; }
 .profile p, .profile a { font-size: .85rem; color: var(--text-secondary); }
-@media (min-width: 801px) and (min-height: 700px) {
-    .archive-explore { position: sticky; top: calc(var(--navbar-height) + 14px); }
+@media (min-width: 801px) {
+    /* Two title lines, two summary lines, metadata, spacing and divider. */
+    .post-list {
+        --entry-height: calc(2.92 * var(--entry-title-size) + 4.875rem + 25px);
+        display: grid; grid-template-rows: repeat(var(--page-size), minmax(var(--entry-height), auto));
+        align-content: start;
+    }
+    .post-list li { padding-block: 12px; }
 }
-@media (max-width: 800px) {
-    .archive { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+@media (max-width: 900px) {
     .archive-bar { grid-template-columns: 1fr auto; row-gap: 6px; padding-bottom: 6px; }
     .archive-count { grid-column: 2; grid-row: 1; }
     .archive-note { grid-row: 2; margin: 0; }
     .topic-buttons { grid-column: 1 / -1; grid-row: 3; }
-
+}
+@media (max-width: 800px) {
+    .archive { grid-template-columns: minmax(0, 1fr); gap: 24px; }
     .planet-stage { --planet-size: clamp(144px, 32vw, 196px); }
     .archive-explore { width: min(100%, 490px); justify-self: center; }
 }
 @media (max-width: 480px) {
-    .archive-reading.paged {
+    .archive-reading {
         grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "heading pager" "list list";
         align-items: center; column-gap: 5px;
     }
-    .paged .section-heading { justify-content: start; flex-wrap: wrap; gap: 2px 8px; padding: 0; border: 0; }
-    .paged .post-list { margin-top: 8px; border-top: 1px solid var(--subtle-border); }
+    .archive-reading .section-heading { min-height: 44px; align-content: center; justify-content: start; flex-wrap: wrap; gap: 2px 8px; padding: 0; border: 0; }
+    .archive-reading .post-list { margin-top: 8px; border-top: 1px solid var(--subtle-border); }
     .orbit-pager { display: flex; align-items: center; gap: 0; margin: 0; }
     .orbit-pager button { border-color: transparent; }
     .orbit-pager button svg { transform: rotate(-90deg); }
     .page-position { gap: 0; padding: 0; }
+    .page-planet { height: 26px; }
     .topic-buttons { --columns: 3; --column: var(--compact-column); --row: var(--compact-row); --gap: 10px; }
     .profile { column-gap: 10px; }
 }
