@@ -127,7 +127,7 @@ export function ArticleExplorer({ posts }: { posts: ArchivePost[] }) {
       </div>
       <Profile />
     </div>
-    <div className={'archive-reading' + (pages > 1 ? ' paged' : '')} id="topic-articles">
+    <div className="archive-reading" id="topic-articles" style={{ '--page-size': pageSize } as CSSProperties}>
       <header className="section-heading" aria-live="polite" aria-atomic="true"><h2>{topics[topicIndex].name}</h2>
         <span>{group.length} 篇</span>
       </header>
